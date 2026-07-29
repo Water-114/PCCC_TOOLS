@@ -12,9 +12,11 @@ def create_app():
 
     from .routes.water import bp as water_bp
     from .routes.ai import bp as ai_bp
+    from .routes.tham_dinh import bp as tham_dinh_bp
 
     app.register_blueprint(water_bp)
     app.register_blueprint(ai_bp)
+    app.register_blueprint(tham_dinh_bp)
 
     @app.get("/api/health")
     def health():

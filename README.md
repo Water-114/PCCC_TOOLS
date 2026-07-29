@@ -9,9 +9,11 @@ Bản demo MVP chuyển từ trang tĩnh `index.html` sang kiến trúc tách l�
 - **AI gateway** ở backend, có provider abstraction để đổi qua lại giữa **Claude** và **Gemini**
 - **Chưa dùng database** ở giai đoạn demo này (Supabase để dành cho giai đoạn thương mại hoá sau)
 
-Tính năng demo: **Tính dung tích bể nước chữa cháy** (V = Q × t, QCVN 06 / TCVN 7336) — tính deterministic ở Flask, sau đó có nút gọi AI (Claude/Gemini) để diễn giải kết quả bằng ngôn ngữ tự nhiên. AI chỉ diễn giải, không tự quyết định số liệu kỹ thuật.
+Tính năng demo:
+- **Tính dung tích bể nước chữa cháy** (V = Q × t, QCVN 06 / TCVN 7336) — tính deterministic ở Flask, sau đó có nút gọi AI (Claude/Gemini) để diễn giải kết quả bằng ngôn ngữ tự nhiên. AI chỉ diễn giải, không tự quyết định số liệu kỹ thuật.
+- **Diện thẩm định thiết kế PCCC** (Phụ lục III, NĐ 105/2025/NĐ-CP) — xác định công trình có thuộc diện thẩm định hay không theo 25 nhóm công năng, rule-based thuần (không dùng AI) để tránh rủi ro suy diễn sai quy định pháp lý. Port từ `evalThamDinh` trong `index.html`.
 
-`index.html` ở thư mục gốc là bản tĩnh cũ, giữ lại để tham khảo — không còn được cập nhật.
+`index.html` ở thư mục gốc là bản tĩnh cũ, giữ lại để tham khảo và làm nguồn đối chiếu khi port tính năng sang kiến trúc mới — không phải giao diện chính thức đang phát triển tiếp.
 
 ## Chạy backend (Flask)
 

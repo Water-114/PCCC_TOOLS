@@ -15,6 +15,50 @@ header p {
   margin-bottom: 24px;
 }
 
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.tab {
+  background: transparent;
+  border: 1px solid #ccc;
+  color: #333;
+  padding: 8px 16px;
+}
+
+.tab.active {
+  background: #b3282d;
+  border-color: #b3282d;
+  color: #fff;
+}
+
+.tab-desc {
+  color: #666;
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+}
+
+.can-cu {
+  font-size: 0.85rem;
+  color: #666;
+  margin-top: 8px;
+}
+
+.notes {
+  margin-top: 10px;
+  padding-left: 18px;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.tham-dinh-yes h3 { color: #1e6b41; }
+.tham-dinh-no h3 { color: #666; }
+.tham-dinh-warn h3 { color: #8a5a0b; }
+.tham-dinh-na h3 { color: #999; }
+
 .card {
   background: var(--card-bg, #fff);
   border: 1px solid #ddd;
@@ -132,5 +176,14 @@ button:disabled {
   }
   .result-panel td {
     border-bottom-color: #333;
+  }
+  .tab {
+    border-color: #444;
+    color: #eee;
+  }
+  .tab-desc,
+  .can-cu,
+  .notes {
+    color: #aaa;
   }
 }

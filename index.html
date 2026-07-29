@@ -1087,7 +1087,12 @@ const OCCS = [
   { id:"congnghiep_dacthu", label:"Công nghiệp đặc thù (lọc/hóa dầu, kho xăng dầu/khí hóa lỏng, nhà máy điện, trạm biến áp ≥110kV, vật liệu nổ/vũ khí)", binh:"cao" },
   { id:"garakin",  label:"Nhà để xe (gara) ô tô/xe máy", binh:"cao", extra:["garaKin"] },
   { id:"buudien",  label:"Bưu điện / viễn thông", binh:"thap" },
-  { id:"nhaga",    label:"Nhà ga / bến xe / trạm dừng nghỉ", binh:"tb" }
+  { id:"nhaga",    label:"Nhà ga / bến xe / trạm dừng nghỉ", binh:"tb" },
+  { id:"sanvandong",   label:"Sân vận động", binh:"thap", extra:["seats"] },
+  { id:"hatangkt",     label:"Hạ tầng kỹ thuật đô thị / KCN / khu du lịch, đào tạo, thể dục thể thao", binh:"tb" },
+  { id:"hamgiaothong", label:"Hầm đường ô tô / đường sắt / tàu điện ngầm", binh:"cao", extra:["tunnelLength"] },
+  { id:"csohatnhan",   label:"Công trình thuộc cơ sở hạt nhân", binh:"cao" },
+  { id:"phuongtiengt", label:"Phương tiện giao thông (thủy nội địa/tàu biển) chở khách/xăng dầu/chất dễ cháy/vật liệu nổ", binh:"cao", extra:["pplTransport","vesselGT","enginePower"] }
 ];
 
 const EXTRA_FIELDS = {
@@ -1095,7 +1100,11 @@ const EXTRA_FIELDS = {
   seats:   { label:"Số chỗ ngồi / khán đài (chỗ)", req:true, ph:"VD: 350", hint:"Dữ liệu phân nhánh — bắt buộc với nhà hát / thể thao" },
   hazard:  { label:"Hạng nguy hiểm cháy nổ", req:true, select:[["","— Chọn hạng —"],["A","Hạng A"],["B","Hạng B"],["C","Hạng C"],["D","Hạng D"],["E","Hạng E"]], hint:"Dữ liệu phân nhánh — bắt buộc với nhà SX / kho" },
   pplFloor:{ label:"Số người lớn nhất trên 1 tầng (người)", req:false, ph:"VD: 60", hint:"Dùng xét loa thông báo (PL G) — bỏ trống nếu chưa rõ" },
-  garaKin: { label:"Dạng nhà để xe", req:true, select:[["","— Chọn dạng —"],["kin","Dạng kín"],["ho","Dạng hở (không tường bao che ngoài)"]], hint:"Dữ liệu phân nhánh — quyết định ngưỡng theo Bảng A.1 mục 25 và Phụ lục B mục 3" }
+  garaKin: { label:"Dạng nhà để xe", req:true, select:[["","— Chọn dạng —"],["kin","Dạng kín"],["ho","Dạng hở (không tường bao che ngoài)"]], hint:"Dữ liệu phân nhánh — quyết định ngưỡng theo Bảng A.1 mục 25 và Phụ lục B mục 3" },
+  tunnelLength: { label:"Chiều dài hầm (m)", req:true, ph:"VD: 1200", hint:"Dữ liệu phân nhánh — bắt buộc với hầm giao thông (Phụ lục III, mục 14)" },
+  pplTransport: { label:"Sức chở người (người)", req:false, ph:"VD: 60", hint:"Phương tiện đường thủy nội địa — điền nếu có, bỏ trống nếu không áp dụng" },
+  vesselGT: { label:"Dung tích phương tiện (GT)", req:false, ph:"VD: 600", hint:"Tổng dung tích đăng ký theo pháp luật hàng hải — điền nếu có" },
+  enginePower: { label:"Công suất máy chính (sức ngựa)", req:false, ph:"VD: 350", hint:"Điền nếu có, bỏ trống nếu không áp dụng" }
 };
 
 /* =====================================================================
@@ -1126,8 +1135,8 @@ function evalThamDinh(d){
     case "tttm": case "cuahang":
       return F>=2000 ? R("yes",`Đạt ngưỡng: ΣF ≥ 2.000 m² (công trình: ${fmt(F)} m²).`,cc(6)) : R("no",`Chưa đạt ngưỡng ΣF ≥ 2.000 m² (công trình: ${fmt(F)} m²).`,cc(6));
     case "nhahang":
-      return F>=3000 ? R("warn",`Nghị định gốc bị lỗi OCR tại đúng con số ngưỡng ΣF của mục này ("3. )mể" — số bị mất ký tự, phỏng đoán 3.000 m² nhưng KHÔNG chắc chắn). Nếu ngưỡng đúng là 3.000 m²: đạt (ΣF ${fmt(F)} m²).`,cc(6),["Đây là lỗi thật của bản scan (không phải do công cụ) — cần bản PDF/Công báo gốc mục 6 Phụ lục III để xác nhận đúng con số trước khi kết luận cứng."])
-                     : R("warn",`Nghị định gốc bị lỗi OCR tại đúng con số ngưỡng ΣF của mục này ("3. )mể" — số bị mất ký tự, phỏng đoán 3.000 m² nhưng KHÔNG chắc chắn). Nếu ngưỡng đúng là 3.000 m²: chưa đạt (ΣF ${fmt(F)} m²).`,cc(6),["Đây là lỗi thật của bản scan (không phải do công cụ) — cần bản PDF/Công báo gốc mục 6 Phụ lục III để xác nhận đúng con số trước khi kết luận cứng."]);
+      return F>=3000 ? R("yes",`Đạt ngưỡng: ΣF ≥ 3.000 m² (công trình: ${fmt(F)} m²).`,cc(6))
+                     : R("no",`Chưa đạt ngưỡng ΣF ≥ 3.000 m² (công trình: ${fmt(F)} m²).`,cc(6));
     case "khachsan": case "buudien": case "truso":
       return T>=7||F>=3000 ? R("yes",`Đạt ngưỡng: cao ≥ 7 tầng hoặc ΣF ≥ 3.000 m².`,cc(7)) : R("no",`Chưa đạt ngưỡng cao ≥ 7 tầng và ΣF ≥ 3.000 m².`,cc(7));
     case "honhop":
@@ -1153,6 +1162,23 @@ function evalThamDinh(d){
       return F>=2000 ? R("yes",`Đạt ngưỡng: ΣF ≥ 2.000 m².`,cc(12)) : R("no",`Chưa đạt ngưỡng ΣF ≥ 2.000 m².`,cc(12));
     case "nhaga":
       return F>=3000 ? R("yes",`Đạt ngưỡng: ΣF ≥ 3.000 m² (một số loại xét theo cấp công trình — kiểm tra thêm).`,cc(13)) : R("no",`Chưa đạt ngưỡng ΣF ≥ 3.000 m² (một số loại xét theo cấp công trình — kiểm tra thêm).`,cc(13));
+    case "sanvandong":
+      return d.seats>=5000 ? R("yes",`Đạt ngưỡng: khán đài ≥ 5.000 chỗ (công trình: ${fmt(d.seats)} chỗ).`,cc(4)) : R("no",`Chưa đạt ngưỡng khán đài ≥ 5.000 chỗ (công trình: ${fmt(d.seats)} chỗ).`,cc(4));
+    case "hatangkt":
+      return R("yes","Hạ tầng kỹ thuật của khu đô thị, khu nhà ở, khu công nghiệp, cụm công nghiệp, khu du lịch, khu nghiên cứu, đào tạo, khu thể dục, thể thao: bắt buộc thẩm định, không phụ thuộc quy mô.",cc(11),
+        ["Các bước tính toán hệ thống PCCC (BƯỚC 2 trở đi) của công cụ này được xây dựng cho công trình xây dựng thông thường — hạ tầng kỹ thuật đô thị/KCN cần tra cứu riêng theo quy chuẩn/tiêu chuẩn hạ tầng chuyên ngành tương ứng."]);
+    case "hamgiaothong":
+      return d.tunnelLength>=1000 ? R("yes",`Đạt ngưỡng: chiều dài ≥ 1.000 m (công trình: ${fmt(d.tunnelLength)} m).`,cc(14),
+          ["Các bước tính toán hệ thống PCCC (BƯỚC 2 trở đi) của công cụ này được xây dựng cho công trình xây dựng thông thường — hầm giao thông cần tra cứu riêng theo quy chuẩn/tiêu chuẩn hầm chuyên ngành."])
+        : R("no",`Chưa đạt ngưỡng chiều dài ≥ 1.000 m (công trình: ${fmt(d.tunnelLength)} m).`,cc(14));
+    case "csohatnhan":
+      return R("yes","Công trình thuộc cơ sở hạt nhân: bắt buộc thẩm định, không phụ thuộc quy mô.",cc(15),
+        ["Công trình hạt nhân chịu quản lý chuyên ngành riêng — các bước tính toán hệ thống PCCC (BƯỚC 2 trở đi) của công cụ này không thay thế được quy chuẩn/tiêu chuẩn chuyên ngành hạt nhân."]);
+    case "phuongtiengt":
+      return (d.pplTransport>=50 || d.vesselGT>=500 || d.enginePower>=300)
+        ? R("yes",`Đạt ngưỡng: sức chở ≥ 50 người, hoặc ≥ 500 GT, hoặc công suất máy chính ≥ 300 sức ngựa (phương tiện: ${fmt(d.pplTransport||0)} người, ${fmt(d.vesselGT||0)} GT, ${fmt(d.enginePower||0)} sức ngựa).`,cc(16),
+            ["Phương tiện giao thông không phải công trình xây dựng — các bước tính toán hệ thống PCCC (BƯỚC 2 trở đi) của công cụ này không áp dụng, cần tra cứu riêng theo quy định PCCC phương tiện giao thông."])
+        : R("no",`Chưa đạt ngưỡng sức chở ≥ 50 người, ≥ 500 GT, và công suất máy chính ≥ 300 sức ngựa (phương tiện: ${fmt(d.pplTransport||0)} người, ${fmt(d.vesselGT||0)} GT, ${fmt(d.enginePower||0)} sức ngựa).`,cc(16));
   }
   return R("na","Không xác định được nhóm công năng.","—");
 }
@@ -1882,6 +1908,8 @@ function gather(){
     volume: num("volume"), hFire: num("hFire"),
     extLevel: $("extLevel").value,
     kids: num("x_kids"), seats: num("x_seats"), pplFloor: num("x_pplFloor"),
+    tunnelLength: num("x_tunnelLength"), pplTransport: num("x_pplTransport"),
+    vesselGT: num("x_vesselGT"), enginePower: num("x_enginePower"),
     hazard: $("x_hazard") ? $("x_hazard").value : "",
     garaKin: $("x_garaKin") ? $("x_garaKin").value : "",
     garaKinVal: $("x_garaKin") ? $("x_garaKin").value : "",
