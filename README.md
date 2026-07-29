@@ -1,4 +1,6 @@
-# Tư vấn PCCC — Demo MVP
+# PCCC_TOOLS — Tư vấn PCCC (Demo MVP)
+
+APP HƯỚNG DẪN VẤN ĐÁP PCCC
 
 Bản demo MVP chuyển từ trang tĩnh `index.html` sang kiến trúc tách lớp:
 
