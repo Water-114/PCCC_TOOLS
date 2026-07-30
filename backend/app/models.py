@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
+from .config import Config
 from .extensions import db
 
 # Tên dùng chung cho mọi lượt gọi AI đọc bản vẽ (báo cháy, điện PCCC, ...) —
@@ -21,12 +22,18 @@ class User(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(20), nullable=False, default="user")  # 'user' | 'admin'
     created_at = db.Column(db.DateTime(timezone=True), default=_utcnow, nullable=False)
+    # Hạn mức lượt đọc bản vẽ/ngày riêng cho tài khoản này — null nghĩa là dùng
+    # mức mặc định chung (Config.AIHO_DAILY_QUOTA), do admin đặt qua trang quản trị.
+    daily_quota = db.Column(db.Integer, nullable=True)
 
     def set_password(self, raw_password: str) -> None:
         self.password_hash = generate_password_hash(raw_password)
 
     def check_password(self, raw_password: str) -> bool:
         return check_password_hash(self.password_hash, raw_password)
+
+    def effective_quota(self) -> int:
+        return self.daily_quota if self.daily_quota is not None else Config.AIHO_DAILY_QUOTA
 
     def to_public_dict(self) -> dict:
         return {"id": self.id, "email": self.email, "role": self.role}

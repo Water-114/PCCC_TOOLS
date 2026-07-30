@@ -215,7 +215,15 @@
   var cta = document.getElementById('aihoCta');
   var ctaHint = document.getElementById('aihoCtaHint');
   var msg = document.getElementById('aihoMsg');
+  var isProcessing = false;
   function updateCta(){
+    if(isProcessing){
+      // Đang chạy phân tích — khoá cứng nút này, không cho bất kỳ thao tác đính/gỡ file
+      // nào ở các ô khác (gọi updateCta gián tiếp) mở khoá lại giữa chừng.
+      cta.disabled = true;
+      ctaHint.textContent = 'Đang phân tích — vui lòng chờ xong lượt này…';
+      return;
+    }
     var hasFile = !!grid.querySelector('.drop-card.filled');
     var hasOutput = !!panel.querySelector('input:checked');
     cta.disabled = !(hasFile && hasOutput);
@@ -434,7 +442,8 @@
     msg.classList.remove('show');
     resultsSection.hidden = true;
     processing.hidden = false;
-    cta.disabled = true;
+    isProcessing = true;
+    updateCta();
     setOutputPickerLocked(true);
 
     var activeSlots = Object.keys(REAL_CATEGORIES).filter(function(slot){ return !!realFiles[slot]; });
@@ -475,6 +484,7 @@
       setTimeout(function(){
         processing.hidden = true;
         processingFill.style.width = '0%';
+        isProcessing = false;
         setOutputPickerLocked(false);
         renderResultTable();
         renderOutputPreviews();
@@ -509,8 +519,9 @@
               A.logout();
               clearInterval(interval);
               processing.hidden = true;
-              cta.disabled = false;
+              isProcessing = false;
               setOutputPickerLocked(false);
+              updateCta();
               msg.textContent = r.data.error || 'Phiên đăng nhập đã hết hạn — vui lòng đăng nhập lại.';
               msg.classList.add('show');
               window.openAuthModal();

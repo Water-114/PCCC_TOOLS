@@ -61,6 +61,8 @@ input.err,select.err{border-color:var(--red);background:var(--red-wash)}
 button{font-family:var(--sans);cursor:pointer;border-radius:4px;font-weight:700;font-size:15px}
 .btn-main{background:var(--red);color:#fff;border:1px solid var(--red-deep);padding:11px 26px;letter-spacing:.02em}
 .btn-main:hover{background:var(--red-deep)}
+.btn-main:disabled{opacity:.55;cursor:not-allowed;background:var(--ink-soft);border-color:var(--ink-soft)}
+.btn-main:disabled:hover{background:var(--ink-soft)}
 .btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--line);padding:10px 18px;font-weight:600}
 .btn-ghost:hover{border-color:var(--ink)}
 
@@ -328,6 +330,15 @@ ul.pos li{margin-bottom:2px}
 @media(max-width:720px){.admin-stat-grid{grid-template-columns:repeat(2,1fr)}}
 .admin-stat .num{font-family:var(--mono);font-size:26px;font-weight:700;color:var(--red-deep)}
 .admin-stat .lbl{font-size:12.5px;color:var(--ink-soft);margin-top:4px}
+
+.quota-edit{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.quota-edit input{width:56px;font-family:var(--mono);font-size:13px;padding:4px 6px;border:1px solid var(--line);border-radius:4px}
+.quota-edit button{font-family:var(--sans);font-size:12px;font-weight:700;padding:4px 10px;border-radius:4px;cursor:pointer;background:var(--card);border:1px solid var(--line);color:var(--ink)}
+.quota-edit button:hover{border-color:var(--ink-soft)}
+.quota-edit .btn-quota-save{background:var(--red);color:#fff;border-color:var(--red-deep)}
+.quota-edit .btn-quota-save:hover{background:var(--red-deep)}
+.quota-edit .hint-default{font-size:11.5px;color:var(--ink-soft)}
+.quota-err{display:block;color:var(--red-deep);font-size:11.5px;margin-top:3px}
 
 /* ===== Hỏi đáp pháp lý ===== */
 .qa-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:8px}

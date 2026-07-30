@@ -3,7 +3,6 @@ import re
 from flask import Blueprint, g, jsonify, request
 
 from ..auth import create_token, login_required
-from ..config import Config
 from ..extensions import db
 from ..models import AIHO_API_NAME, User, count_usage_today
 
@@ -14,12 +13,13 @@ EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 def _user_payload(user: User) -> dict:
     used = count_usage_today(user.id, AIHO_API_NAME)
+    limit = user.effective_quota()
     return {
         **user.to_public_dict(),
         "quota": {
-            "limit": Config.AIHO_DAILY_QUOTA,
+            "limit": limit,
             "used_today": used,
-            "remaining_today": max(0, Config.AIHO_DAILY_QUOTA - used),
+            "remaining_today": max(0, limit - used),
         },
     }
 

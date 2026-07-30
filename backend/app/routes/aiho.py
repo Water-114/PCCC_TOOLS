@@ -3,7 +3,6 @@ import base64
 from flask import Blueprint, g, jsonify, request
 
 from ..auth import login_required
-from ..config import Config
 from ..extensions import db
 from ..models import AIHO_API_NAME, UsageLog, count_usage_today
 from ..providers.base import ProviderNotConfigured
@@ -58,12 +57,13 @@ def _handle_read_request(read_drawing_fn, build_mdc_files):
     — mỗi hạng mục tự quyết định cần điền mấy file MĐC (báo cháy/điện: 1 file; chữa cháy nước: 3 file).
     """
     user = g.current_user
+    limit = user.effective_quota()
     used = count_usage_today(user.id, AIHO_API_NAME)
-    if used >= Config.AIHO_DAILY_QUOTA:
+    if used >= limit:
         _log_usage(user.id, "quota_exceeded")
         return jsonify({
-            "error": f"Đã dùng hết {Config.AIHO_DAILY_QUOTA} lượt đọc bản vẽ hôm nay — quay lại vào ngày mai.",
-            "quota": {"limit": Config.AIHO_DAILY_QUOTA, "used_today": used, "remaining_today": 0},
+            "error": f"Đã dùng hết {limit} lượt đọc bản vẽ hôm nay — quay lại vào ngày mai.",
+            "quota": {"limit": limit, "used_today": used, "remaining_today": 0},
         }), 429
 
     file = request.files.get("file")
@@ -102,9 +102,9 @@ def _handle_read_request(read_drawing_fn, build_mdc_files):
     used_after = used + 1
     result["provider"] = provider.name
     result["quota"] = {
-        "limit": Config.AIHO_DAILY_QUOTA,
+        "limit": limit,
         "used_today": used_after,
-        "remaining_today": max(0, Config.AIHO_DAILY_QUOTA - used_after),
+        "remaining_today": max(0, limit - used_after),
     }
 
     if wants_mdc:
