@@ -74,6 +74,24 @@ button{font-family:var(--sans);cursor:pointer;border-radius:4px;font-weight:700;
 .btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--line);padding:10px 18px;font-weight:600}
 .btn-ghost:hover{border-color:var(--ink)}
 
+.lib-tabs{display:flex;gap:8px;overflow-x:auto;padding:10px 0 0;margin:0 0 18px;border-bottom:1px solid rgba(46,58,78,.12)}
+.lib-tabs button{flex:0 0 auto;background:#ffffff;border:1px solid rgba(46,58,78,.08);color:#273142;padding:10px 16px;border-radius:999px;font-weight:700;letter-spacing:.01em;transition:.18s ease}
+.lib-tabs button.active{background:var(--green);border-color:var(--green);color:#fff}
+.lib-search-input{width:100%;padding:12px 16px;border:1px solid rgba(46,58,78,.12);border-radius:999px;background:#fff;color:var(--ink);font-size:15px;outline:none;transition:.18s ease}
+.lib-search-input:focus{border-color:var(--green);box-shadow:0 0 0 4px rgba(30,107,65,.08)}
+.doc-status{color:var(--ink-soft);font-size:14px;margin-bottom:14px}
+.doc-status.error{color:var(--red)}
+.doc-list{display:grid;gap:12px}
+.doc-card{background:#fff;border:1px solid rgba(46,58,78,.08);border-radius:18px;padding:16px 18px;display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center;box-shadow:0 10px 24px rgba(15,23,42,.06)}
+.doc-card strong{display:block;font-size:15px;line-height:1.4;color:var(--ink)}
+.doc-card small{display:block;margin-top:4px;color:#5B6678;font-size:13px}
+.doc-card button{border-radius:999px;padding:10px 18px;font-size:14px}
+.doc-card .dot{width:10px;height:10px;border-radius:50%;background:var(--green);margin-right:10px;flex-shrink:0}
+.doc-card-meta{display:flex;align-items:center;gap:10px}
+.doc-card-type{font-size:12px;font-weight:700;color:var(--green);background:rgba(30,107,65,.08);padding:4px 10px;border-radius:999px;white-space:nowrap}
+.lib-frame-wrap{margin-top:24px}
+.lib-frame{width:100%;height:560px;border:1px solid rgba(46,58,78,.08);border-radius:18px;}
+
 /* ---------- Phiếu kết quả ---------- */
 #phieu{display:none;margin-top:34px}
 #phieu.show{display:block}
@@ -203,6 +221,101 @@ ul.pos li{margin-bottom:2px}
 .ig-soon .big{font-family:var(--mono);font-size:14px;letter-spacing:.12em;text-transform:uppercase;color:var(--amber);border:2px dashed #E0C88A;background:var(--amber-wash);display:inline-block;padding:16px 30px;border-radius:6px;font-weight:600}
 .ig-soon p{color:var(--ink-soft);font-size:14px;max-width:520px;margin:18px auto 0}
 
+/* ===== AI kiểm tra hồ sơ — đính bản vẽ theo hạng mục ===== */
+.section-note{color:var(--ink-soft);font-size:13.5px;margin:8px 0 14px;max-width:620px;font-weight:400}
+.progress-badge{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--ink-soft);white-space:nowrap;font-weight:600}
+.cta-hint{font-family:var(--mono);font-size:12px;color:var(--ink-soft)}
+
+.drop-card{
+  display:flex;gap:13px;align-items:flex-start;text-align:left;width:100%;
+  background:var(--card);border:1.5px dashed var(--line);border-radius:6px;
+  padding:16px;cursor:pointer;font-family:var(--sans);
+  transition:border-color .15s,background .15s;
+}
+.drop-card:hover{border-color:var(--ink-soft)}
+.drop-card:focus-visible{outline:2px solid var(--red);outline-offset:1px}
+.drop-card.filled{border-style:solid;border-color:var(--green);background:var(--green-wash)}
+.drop-icon{
+  flex-shrink:0;width:36px;height:36px;border-radius:6px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-weight:700;font-size:12.5px;color:#fff;
+  background:var(--blue);letter-spacing:-.02em;
+}
+.drop-card.filled .drop-icon{background:var(--green)}
+.drop-body{flex:1;min-width:0}
+.drop-body h4{font-size:14.5px;font-weight:700;margin-bottom:2px}
+.drop-body .hint{font-size:12.5px;color:var(--ink-soft);line-height:1.5;font-weight:400}
+.drop-meta{display:block;margin-top:6px;font-family:var(--mono);font-size:11px;color:var(--ink-soft);opacity:.85}
+.drop-status{display:inline-flex;align-items:center;gap:5px;margin-top:9px;font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--ink-soft)}
+.drop-status.attached{color:var(--green)}
+.drop-file{font-size:12.5px;color:var(--ink);margin-top:8px;font-family:var(--mono);
+  background:var(--card);border:1px solid var(--line);border-radius:4px;padding:6px 9px;
+  display:flex;align-items:center;justify-content:space-between;gap:8px;overflow:hidden}
+.drop-file span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.drop-file button{font-family:var(--sans);font-size:12px;font-weight:700;color:var(--ink-soft);background:none;border:none;cursor:pointer;padding:0 2px;flex-shrink:0}
+.drop-file button:hover{color:var(--red)}
+
+.output-picker{position:relative;max-width:560px}
+.output-trigger{
+  width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:var(--card);border:1px solid var(--line);border-radius:6px;
+  padding:12px 15px;font-family:var(--sans);font-size:14.5px;color:var(--ink-soft);
+  cursor:pointer;text-align:left;
+}
+.output-trigger:hover{border-color:var(--ink-soft)}
+.output-trigger[aria-expanded="true"]{border-color:var(--red);color:var(--ink)}
+.output-trigger .chev{font-family:var(--mono);transition:transform .15s;color:var(--ink-soft)}
+.output-trigger[aria-expanded="true"] .chev{transform:rotate(180deg)}
+.output-panel{
+  display:none;position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:5;
+  background:var(--card);border:1px solid var(--line);border-radius:6px;
+  box-shadow:0 8px 24px rgba(28,39,51,.12);padding:8px;max-height:360px;overflow-y:auto;
+}
+.output-panel.open{display:block}
+.output-group-label{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);padding:9px 10px 5px}
+.output-option{display:flex;align-items:flex-start;gap:10px;padding:9px 10px;border-radius:4px;cursor:pointer;font-size:14px;font-weight:400}
+.output-option:hover{background:var(--line-soft)}
+.output-option input{margin-top:3px;accent-color:var(--red);flex-shrink:0}
+.output-option .opt-sub{display:block;font-size:12px;color:var(--ink-soft);margin-top:2px;font-weight:400}
+.round-stepper{display:flex;align-items:center;gap:8px;margin-top:8px;font-family:var(--mono);font-size:12.5px;color:var(--ink)}
+.round-stepper button{width:22px;height:22px;border-radius:4px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-family:var(--sans);font-weight:700;cursor:pointer;line-height:1}
+.round-stepper button:hover{border-color:var(--red);color:var(--red)}
+.round-stepper .round-val{min-width:14px;text-align:center;font-weight:700}
+
+.chip-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.chip{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:12px;background:var(--red-wash);color:var(--red-deep);border:1px solid var(--red-deep);border-radius:999px;padding:5px 6px 5px 12px}
+.chip button{background:none;border:none;color:inherit;font-weight:700;cursor:pointer;font-size:13px;line-height:1;padding:2px 4px}
+
+.processing{margin-top:24px;padding:16px 18px;background:var(--card);border:1px solid var(--line);border-radius:6px}
+.processing-bar{height:6px;background:var(--line-soft);border-radius:999px;overflow:hidden}
+.processing-fill{height:100%;width:0%;background:var(--red);transition:width .3s linear}
+.processing-text{margin-top:10px;font-family:var(--mono);font-size:12.5px;color:var(--ink-soft)}
+
+.result-table{background:var(--card);border:1px solid var(--line);border-radius:6px;overflow:hidden;margin-bottom:20px}
+.result-row{display:flex;gap:14px;align-items:flex-start;padding:13px 16px;border-top:1px solid var(--line-soft)}
+.result-row:first-child{border-top:none}
+.result-row .r-label{flex:0 0 190px;font-weight:700;font-size:13.5px}
+.result-row .r-note{flex:1;font-size:13px;color:var(--ink-soft)}
+.status-pill{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:11px;font-weight:600;padding:2px 9px;border-radius:999px;letter-spacing:.03em;white-space:nowrap;flex:0 0 auto}
+.status-ok{background:var(--green-wash);color:var(--green);border:1px solid var(--green)}
+.status-warn{background:var(--amber-wash);color:var(--amber);border:1px solid var(--amber)}
+.status-bad{background:var(--red-wash);color:var(--red-deep);border:1px solid var(--red-deep)}
+
+.output-previews{display:flex;flex-direction:column;gap:16px}
+.preview-card{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:18px 20px}
+.preview-card h4{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--red);margin-bottom:11px;font-weight:600}
+.preview-card ul{padding-left:18px;font-size:13.5px;line-height:1.7}
+.preview-card p{font-size:13.5px;line-height:1.7;color:var(--ink-soft)}
+.kv-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 20px}
+@media (max-width:640px){.kv-grid{grid-template-columns:1fr}}
+.kv-grid div{font-size:13px}
+.kv-grid b{display:block;font-family:var(--mono);font-size:10.5px;text-transform:uppercase;color:var(--ink-soft);margin-bottom:2px;font-weight:600}
+
+.footer-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:16px}
+@media (max-width:640px){.footer-grid{grid-template-columns:1fr}}
+.footer-block h4{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:7px;font-weight:600}
+.footer-block p{font-size:12.5px;color:var(--ink-soft);line-height:1.6}
+
 /* ===== Hỏi đáp pháp lý ===== */
 .qa-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:8px}
 @media(max-width:640px){.qa-grid{grid-template-columns:1fr}}
@@ -278,6 +391,14 @@ ul.pos li{margin-bottom:2px}
       <span>TCVN 13456:2022</span>
     </div>
   </header>
+
+  <div class="card no-print" id="soSanhWrap" style="display:none;margin-bottom:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+      <h3 style="font-size:15px">Bảng so sánh phương án</h3>
+      <button type="button" class="btn-ghost" id="btnXoaHetSoSanh" style="font-size:12.5px;padding:6px 12px">Xoá hết</button>
+    </div>
+    <div class="tbl-wrap"><table id="tblSoSanh"></table></div>
+  </div>
 
   <form id="frm" class="card no-print" novalidate>
     <fieldset>
@@ -985,33 +1106,620 @@ ul.pos li{margin-bottom:2px}
 <section id="view-aiho" class="view">
 <div class="wrap">
   <header class="gas-head">
-    <div class="eyebrow2" style="color:var(--amber)">AI kiểm tra hồ sơ PCCC</div>
+    <div class="eyebrow2" style="color:var(--amber)">AI kiểm tra hồ sơ PCCC — xem trước giao diện</div>
     <h2>AI rà soát & kiểm tra hồ sơ thiết kế PCCC</h2>
+    <p>Đính bản vẽ theo từng hạng mục để AI xác định đúng mẫu đối chiếu, sau đó chọn kết quả cần xuất. <b>Tính năng đang được phát triển</b> — giao diện dưới đây thao tác được nhưng dữ liệu kết quả vẫn là minh hoạ, chưa đọc bản vẽ thật.</p>
+    <div class="gas-tags"><span>MĐC B1–B14</span><span>QCVN 10:2025/BCA</span><span>NĐ 105/2025</span></div>
   </header>
-  <div class="ig-soon">
-    <div class="big">Sắp có</div>
-    <p>Chức năng AI đọc bản vẽ/thuyết minh và tự động đối chiếu với mẫu MĐC, phát hiện nội dung còn thiếu hoặc mâu thuẫn, soạn kiến nghị thiết kế đang được phát triển. Sẽ kết nối với quy trình rà soát bản vẽ và các mẫu đối chiếu B1–B14.</p>
+
+  <section class="buoc">
+    <div class="buoc-tag"><span class="num">BƯỚC 1</span><h3>Đính kèm bản vẽ theo hạng mục</h3><span class="progress-badge" id="aihoProgress">0/9 hạng mục đã đính kèm</span></div>
+    <p class="section-note">Bấm vào từng ô để đính file (demo: mô phỏng trạng thái đã đính kèm). Có thể bỏ trống hạng mục không áp dụng cho công trình.</p>
+
+    <div class="grid" id="aihoGrid" style="grid-template-columns:repeat(2,1fr)">
+      <button type="button" class="drop-card" data-slot="kientruc" data-file="MB-kientruc-tret-lau1.pdf · 3.1 MB">
+        <div class="drop-icon">KT</div>
+        <div class="drop-body">
+          <h4>Kiến trúc</h4>
+          <p class="hint">Mặt bằng, mặt cắt, mặt đứng — xác định công năng, quy mô, số tầng</p>
+          <span class="drop-meta">PDF, ảnh scan · tối đa 15MB</span>
+          <span class="drop-status">○ Chưa đính kèm</span>
+        </div>
+      </button>
+
+      <button type="button" class="drop-card" data-slot="baochay" data-file="BC-bao-chay-tu-dong.pdf · 1.8 MB">
+        <div class="drop-icon">BC</div>
+        <div class="drop-body">
+          <h4>Báo cháy tự động</h4>
+          <p class="hint">Sơ đồ nguyên lý, mặt bằng đầu báo, tủ trung tâm — đối chiếu MĐC B1–B2</p>
+          <span class="drop-meta">PDF, ảnh scan · tối đa 15MB</span>
+          <span class="drop-status">○ Chưa đính kèm</span>
+        </div>
+      </button>
+
+      <button type="button" class="drop-card" data-slot="ccnuoc" data-file="CC-hong-nuoc-sprinkler.pdf · 4.6 MB">
+        <div class="drop-icon">CCN</div>
+        <div class="drop-body">
+          <h4>Chữa cháy bằng nước</h4>
+          <p class="hint">Họng nước trong nhà, sprinkler/drencher — đối chiếu MĐC B3–B4</p>
+          <span class="drop-meta">PDF, ảnh scan · tối đa 15MB</span>
+          <span class="drop-status">○ Chưa đính kèm</span>
+        </div>
+      </button>
+
+      <button type="button" class="drop-card" data-slot="cckhi" data-file="CK-solkhi-phong-dien.pdf · 1.4 MB">
+        <div class="drop-icon">CCK</div>
+        <div class="drop-body">
+          <h4>Chữa cháy bằng khí</h4>
+          <p class="hint">Sol-khí, CO₂, FM200/Novec, IG — thường cho phòng kỹ thuật/điện — đối chiếu MĐC B5</p>
+          <span class="drop-meta">PDF, ảnh scan · tối đa 15MB</span>
+          <span class="drop-status">○ Chưa đính kèm</span>
+        </div>
+      </button>
+
+      <button type="button" class="drop-card" data-slot="capnuocngoai" data-file="CN-ngoai-nha-tru-nuoc.pdf · 1.2 MB">
+        <div class="drop-icon">CNN</div>
+        <div class="drop-body">
+          <h4>Cấp nước ngoài nhà</h4>
+          <p class="hint">Trụ nước, bể/hồ dự trữ ngoài nhà — đối chiếu MĐC B6</p>
+          <span class="drop-meta">PDF, ảnh scan · tối đa 15MB</span>
+          <span class="drop-status">○ Chưa đính kèm</span>
+        </div>
+      </button>
+
+      <button type="button" class="drop-card" data-slot="trambom" data-file="TB-tram-bom-chua-chay.pdf · 2.3 MB">
+        <div class="drop-icon">TB</div>
+        <div class="drop-body">
+          <h4>Trạm bơm chữa cháy</h4>
+          <p class="hint">Sơ đồ bơm chính/dự phòng/bù áp, bể nước — đối chiếu MĐC B7</p>
+          <span class="drop-meta">PDF, ảnh scan · tối đa 15MB</span>
+          <span class="drop-status">○ Chưa đính kèm</span>
+        </div>
+      </button>
+
+      <button type="button" class="drop-card" data-slot="binhcc" data-file="BCC-binh-chua-chay-xach-tay.pdf · 0.9 MB">
+        <div class="drop-icon">BCC</div>
+        <div class="drop-body">
+          <h4>Bình chữa cháy</h4>
+          <p class="hint">Vị trí, chủng loại bình xách tay/xe đẩy — đối chiếu MĐC B8</p>
+          <span class="drop-meta">PDF, ảnh scan · tối đa 15MB</span>
+          <span class="drop-status">○ Chưa đính kèm</span>
+        </div>
+      </button>
+
+      <button type="button" class="drop-card" data-slot="densucco" data-file="DSC-den-su-co-chi-dan.pdf · 1.5 MB">
+        <div class="drop-icon">ĐSC</div>
+        <div class="drop-body">
+          <h4>Đèn sự cố / chỉ dẫn thoát nạn</h4>
+          <p class="hint">Đèn chiếu sáng sự cố, đèn chỉ dẫn thoát nạn — đối chiếu MĐC B9</p>
+          <span class="drop-meta">PDF, ảnh scan · tối đa 15MB</span>
+          <span class="drop-status">○ Chưa đính kèm</span>
+        </div>
+      </button>
+
+      <button type="button" class="drop-card" data-slot="dienpccc" data-file="DPC-dien-uu-tien-cap-nguon.pdf · 2.0 MB">
+        <div class="drop-icon">ĐPC</div>
+        <div class="drop-body">
+          <h4>Điện PCCC</h4>
+          <p class="hint">Cấp nguồn ưu tiên, dây/cáp chống cháy, tủ điện PCCC — đối chiếu MĐC B10</p>
+          <span class="drop-meta">PDF, ảnh scan · tối đa 15MB</span>
+          <span class="drop-status">○ Chưa đính kèm</span>
+        </div>
+      </button>
+    </div>
+  </section>
+
+  <section class="buoc">
+    <div class="buoc-tag"><span class="num">BƯỚC 2</span><h3>Chọn kết quả đầu ra</h3></div>
+    <p class="section-note">Chọn 1 hoặc nhiều kết quả cần AI xuất ra sau khi đối chiếu xong.</p>
+
+    <div class="output-picker">
+      <button type="button" class="output-trigger" id="aihoTrigger" aria-expanded="false" aria-haspopup="listbox">
+        <span id="aihoPlaceholder">Chọn kết quả cần xuất…</span>
+        <span class="chev">⌄</span>
+      </button>
+      <div class="output-panel" id="aihoPanel" role="listbox">
+        <div class="output-group-label">Theo yêu cầu của bạn</div>
+        <label class="output-option"><input type="checkbox" data-key="mdc" data-label="Mẫu đối chiếu (MĐC) đã điền kèm kiến nghị">
+          <span>Mẫu đối chiếu (MĐC) đã điền<span class="opt-sub">Điền sẵn B1–B14 tương ứng hạng mục đã đính kèm, kèm kiến nghị thiết kế</span></span>
+        </label>
+        <label class="output-option"><input type="checkbox" data-key="loi" data-label="Danh sách lỗi/thiếu sót cần khắc phục">
+          <span>Danh sách lỗi / thiếu sót cần khắc phục<span class="opt-sub">Tổng hợp riêng phần chưa đạt, sắp theo mức ưu tiên xử lý</span></span>
+        </label>
+        <label class="output-option"><input type="checkbox" data-key="thuyetminh" data-label="Thuyết minh PCCC (bản thảo)">
+          <span>Xuất thuyết minh PCCC<span class="opt-sub">Bản thảo thuyết minh theo nội dung đã rà soát, cần kỹ sư rà lại trước khi ký</span></span>
+        </label>
+        <label class="output-option"><input type="checkbox" data-key="pc12" data-label="Đơn đề nghị thẩm duyệt thiết kế (PC12)">
+          <span>Xuất đơn đề nghị thẩm duyệt (PC12)<span class="opt-sub">Điền sẵn thông tin công trình đã nhận diện từ bản vẽ</span></span>
+        </label>
+        <label class="output-option"><input type="checkbox" data-key="khoiluong" data-label="Bảng tổng hợp khối lượng thiết bị PCCC">
+          <span>Bảng tổng hợp khối lượng thiết bị<span class="opt-sub">Số lượng đầu báo/đầu phun/bình/đèn... theo từng hạng mục đã đính kèm, phục vụ dự toán sơ bộ</span></span>
+        </label>
+        <label class="output-option" id="aihoPhieuOption"><input type="checkbox" id="aihoPhieuCheck" data-key="phieutonghop" data-label="Phiếu kiểm tra tổng hợp (đợt 1)">
+          <span>Phiếu kiểm tra tổng hợp (theo đợt)
+            <span class="opt-sub">Ngắn gọn, đi thẳng vấn đề hơn thuyết minh: thông tin công trình (địa chỉ, chủ đầu tư…), quy mô/công năng, và hiện trạng từng hệ thống theo bản vẽ (VD báo cháy: loại trung tâm, số zone…) — xuất theo từng đợt để lưu vết theo dõi qua các lần góp ý.</span>
+            <span class="round-stepper" id="aihoRoundStepper" hidden>
+              Đợt số: <button type="button" data-dir="-1">−</button><span class="round-val" id="aihoRoundVal">1</span><button type="button" data-dir="1">+</button>
+            </span>
+          </span>
+        </label>
+        <div class="output-group-label">Gợi ý thêm</div>
+        <label class="output-option"><input type="checkbox" data-key="thugopy" data-label="Thư góp ý gửi đơn vị thiết kế">
+          <span>Thư góp ý gửi đơn vị thiết kế<span class="opt-sub">Soạn sẵn nội dung trao đổi, đính kèm danh sách lỗi</span></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="chip-row" id="aihoChipRow"></div>
+  </section>
+
+  <div class="actions">
+    <button type="button" class="btn-main" id="aihoCta" disabled>Bắt đầu phân tích →</button>
+    <span class="cta-hint" id="aihoCtaHint">Đính ít nhất 1 bản vẽ và chọn 1 kết quả đầu ra để bật nút này</span>
   </div>
+
+  <div class="processing" id="aihoProcessing" hidden>
+    <div class="processing-bar"><div class="processing-fill" id="aihoProcessingFill"></div></div>
+    <p class="processing-text" id="aihoProcessingText">Đang đọc bản vẽ đã đính kèm…</p>
+  </div>
+
+  <section class="buoc" id="aihoResults" hidden>
+    <div class="buoc-tag"><span class="num">KẾT QUẢ</span><h3>Kết quả đối chiếu (demo)</h3></div>
+    <p class="section-note">Dữ liệu bên dưới là minh hoạ cho mục đích xem giao diện — chưa phải kết quả phân tích thật.</p>
+    <div class="result-table" id="aihoResultTable"></div>
+    <div class="output-previews" id="aihoOutputPreviews"></div>
+  </section>
+
+  <div class="disclaimer">
+    <b>Miễn trừ trách nhiệm:</b> Kết quả do AI tạo ra chỉ mang tính sơ bộ, hỗ trợ rà soát nhanh — không thay thế nhận định chuyên môn của kỹ sư PCCC có chứng chỉ hành nghề hay kết luận chính thức của cơ quan thẩm duyệt. Cần kiểm tra lại toàn bộ nội dung trước khi đưa vào hồ sơ chính thức.
+    <div class="footer-grid">
+      <div class="footer-block">
+        <h4>Căn cứ pháp lý áp dụng</h4>
+        <p>Đối chiếu theo QCVN 06:2022/BXD, QCVN 10:2025/BCA, NĐ 105/2025/NĐ-CP và mẫu đối chiếu MĐC B1–B14. Văn bản có thể được sửa đổi theo thời gian. Cập nhật lần cuối: 07/2026.</p>
+      </div>
+      <div class="footer-block">
+        <h4>Góp ý bản demo</h4>
+        <p>Đang trong giai đoạn thu thập phản hồi — góp ý về giao diện hoặc độ chính xác đối chiếu giúp hoàn thiện công cụ nhanh hơn.</p>
+        <button type="button" class="btn-ghost" id="aihoFeedbackBtn" style="margin-top:8px">Gửi góp ý</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="gas-msg" id="aihoMsg" role="status"></div>
 </div>
 </section>
+
+<script>
+(function(){
+  var grid = document.getElementById('aihoGrid');
+  if(!grid) return;
+
+  grid.addEventListener('click', function(e){
+    var card = e.target.closest('.drop-card');
+    if(!card) return;
+    var filled = card.classList.toggle('filled');
+    var status = card.querySelector('.drop-status');
+    var body = card.querySelector('.drop-body');
+    var existing = body.querySelector('.drop-file');
+    if(filled){
+      status.textContent = '● Đã đính kèm';
+      status.classList.add('attached');
+      if(!existing){
+        var fileRow = document.createElement('div');
+        fileRow.className = 'drop-file';
+        fileRow.innerHTML = '<span>' + card.dataset.file + '</span><button type="button" aria-label="Gỡ file">✕</button>';
+        body.appendChild(fileRow);
+      }
+    } else {
+      status.textContent = '○ Chưa đính kèm';
+      status.classList.remove('attached');
+      if(existing) existing.remove();
+    }
+    updateCta();
+    updateProgress();
+  });
+
+  var uploadProgress = document.getElementById('aihoProgress');
+  var totalSlots = grid.querySelectorAll('.drop-card').length;
+  function updateProgress(){
+    var filledCount = grid.querySelectorAll('.drop-card.filled').length;
+    uploadProgress.textContent = filledCount + '/' + totalSlots + ' hạng mục đã đính kèm';
+  }
+  updateProgress();
+
+  var trigger = document.getElementById('aihoTrigger');
+  var panel = document.getElementById('aihoPanel');
+  trigger.addEventListener('click', function(){
+    var open = panel.classList.toggle('open');
+    trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+  document.addEventListener('click', function(e){
+    if(!e.target.closest('.output-picker')){
+      panel.classList.remove('open');
+      trigger.setAttribute('aria-expanded','false');
+    }
+  });
+
+  var roundStepper = document.getElementById('aihoRoundStepper');
+  var roundVal = document.getElementById('aihoRoundVal');
+  var phieuCheck = document.getElementById('aihoPhieuCheck');
+  var round = 1;
+  phieuCheck.addEventListener('change', function(){
+    roundStepper.hidden = !phieuCheck.checked;
+    updateRoundLabel();
+  });
+  roundStepper.addEventListener('click', function(e){
+    var btn = e.target.closest('button');
+    if(!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    round = Math.max(1, round + Number(btn.dataset.dir));
+    roundVal.textContent = round;
+    updateRoundLabel();
+    panel.dispatchEvent(new Event('change'));
+  });
+  function updateRoundLabel(){
+    phieuCheck.dataset.label = 'Phiếu kiểm tra tổng hợp (đợt ' + round + ')';
+  }
+  updateRoundLabel();
+
+  var chipRow = document.getElementById('aihoChipRow');
+  var placeholder = document.getElementById('aihoPlaceholder');
+  panel.addEventListener('change', function(){
+    var checked = Array.prototype.slice.call(panel.querySelectorAll('input:checked'));
+    chipRow.innerHTML = '';
+    checked.forEach(function(input){
+      var chip = document.createElement('span');
+      chip.className = 'chip';
+      chip.innerHTML = '<span>' + input.dataset.label + '</span><button type="button">✕</button>';
+      chip.querySelector('button').addEventListener('click', function(){
+        input.checked = false;
+        panel.dispatchEvent(new Event('change'));
+      });
+      chipRow.appendChild(chip);
+    });
+    placeholder.textContent = checked.length
+      ? checked.length + ' kết quả đã chọn'
+      : 'Chọn kết quả cần xuất…';
+    updateCta();
+  });
+
+  var cta = document.getElementById('aihoCta');
+  var ctaHint = document.getElementById('aihoCtaHint');
+  var msg = document.getElementById('aihoMsg');
+  function updateCta(){
+    var hasFile = !!grid.querySelector('.drop-card.filled');
+    var hasOutput = !!panel.querySelector('input:checked');
+    cta.disabled = !(hasFile && hasOutput);
+    ctaHint.textContent = cta.disabled
+      ? 'Đính ít nhất 1 bản vẽ và chọn 1 kết quả đầu ra để bật nút này'
+      : 'Sẵn sàng — bấm để xem bước tiếp theo (demo)';
+  }
+
+  /* ---- Dữ liệu minh hoạ cho màn kết quả (demo, chưa phải phân tích thật) ---- */
+  var SLOT_MOCK = {
+    kientruc: {status:'ok', note:'Xác định công năng: văn phòng hỗn hợp, 8 tầng nổi + 1 tầng hầm, ΣF ≈ 4.200 m².'},
+    baochay: {status:'warn', note:'Thiếu thông tin loại trung tâm báo cháy và số zone trên sơ đồ nguyên lý.'},
+    ccnuoc: {status:'ok', note:'Họng nước trong nhà và sprinkler khớp với Bảng A.1 — chưa phát hiện thiếu sót.'},
+    cckhi: {status:'bad', note:'Chưa thấy tính toán nồng độ thiết kế d₁, f₂ cho phòng điện — cần bổ sung.'},
+    capnuocngoai: {status:'ok', note:'Trụ nước ngoài nhà bố trí đủ theo bán kính bảo vệ.'},
+    trambom: {status:'warn', note:'Chưa rõ bơm bù áp có khởi động độc lập với bơm chính hay không.'},
+    binhcc: {status:'ok', note:'Số lượng và khoảng cách bình xách tay phù hợp TCVN 7435-1.'},
+    densucco: {status:'warn', note:'Một số vị trí đèn chỉ dẫn thoát nạn cách nhau quá 20 m.'},
+    dienpccc: {status:'ok', note:'Có cấp nguồn ưu tiên riêng, dây dẫn ghi chú chống cháy 70 phút.'}
+  };
+  var STATUS_LABEL = {ok:'Đạt', warn:'Cần bổ sung', bad:'Thiếu sót'};
+
+  function renderResultTable(){
+    var filledCards = Array.prototype.slice.call(grid.querySelectorAll('.drop-card.filled'));
+    var rows = filledCards.map(function(card){
+      var slot = card.dataset.slot;
+      var label = card.querySelector('h4').textContent;
+      var mock = SLOT_MOCK[slot] || {status:'ok', note:'Chưa phát hiện thiếu sót.'};
+      return '<div class="result-row"><span class="r-label">' + label + '</span>' +
+        '<span class="status-pill status-' + mock.status + '">' + STATUS_LABEL[mock.status] + '</span>' +
+        '<span class="r-note">' + mock.note + '</span></div>';
+    });
+    document.getElementById('aihoResultTable').innerHTML = rows.join('');
+  }
+
+  function outputPreviewHtml(key){
+    switch(key){
+      case 'mdc':
+        return '<h4>Mẫu đối chiếu (MĐC) đã điền — trích đoạn</h4>' +
+          '<div class="tbl-wrap"><table><thead><tr><th>Mẫu</th><th>Kết luận</th><th>Ghi chú</th></tr></thead><tbody>' +
+          '<tr><td>MĐC B1–B2 · Báo cháy tự động</td><td><span class="badge b-warn">Cần bổ sung</span></td><td>Bổ sung loại trung tâm, số zone</td></tr>' +
+          '<tr><td>MĐC B3–B4 · Chữa cháy bằng nước</td><td><span class="badge b-no">Đạt</span></td><td>—</td></tr>' +
+          '<tr><td>MĐC B5 · Chữa cháy bằng khí</td><td><span class="badge b-yes">Thiếu sót</span></td><td>Bổ sung tính toán d₁, f₂</td></tr>' +
+          '</tbody></table></div>';
+      case 'loi':
+        return '<h4>Danh sách lỗi / thiếu sót — trích đoạn</h4>' +
+          '<ul>' +
+          '<li>Thiếu loại trung tâm báo cháy và số zone (Báo cháy tự động).</li>' +
+          '<li>Chưa có tính toán nồng độ thiết kế d₁, f₂ (Chữa cháy bằng khí).</li>' +
+          '<li>Đèn chỉ dẫn thoát nạn bố trí cách nhau quá 20 m (Đèn sự cố).</li>' +
+          '</ul>';
+      case 'thuyetminh':
+        return '<h4>Thuyết minh PCCC (bản thảo) — trích đoạn</h4>' +
+          '<p>1. Thông tin công trình: văn phòng hỗn hợp, 8 tầng nổi + 1 tầng hầm, ΣF ≈ 4.200 m².<br>' +
+          '2. Giải pháp báo cháy: hệ thống báo cháy tự động theo địa chỉ (chưa rõ loại trung tâm, cần bổ sung).<br>' +
+          '3. Giải pháp chữa cháy: họng nước trong nhà và sprinkler theo Bảng A.1…<br>' +
+          '<i>(bản thảo — cần kỹ sư hoàn thiện và rà lại trước khi ký)</i></p>';
+      case 'pc12':
+        return '<h4>Đơn đề nghị thẩm duyệt (PC12) — điền sẵn</h4>' +
+          '<div class="kv-grid">' +
+          '<div><b>Tên công trình</b>Văn phòng hỗn hợp ABC</div>' +
+          '<div><b>Chủ đầu tư</b>— (nhận diện từ kiến trúc)</div>' +
+          '<div><b>Địa điểm xây dựng</b>— (nhận diện từ kiến trúc)</div>' +
+          '<div><b>Quy mô</b>8 tầng nổi + 1 hầm, ΣF ≈ 4.200 m²</div>' +
+          '</div>';
+      case 'khoiluong':
+        return '<h4>Bảng tổng hợp khối lượng thiết bị — trích đoạn</h4>' +
+          '<div class="tbl-wrap"><table><thead><tr><th>Thiết bị</th><th>Số lượng</th></tr></thead><tbody>' +
+          '<tr><td>Đầu báo khói</td><td>86 cái</td></tr>' +
+          '<tr><td>Đầu phun sprinkler</td><td>142 cái</td></tr>' +
+          '<tr><td>Bình chữa cháy xách tay</td><td>24 bình</td></tr>' +
+          '</tbody></table></div>';
+      case 'phieutonghop':
+        return '<h4>Phiếu kiểm tra tổng hợp (đợt ' + round + ') — trích đoạn</h4>' +
+          '<div class="kv-grid">' +
+          '<div><b>Công trình / chủ đầu tư</b>Văn phòng hỗn hợp ABC</div>' +
+          '<div><b>Quy mô / công năng</b>8 tầng nổi + 1 hầm, hỗn hợp</div>' +
+          '<div><b>Báo cháy</b>Đang thiết kế trung tâm báo cháy loại… (chưa rõ số zone) — cần bổ sung</div>' +
+          '<div><b>Chữa cháy nước</b>Họng nước + sprinkler — đạt</div>' +
+          '</div>';
+      case 'thugopy':
+        return '<h4>Thư góp ý gửi đơn vị thiết kế — trích đoạn</h4>' +
+          '<p>Kính gửi đơn vị thiết kế,<br>Qua rà soát bản vẽ PCCC, đề nghị bổ sung: (1) loại trung tâm báo cháy và số zone; ' +
+          '(2) tính toán nồng độ thiết kế d₁, f₂ cho hệ chữa cháy khí; (3) điều chỉnh khoảng cách đèn chỉ dẫn thoát nạn ≤ 20 m…</p>';
+      default:
+        return '';
+    }
+  }
+
+  function renderOutputPreviews(){
+    var checked = Array.prototype.slice.call(panel.querySelectorAll('input:checked'));
+    document.getElementById('aihoOutputPreviews').innerHTML = checked.map(function(input){
+      return '<div class="preview-card">' + outputPreviewHtml(input.dataset.key) + '</div>';
+    }).join('');
+  }
+
+  var processing = document.getElementById('aihoProcessing');
+  var processingFill = document.getElementById('aihoProcessingFill');
+  var processingText = document.getElementById('aihoProcessingText');
+  var resultsSection = document.getElementById('aihoResults');
+
+  cta.addEventListener('click', function(){
+    msg.classList.remove('show');
+    resultsSection.hidden = true;
+    processing.hidden = false;
+    cta.disabled = true;
+
+    var steps = ['Đang đọc bản vẽ đã đính kèm…', 'Đang đối chiếu với mẫu MĐC B1–B14…', 'Đang tổng hợp kết quả đầu ra…'];
+    var i = 0;
+    processingText.textContent = steps[0];
+    processingFill.style.width = '8%';
+    var interval = setInterval(function(){
+      i++;
+      if(i < steps.length){
+        processingText.textContent = steps[i];
+        processingFill.style.width = (8 + i * 42) + '%';
+      }
+    }, 700);
+
+    setTimeout(function(){
+      clearInterval(interval);
+      processingFill.style.width = '100%';
+      setTimeout(function(){
+        processing.hidden = true;
+        processingFill.style.width = '0%';
+        renderResultTable();
+        renderOutputPreviews();
+        resultsSection.hidden = false;
+        resultsSection.scrollIntoView({behavior:'smooth', block:'start'});
+        updateCta();
+      }, 300);
+    }, 2200);
+  });
+
+  var feedbackBtn = document.getElementById('aihoFeedbackBtn');
+  feedbackBtn.addEventListener('click', function(){
+    msg.textContent = 'Demo giao diện — kênh gửi góp ý thật sẽ được bổ sung khi triển khai chính thức.';
+    msg.classList.add('show');
+  });
+})();
+</script>
 
 <section id="view-thuvien" class="view">
 <div class="wrap">
   <header class="gas-head">
     <div class="eyebrow2" style="color:var(--green)">Thư viện pháp luật PCCC</div>
     <h2>Kho văn bản pháp luật, quy chuẩn, tiêu chuẩn PCCC</h2>
-    <p>Tra cứu và tải các văn bản pháp lý PCCC (nghị định, thông tư, QCVN, TCVN…). Nếu bảng dưới không hiển thị, bấm nút bên dưới để mở thư viện ở tab mới.</p>
+    <p>Tra cứu nhanh các văn bản QCVN, TCVN, C07 và các văn bản pháp lý khác. Chọn tab rồi bấm "Mở file" để xem tài liệu ngay trong khung bên dưới.</p>
   </header>
-  <div class="lib-bar">
-    <a class="btn-main" style="text-decoration:none;display:inline-block" href="https://script.google.com/macros/s/AKfycbyjy9aTAZ-v0OYjT-51nJClRk-5iWBs7v05Yx6Vx1yOQGurODh8e33m240x75wo8ueU/exec" target="_blank" rel="noopener noreferrer">Mở thư viện ở tab mới ↗</a>
-    <span class="lib-hint">Thư viện được lưu trên Google Drive qua Google Apps Script.</span>
+
+  <div class="lib-tabs" role="tablist">
+    <button class="active" data-q="QCVN" type="button">QCVN</button>
+    <button data-q="TCVN" type="button">TCVN</button>
+    <button data-q="C07" type="button">Văn bản C07</button>
+    <button data-q="Luật" type="button">Luật</button>
+    <button data-q="Nghị định" type="button">Nghị định</button>
+    <button data-q="Thông tư" type="button">Thông tư</button>
+    <button data-q="Khác" type="button">Văn bản khác</button>
   </div>
-  <div class="lib-frame-wrap">
-    <iframe class="lib-frame" id="lib-frame" src="https://script.google.com/macros/s/AKfycbyjy9aTAZ-v0OYjT-51nJClRk-5iWBs7v05Yx6Vx1yOQGurODh8e33m240x75wo8ueU/exec" title="Thư viện pháp luật PCCC" loading="lazy"></iframe>
-  </div>
-  <div class="note blue" style="margin-top:14px">
-    <b>Lưu ý:</b> Thư viện nhúng từ Google Apps Script. Một số cấu hình bảo mật của Google có thể chặn hiển thị trong khung nhúng — khi đó dùng nút "Mở thư viện ở tab mới" phía trên. Việc xem/tải file có thể yêu cầu đăng nhập tài khoản Google được cấp quyền.
-  </div>
+
+  <input id="lib-search" class="lib-search-input" placeholder="Tìm theo tên..." aria-label="Tìm theo tên" />
+  <div id="doc-status" class="doc-status">Đang tải danh sách tài liệu từ Google Sheet...</div>
+  <div id="doc-list" class="doc-list"></div>
+
+  <script>
+    (function(){
+      const tabButtons = document.querySelectorAll('.lib-tabs button');
+      const searchInput = document.getElementById('lib-search');
+      const docList = document.getElementById('doc-list');
+
+      const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/1khnOvG98gu_9QWfruG6O_yKrTjCYmkZTGqevNmseaPY/export?format=csv&gid=0';
+      const DRIVE_DOCS = [];
+      const FALLBACK_DOCS = [
+        { title:'QCVN 06 SỬA ĐỔI BỔ SUNG 10.2023.pdf', type:'QCVN', link:'https://drive.google.com/file/d/1JAFq7bL1wjhsCFFlsoi1ky8m5q9v5pav/view?usp=sharing' },
+        { title:'QCVN 10-2025-BCA Trang bị phương tiện phòng cháy-Bố trí phương tiện chữa cháy-Trang bị và bố trí phương tiện cứu nạn, cứu hộ.pdf', type:'QCVN', link:'https://drive.google.com/file/d/1SoKGt8nlc7IRQq9-Dd4iGE7XTW-kf5te/view?usp=sharing' },
+        { title:'QCVN 02-2020-BCA về trạm bơm nước chữa cháy.pdf', type:'QCVN', link:'https://drive.google.com/file/d/1vUeaqjAG4aQjoei-H-8UXPP1xdYMnz45/view?usp=sharing' },
+        { title:'QCVN 10-2012-BCT về an toàn trạm cấp khí dầu mỏ hóa lỏng.pdf', type:'QCVN', link:'https://drive.google.com/file/d/1l2qVjCYwoN2q7jmPk6j382ufpnOEFFvN/view?usp=sharing' },
+        { title:'QCVN 02-2020-BCT về an toàn bồn chứa khí dầu mỏ hóa lỏng.pdf', type:'QCVN', link:'https://drive.google.com/file/d/1DidyQR4cS9eeULmZrw50bEqoJVnfcTUW/view?usp=sharing' },
+      ];
+
+      const docStatus = document.getElementById('doc-status');
+
+      function setStatus(message, isError = false) {
+        docStatus.textContent = message;
+        docStatus.classList.toggle('error', isError);
+      }
+
+      function splitCsvLine(line) {
+        const result = [];
+        let cur = '';
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i += 1) {
+          const ch = line[i];
+          if (inQuotes) {
+            if (ch === '"') {
+              if (line[i + 1] === '"') {
+                cur += '"';
+                i += 1;
+              } else {
+                inQuotes = false;
+              }
+            } else {
+              cur += ch;
+            }
+          } else if (ch === '"') {
+            inQuotes = true;
+          } else if (ch === ',') {
+            result.push(cur);
+            cur = '';
+          } else {
+            cur += ch;
+          }
+        }
+        result.push(cur);
+        return result;
+      }
+
+      function parseCSV(text) {
+        const lines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
+        const header = splitCsvLine(lines[0]).map(h => h.trim());
+        return lines.slice(1).map(line => {
+          const values = splitCsvLine(line);
+          const row = {};
+          header.forEach((key, idx) => {
+            row[key] = (values[idx] || '').trim();
+          });
+          return row;
+        });
+      }
+
+      function normalizeLink(raw) {
+        if (!raw) return '';
+        const trimmed = raw.trim();
+        if (trimmed.startsWith('http')) return trimmed;
+        const idMatch = trimmed.match(/[A-Za-z0-9_-]{20,}/);
+        if (idMatch) {
+          return `https://drive.google.com/file/d/${idMatch[0]}/view?usp=sharing`;
+        }
+        return trimmed;
+      }
+
+      function guessTypeFromTitle(title) {
+        const text = (title || '').toUpperCase();
+        if (text.startsWith('QCVN')) return 'QCVN';
+        if (text.startsWith('TCVN')) return 'TCVN';
+        if (text.startsWith('VĂN BẢN C07') || text.includes('C07')) return 'C07';
+        if (text.startsWith('LUẬT') || text.startsWith('LUAT')) return 'Luật';
+        if (text.startsWith('NGHỊ ĐỊNH') || text.startsWith('NGHI DINH')) return 'Nghị định';
+        if (text.startsWith('THÔNG TƯ') || text.startsWith('THONG TU')) return 'Thông tư';
+        return 'Khác';
+      }
+
+      async function loadDocs() {
+        try {
+          const response = await fetch(SHEET_CSV_URL);
+          if (!response.ok) {
+            throw new Error(`Không tải được sheet: ${response.status}`);
+          }
+          const csvText = await response.text();
+          const rows = parseCSV(csvText).filter(row => row['TÊN'] && row['ID']);
+          DRIVE_DOCS.splice(0, DRIVE_DOCS.length, ...rows.map(row => ({
+            title: row['TÊN'],
+            type: guessTypeFromTitle(row['TÊN']),
+            link: normalizeLink(row['ID']),
+          })));
+          setStatus(`Đã tải ${DRIVE_DOCS.length} tài liệu từ Google Sheet.`);
+          renderDocs('QCVN', searchInput.value);
+        } catch (error) {
+          console.error(error);
+          setStatus('Không tải được danh sách sheet. Sử dụng danh sách mặc định.', true);
+          DRIVE_DOCS.splice(0, DRIVE_DOCS.length, ...FALLBACK_DOCS);
+          renderDocs('QCVN', searchInput.value);
+        }
+      }
+
+      function renderDocs(filterType, filterText){
+        const q = (filterText||'').trim().toLowerCase();
+        const items = DRIVE_DOCS.filter(d => {
+          const matchesType = filterType === 'Khác' ? !['QCVN','TCVN','C07'].includes(d.type) : d.type === filterType;
+          const matchesText = !q || d.title.toLowerCase().includes(q);
+          return matchesType && matchesText;
+        });
+
+        if(!items.length){
+          docList.innerHTML = '<div style="color:var(--ink-soft);padding:18px;border:1px solid rgba(46,58,78,.08);border-radius:18px;background:#fff">Không tìm thấy văn bản nào. Thử tìm kiếm khác hoặc chuyển tab.</div>';
+          return;
+        }
+
+        docList.innerHTML = items.map(d => `
+          <div class="doc-card" data-link="${d.link || ''}" data-title="${d.title.replace(/"/g,'&quot;')}">
+            <div class="doc-card-left">
+              <span class="doc-dot"></span>
+              <div>
+                <strong class="doc-card-title">${d.title}</strong>
+                <div class="doc-card-sub">Chạm để mở tài liệu</div>
+              </div>
+            </div>
+            <button class="btn-open" type="button">Mở file</button>
+          </div>
+        `).join('');
+
+        docList.querySelectorAll('.btn-open').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const card = btn.closest('.doc-card');
+            const link = card.dataset.link;
+            const title = card.dataset.title;
+            const targetUrl = link || 'https://drive.google.com/drive/search?q=' + encodeURIComponent(title);
+            window.open(targetUrl, '_blank');
+          });
+        });
+      }
+
+      function setActiveTab(button){
+        tabButtons.forEach(b => b.classList.remove('active'));
+        button.classList.add('active');
+      }
+
+      tabButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          setActiveTab(btn);
+          renderDocs(btn.dataset.q, searchInput.value);
+        });
+      });
+
+      searchInput.addEventListener('input', () => {
+        const active = document.querySelector('.lib-tabs button.active');
+        renderDocs(active.dataset.q, searchInput.value);
+      });
+
+      loadDocs();
+    })();
+  </script>
 </div>
 </section>
 
@@ -2079,6 +2787,22 @@ function render(d){
   const anyWarn = [td,bc,sp,hn,nn,pd,mn,loa].some(r=>r.v==="warn");
   if(anyWarn) nx.push("Phiếu có kết luận dựa trên bảng dựng từ bản OCR (ô ⚠️) — <b>bắt buộc đối chiếu bản gốc văn bản</b> trước khi sử dụng chính thức.");
 
+  window.__phieuSnapshot = {
+    goiY: `${occ.label} - ${d.floors} tầng - ${fmt(d.totalArea)}m²`,
+    congNang: occ.label,
+    soTang: d.floorsNoi + (d.semiBasements>0?` +${d.semiBasements}BH`:'') + (d.basements>0?` +${d.basements}H`:''),
+    dtTang: d.areaFloor,
+    tongDT: d.totalArea,
+    khoiTich: d.volume,
+    tham: td.v,
+    baoChay: bc.v,
+    sprinkler: sp.v,
+    hongNuoc: hn.v,
+    capNuocNgoai: nn.v,
+    beNuoc: nc ? nc.kq.Vtong/1000 : null,
+  };
+
+  $("phieu").dataset.soPhieu = soPhieu;
   $("phieu").innerHTML = `
     <div class="phieu-head">
       <div>
@@ -2154,6 +2878,8 @@ function render(d){
       <div class="nhanxet" style="margin-top:14px"><b>Nhận xét:</b><ul>${nx.map(x=>`<li>${x}</li>`).join("")}</ul></div>
       <div class="actions no-print" style="margin-top:16px">
         <button type="button" class="btn-main" onclick="window.print()">In / xuất PDF phiếu</button>
+        <button type="button" class="btn-ghost" onclick="xuatWord()">Xuất Word (.doc)</button>
+        <button type="button" class="btn-ghost" onclick="themVaoSoSanh()">Thêm vào bảng so sánh</button>
       </div>
       <div class="disclaimer">
         <b>Lưu ý sử dụng:</b> Phiếu này là kết quả <b>sàng lọc sơ bộ</b> theo logic cố định, dùng tham khảo nội bộ — không thay thế thẩm định chính thức của cơ quan Cảnh sát PCCC&amp;CNCH và không thay thế đánh giá của kỹ sư đối với trường hợp đặc thù (công năng hỗn hợp phức tạp; khu vực/gian phòng/thiết bị theo Bảng A.2/A.3/A.4; chống khói theo QCVN 06 Phụ lục D — xử lý ở bước riêng). Các ô đánh dấu ⚠️ dựng từ bản OCR, <b>bắt buộc đối chiếu bản gốc văn bản</b> trước khi sử dụng chính thức. TCVN 3890 đã hết hiệu lực — không dùng.
@@ -2163,7 +2889,83 @@ function render(d){
   $("phieu").scrollIntoView({behavior:"smooth",block:"start"});
 }
 
+/* ---------- Xuất Word (.doc) ---------- */
+function xuatWord(){
+  const noiDung = $("phieu").innerHTML;
+  const soPhieu = $("phieu").dataset.soPhieu || "phieu-tu-van-so-bo";
+  const html = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head><meta charset="utf-8"><title>${soPhieu}</title>
+<style>
+  body{font-family:'Times New Roman',serif;font-size:13pt;color:#000}
+  table{border-collapse:collapse;width:100%}
+  td,th{border:1px solid #666;padding:6px;vertical-align:top}
+  .no-print{display:none}
+  .badge{border:1px solid #999;padding:1px 5px}
+</style></head>
+<body>${noiDung}</body></html>`;
+  const blob = new Blob(["﻿", html], {type:"application/msword"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `${soPhieu}.doc`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* ---------- So sánh phương án (lưu tại trình duyệt, chưa cần database) ---------- */
+const SOSANH_KEY = "pcccSoSanhPhuongAn";
+function layDSSoSanh(){
+  try { return JSON.parse(localStorage.getItem(SOSANH_KEY) || "[]"); } catch(e){ return []; }
+}
+function luuDSSoSanh(list){ localStorage.setItem(SOSANH_KEY, JSON.stringify(list)); }
+
+function themVaoSoSanh(){
+  if(!window.__phieuSnapshot) return;
+  const nhan = prompt("Đặt tên ngắn cho phương án này:", window.__phieuSnapshot.goiY);
+  if(nhan === null) return;
+  const list = layDSSoSanh();
+  list.push({ id: Date.now(), nhan: nhan.trim() || window.__phieuSnapshot.goiY, ...window.__phieuSnapshot });
+  luuDSSoSanh(list);
+  renderBangSoSanh();
+}
+
+function xoaSoSanh(id){
+  luuDSSoSanh(layDSSoSanh().filter(x => x.id !== id));
+  renderBangSoSanh();
+}
+
+function renderBangSoSanh(){
+  const list = layDSSoSanh();
+  const wrap = $("soSanhWrap");
+  if(!list.length){ wrap.style.display = "none"; return; }
+  wrap.style.display = "";
+  const rows = [
+    ["Công năng", x => x.congNang],
+    ["Số tầng", x => x.soTang],
+    ["DT tầng điển hình", x => fmt(x.dtTang) + " m²"],
+    ["Tổng DT sàn ΣF", x => fmt(x.tongDT) + " m²"],
+    ["Khối tích V", x => fmt(x.khoiTich) + " m³"],
+    ["Diện thẩm định", x => BADGE_TD[x.tham]],
+    ["Báo cháy tự động", x => BADGE[x.baoChay]],
+    ["Chữa cháy tự động", x => BADGE[x.sprinkler]],
+    ["Họng nước trong nhà", x => BADGE[x.hongNuoc]],
+    ["Cấp nước ngoài nhà", x => BADGE[x.capNuocNgoai]],
+    ["Bể nước sơ bộ", x => x.beNuoc != null ? fmt(Math.round(x.beNuoc)) + " m³" : "—"],
+  ];
+  let html = "<tr><th>Tiêu chí</th>" + list.map(x =>
+    `<th>${x.nhan} <button type="button" onclick="xoaSoSanh(${x.id})" title="Xoá phương án này" style="border:none;background:none;color:var(--ink-soft);cursor:pointer;font-weight:700;font-size:13px">✕</button></th>`
+  ).join("") + "</tr>";
+  rows.forEach(([label, f]) => {
+    html += `<tr><td><b>${label}</b></td>` + list.map(x => `<td>${f(x)}</td>`).join("") + "</tr>";
+  });
+  $("tblSoSanh").innerHTML = html;
+}
+
 /* ---------- Sự kiện ---------- */
+$("btnXoaHetSoSanh").addEventListener("click", () => {
+  if(confirm("Xoá toàn bộ bảng so sánh phương án?")){ luuDSSoSanh([]); renderBangSoSanh(); }
+});
+renderBangSoSanh();
+
 $("frm").addEventListener("submit", e => {
   e.preventDefault();
   const { d, errs, soft } = gather();
