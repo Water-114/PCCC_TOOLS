@@ -271,6 +271,18 @@
     return sections;
   }
 
+  function collectFailedRealSlots(){
+    // Hạng mục AI thật đã thử phân tích (có gắn file) nhưng lỗi/hết lượt — không có dữ liệu thật (realData rỗng)
+    // nhưng có ghi nhận lỗi (realResults) — phải báo rõ, không được lặng lẽ rơi về nội dung minh hoạ không liên quan.
+    var failed = [];
+    Object.keys(REAL_CATEGORIES).forEach(function(slot){
+      if(!realData[slot] && realResults[slot] && realFiles[slot]){
+        failed.push({label: REAL_CATEGORIES[slot].label, note: realResults[slot].note});
+      }
+    });
+    return failed;
+  }
+
   function renderKienNghiReal(sections){
     return sections.map(function(sec){
       var groups = KIEN_NGHI_NHOM.map(function(nhom){
@@ -314,7 +326,15 @@
     switch(key){
       case 'mdc':
         var mdcSections = collectRealSections(function(d){ return d.mdc_docx_files && d.mdc_docx_files.length; });
-        if(mdcSections.length) return renderMdcReal(mdcSections);
+        var mdcFailed = collectFailedRealSlots();
+        if(mdcSections.length || mdcFailed.length){
+          var mdcParts = [];
+          if(mdcSections.length) mdcParts.push(renderMdcReal(mdcSections));
+          mdcFailed.forEach(function(f){
+            mdcParts.push('<h4>Mẫu đối chiếu (MĐC) đã điền — ' + f.label + '</h4><p style="color:var(--red-deep)">' + f.note + '</p>');
+          });
+          return mdcParts.join(SECTION_DIVIDER);
+        }
         return '<h4>Mẫu đối chiếu (MĐC) đã điền — trích đoạn</h4>' +
           '<div class="tbl-wrap"><table><thead><tr><th>Mẫu</th><th>Kết luận</th><th>Ghi chú</th></tr></thead><tbody>' +
           '<tr><td>MĐC B1–B2 · Báo cháy tự động</td><td><span class="badge b-warn">Cần bổ sung</span></td><td>Bổ sung loại trung tâm, số zone</td></tr>' +
@@ -323,7 +343,15 @@
           '</tbody></table></div>';
       case 'loi':
         var kienNghiSections = collectRealSections(function(d){ return !!d.kien_nghi; });
-        if(kienNghiSections.length) return renderKienNghiReal(kienNghiSections);
+        var loiFailed = collectFailedRealSlots();
+        if(kienNghiSections.length || loiFailed.length){
+          var loiParts = [];
+          if(kienNghiSections.length) loiParts.push(renderKienNghiReal(kienNghiSections));
+          loiFailed.forEach(function(f){
+            loiParts.push('<h4>Danh sách kiến nghị (theo văn phong PC07) — ' + f.label + '</h4><p style="color:var(--red-deep)">' + f.note + '</p>');
+          });
+          return loiParts.join(SECTION_DIVIDER);
+        }
         return '<h4>Danh sách lỗi / thiếu sót — trích đoạn</h4>' +
           '<ul>' +
           '<li>Thiếu loại trung tâm báo cháy và số zone (Báo cháy tự động).</li>' +
@@ -492,6 +520,7 @@
               msg.textContent = r.data.error;
               msg.classList.add('show');
               if(r.data.quota) updateQuotaDisplay(r.data.quota);
+              realResults[slot] = {status: 'bad', note: cfg.label + ': ' + (r.data.error || 'Đã hết lượt đọc bản vẽ hôm nay.')};
               return;
             }
             if(r.status >= 400){
