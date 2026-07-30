@@ -26,6 +26,9 @@ FILES = [
     ("B1. MĐC Hệ thống báo cháy loại thường.docx", "B1_bao_chay_thuong.docx"),
     ("B2. MĐC Hệ thống báo cháy loại địa chỉ.docx", "B2_bao_chay_dia_chi.docx"),
     ("B14. MĐC hệ thống điện phục vụ PCCC.docx", "B14_dien_pccc.docx"),
+    ("B3. MĐC trạm bơm cấp nước chữa cháy.docx", "B3_tram_bom.docx"),
+    ("B5. MĐC Hệ thống họng nước chữa cháy trong nhà.docx", "B5_hong_nuoc.docx"),
+    ("B6. MĐC Hệ thống chữa cháy tự động bằng nước, bọt.docx", "B6_chua_chay_tu_dong.docx"),
 ]
 
 COL_THIET_KE = 2  # "Nội dung thiết kế"

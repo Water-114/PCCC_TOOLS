@@ -8,7 +8,7 @@ from ..extensions import db
 from ..models import AIHO_API_NAME, UsageLog, count_usage_today
 from ..providers.base import ProviderNotConfigured
 from ..providers.factory import get_provider
-from ..services import baochay_reader, dienpccc_reader, mdc_filler
+from ..services import baochay_reader, ccnuoc_reader, dienpccc_reader, mdc_filler
 from ..services.ai_reader_common import AIReaderError
 
 bp = Blueprint("aiho", __name__, url_prefix="/api/aiho")
@@ -22,10 +22,40 @@ def _log_usage(user_id: int, status: str):
     db.session.commit()
 
 
-def _handle_read_request(read_drawing_fn, resolve_mdc_loai):
+def _answers_from_items(items):
+    answers = []
+    for item in items:
+        try:
+            row_id = int(item.get("id"))
+        except (TypeError, ValueError):
+            continue
+        answers.append({
+            "id": row_id,
+            "noi_dung_thiet_ke": item.get("noi_dung_thiet_ke"),
+            "ket_luan": "Đạt" if item.get("ket_luan") == "dat" else "KN",
+        })
+    return answers
+
+
+def _build_mdc_file(loai: str, label: str, items: list) -> dict:
+    """Điền 1 file MĐC từ danh sách items đã có noi_dung_thiet_ke/ket_luan, trả về entry cho mdc_docx_files."""
+    try:
+        docx_bytes = mdc_filler.fill_docx(loai, _answers_from_items(items))
+        return {
+            "loai": loai,
+            "label": label,
+            "filename": mdc_filler.filename_for(loai),
+            "base64": base64.b64encode(docx_bytes).decode("ascii"),
+        }
+    except Exception as exc:
+        return {"loai": loai, "label": label, "error": f"Không tạo được file MĐC: {exc}"}
+
+
+def _handle_read_request(read_drawing_fn, build_mdc_files):
     """Xử lý chung cho mọi hạng mục AI đọc bản vẽ: kiểm tra quota, file, gọi AI, sinh MĐC nếu cần.
 
-    resolve_mdc_loai(result) -> khoá tương ứng trong mdc_filler.TEMPLATE_PATHS để điền đúng mẫu.
+    build_mdc_files(result) -> list các entry {loai, label, filename, base64} hoặc {loai, label, error}
+    — mỗi hạng mục tự quyết định cần điền mấy file MĐC (báo cháy/điện: 1 file; chữa cháy nước: 3 file).
     """
     user = g.current_user
     used = count_usage_today(user.id, AIHO_API_NAME)
@@ -78,24 +108,7 @@ def _handle_read_request(read_drawing_fn, resolve_mdc_loai):
     }
 
     if wants_mdc:
-        loai = resolve_mdc_loai(result)
-        answers = []
-        for item in result.get("items", []):
-            try:
-                row_id = int(item.get("id"))
-            except (TypeError, ValueError):
-                continue
-            answers.append({
-                "id": row_id,
-                "noi_dung_thiet_ke": item.get("noi_dung_thiet_ke"),
-                "ket_luan": "Đạt" if item.get("ket_luan") == "dat" else "KN",
-            })
-        try:
-            docx_bytes = mdc_filler.fill_docx(loai, answers)
-            result["mdc_docx_base64"] = base64.b64encode(docx_bytes).decode("ascii")
-            result["mdc_docx_filename"] = mdc_filler.filename_for(loai)
-        except Exception as exc:
-            result["mdc_docx_error"] = f"Không tạo được file MĐC: {exc}"
+        result["mdc_docx_files"] = build_mdc_files(result)
 
     return jsonify(result)
 
@@ -103,13 +116,30 @@ def _handle_read_request(read_drawing_fn, resolve_mdc_loai):
 @bp.post("/read-baochay")
 @login_required
 def read_baochay():
-    return _handle_read_request(
-        baochay_reader.read_drawing,
-        lambda result: result.get("loai_he_thong") if result.get("loai_he_thong") in ("thuong", "dia_chi") else "thuong",
-    )
+    def build_mdc_files(result):
+        loai = result.get("loai_he_thong") if result.get("loai_he_thong") in ("thuong", "dia_chi") else "thuong"
+        return [_build_mdc_file(loai, "Báo cháy tự động", result.get("items", []))]
+    return _handle_read_request(baochay_reader.read_drawing, build_mdc_files)
 
 
 @bp.post("/read-dienpccc")
 @login_required
 def read_dienpccc():
-    return _handle_read_request(dienpccc_reader.read_drawing, lambda result: "dien_pccc")
+    def build_mdc_files(result):
+        return [_build_mdc_file("dien_pccc", "Điện PCCC", result.get("items", []))]
+    return _handle_read_request(dienpccc_reader.read_drawing, build_mdc_files)
+
+
+@bp.post("/read-ccnuoc")
+@login_required
+def read_ccnuoc():
+    def build_mdc_files(result):
+        files = []
+        for loai, form_data in (result.get("forms") or {}).items():
+            label = form_data.get("mdc_label", "") + " — " + form_data.get("label", loai)
+            if "error" in form_data:
+                files.append({"loai": loai, "label": label, "error": form_data["error"]})
+            else:
+                files.append(_build_mdc_file(loai, label, form_data.get("items", [])))
+        return files
+    return _handle_read_request(ccnuoc_reader.read_drawing, build_mdc_files)

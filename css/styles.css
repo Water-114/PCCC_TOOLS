@@ -254,6 +254,7 @@ ul.pos li{margin-bottom:2px}
 }
 .output-trigger:hover{border-color:var(--ink-soft)}
 .output-trigger[aria-expanded="true"]{border-color:var(--red);color:var(--ink)}
+.output-trigger:disabled{opacity:.55;cursor:not-allowed;background:var(--line-soft)}
 .output-trigger .chev{font-family:var(--mono);transition:transform .15s;color:var(--ink-soft)}
 .output-trigger[aria-expanded="true"] .chev{transform:rotate(180deg)}
 .output-panel{

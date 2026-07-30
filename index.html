@@ -811,12 +811,12 @@
   <header class="gas-head">
     <div class="eyebrow2" style="color:var(--amber)">AI kiểm tra hồ sơ PCCC — xem trước giao diện</div>
     <h2>AI rà soát & kiểm tra hồ sơ thiết kế PCCC</h2>
-    <p>Đính bản vẽ theo từng hạng mục để AI xác định đúng mẫu đối chiếu, sau đó chọn kết quả cần xuất. Cần <b>đăng nhập</b> trước khi đính bản vẽ ở bất kỳ hạng mục nào. Riêng 2 ô <b>"Báo cháy tự động"</b> và <b>"Điện PCCC"</b> đã gọi AI thật (dùng chung 1 hạn mức lượt/ngày) — các hạng mục còn lại vẫn đang minh hoạ, chưa đọc bản vẽ thật.</p>
+    <p>Đính bản vẽ theo từng hạng mục để AI xác định đúng mẫu đối chiếu, sau đó chọn kết quả cần xuất. Cần <b>đăng nhập</b> trước khi đính bản vẽ ở bất kỳ hạng mục nào. Riêng 3 ô <b>"Báo cháy tự động"</b>, <b>"Chữa cháy bằng nước"</b> và <b>"Điện PCCC"</b> đã gọi AI thật (dùng chung 1 hạn mức lượt/ngày) — các hạng mục còn lại vẫn đang minh hoạ, chưa đọc bản vẽ thật.</p>
     <div class="gas-tags"><span>MĐC B1–B14</span><span>QCVN 10:2025/BCA</span><span>NĐ 105/2025</span></div>
   </header>
 
   <section class="buoc">
-    <div class="buoc-tag"><span class="num">BƯỚC 1</span><h3>Đính kèm bản vẽ theo hạng mục</h3><span class="progress-badge" id="aihoProgress">0/9 hạng mục đã đính kèm</span></div>
+    <div class="buoc-tag"><span class="num">BƯỚC 1</span><h3>Đính kèm bản vẽ theo hạng mục</h3><span class="progress-badge" id="aihoProgress">0/8 hạng mục đã đính kèm</span></div>
     <p class="section-note">Bấm vào từng ô để đính file (demo: mô phỏng trạng thái đã đính kèm). Có thể bỏ trống hạng mục không áp dụng cho công trình.</p>
     <div class="note">Nên chia nhỏ PDF bản vẽ ra nhiều file nhỏ để AI xử lý chính xác và nhanh hơn. Mỗi file tối đa <b>15MB</b> — file lớn hơn cần nén lại trước khi đính kèm.</div>
 
@@ -842,21 +842,22 @@
         <input type="file" id="baochayFileInput" accept="application/pdf,image/png,image/jpeg,image/webp" hidden>
       </button>
 
-      <button type="button" class="drop-card" data-slot="ccnuoc" data-file="CC-hong-nuoc-sprinkler.pdf · 4.6 MB">
+      <button type="button" class="drop-card" data-slot="ccnuoc" id="ccnuocCard">
         <div class="drop-icon">CCN</div>
         <div class="drop-body">
-          <h4>Chữa cháy bằng nước</h4>
-          <p class="hint">Họng nước trong nhà, sprinkler/drencher — đối chiếu MĐC B3–B4</p>
+          <h4>Chữa cháy bằng nước <span class="real-badge">AI thật</span></h4>
+          <p class="hint">Trạm bơm, họng nước trong nhà, chữa cháy tự động (sprinkler/drencher) — đối chiếu MĐC B3, B5, B6</p>
           <span class="drop-meta">PDF, ảnh scan · tối đa 15MB · cần đăng nhập</span>
-          <span class="drop-status">○ Chưa đính kèm</span>
+          <span class="drop-status" id="ccnuocStatus">○ Chưa đính kèm</span>
         </div>
+        <input type="file" id="ccnuocFileInput" accept="application/pdf,image/png,image/jpeg,image/webp" hidden>
       </button>
 
       <button type="button" class="drop-card" data-slot="cckhi" data-file="CK-solkhi-phong-dien.pdf · 1.4 MB">
         <div class="drop-icon">CCK</div>
         <div class="drop-body">
           <h4>Chữa cháy bằng khí</h4>
-          <p class="hint">Sol-khí, CO₂, FM200/Novec, IG — thường cho phòng kỹ thuật/điện — đối chiếu MĐC B5</p>
+          <p class="hint">Sol-khí, CO₂, FM200/Novec, IG — thường cho phòng kỹ thuật/điện</p>
           <span class="drop-meta">PDF, ảnh scan · tối đa 15MB · cần đăng nhập</span>
           <span class="drop-status">○ Chưa đính kèm</span>
         </div>
@@ -866,17 +867,7 @@
         <div class="drop-icon">CNN</div>
         <div class="drop-body">
           <h4>Cấp nước ngoài nhà</h4>
-          <p class="hint">Trụ nước, bể/hồ dự trữ ngoài nhà — đối chiếu MĐC B6</p>
-          <span class="drop-meta">PDF, ảnh scan · tối đa 15MB · cần đăng nhập</span>
-          <span class="drop-status">○ Chưa đính kèm</span>
-        </div>
-      </button>
-
-      <button type="button" class="drop-card" data-slot="trambom" data-file="TB-tram-bom-chua-chay.pdf · 2.3 MB">
-        <div class="drop-icon">TB</div>
-        <div class="drop-body">
-          <h4>Trạm bơm chữa cháy</h4>
-          <p class="hint">Sơ đồ bơm chính/dự phòng/bù áp, bể nước — đối chiếu MĐC B7</p>
+          <p class="hint">Trụ nước chữa cháy ngoài nhà — chỉ cần khi công trình có yêu cầu riêng — đối chiếu MĐC B4</p>
           <span class="drop-meta">PDF, ảnh scan · tối đa 15MB · cần đăng nhập</span>
           <span class="drop-status">○ Chưa đính kèm</span>
         </div>

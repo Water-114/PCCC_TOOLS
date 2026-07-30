@@ -18,11 +18,17 @@ TEMPLATE_PATHS = {
     "thuong": TEMPLATES_DIR / "B1_bao_chay_thuong.docx",
     "dia_chi": TEMPLATES_DIR / "B2_bao_chay_dia_chi.docx",
     "dien_pccc": TEMPLATES_DIR / "B14_dien_pccc.docx",
+    "tram_bom": TEMPLATES_DIR / "B3_tram_bom.docx",
+    "hong_nuoc": TEMPLATES_DIR / "B5_hong_nuoc.docx",
+    "chua_chay_tu_dong": TEMPLATES_DIR / "B6_chua_chay_tu_dong.docx",
 }
 TEMPLATE_FILENAMES = {
     "thuong": "B1_MDC_bao_chay_thuong.docx",
     "dia_chi": "B2_MDC_bao_chay_dia_chi.docx",
     "dien_pccc": "B14_MDC_dien_pccc.docx",
+    "tram_bom": "B3_MDC_tram_bom.docx",
+    "hong_nuoc": "B5_MDC_hong_nuoc.docx",
+    "chua_chay_tu_dong": "B6_MDC_chua_chay_tu_dong.docx",
 }
 
 COL_DOI_CHIEU = 1

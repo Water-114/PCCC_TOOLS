@@ -21,6 +21,7 @@
     baochay: {
       endpoint: '/api/aiho/read-baochay',
       label: 'Báo cháy tự động',
+      estimatedSeconds: 150, // theo thời gian thực đo được (~134s cho 47 tiêu chí), cộng thêm dự phòng
       summarize: function(data){
         var items = data.items || [];
         var status = 'ok';
@@ -33,11 +34,26 @@
     dienpccc: {
       endpoint: '/api/aiho/read-dienpccc',
       label: 'Điện PCCC',
+      estimatedSeconds: 60, // theo thời gian thực đo được (~45s cho 17 tiêu chí), cộng thêm dự phòng
       summarize: function(data){
         var items = data.items || [];
         var status = 'ok';
         if(items.some(function(it){ return it.ket_luan === 'chua_dat'; })) status = 'bad';
         else if(items.some(function(it){ return it.ket_luan === 'chua_the_hien'; })) status = 'warn';
+        return {status: status, note: data.tong_ket || ''};
+      }
+    },
+    ccnuoc: {
+      endpoint: '/api/aiho/read-ccnuoc',
+      label: 'Chữa cháy bằng nước',
+      estimatedSeconds: 150, // gộp 3 mẫu B3/B5/B6 chạy song song ở backend, giới hạn bởi B6 (48 tiêu chí) — ngang báo cháy
+      summarize: function(data){
+        var forms = data.forms || {};
+        var allItems = [];
+        Object.keys(forms).forEach(function(k){ allItems = allItems.concat(forms[k].items || []); });
+        var status = 'ok';
+        if(allItems.some(function(it){ return it.ket_luan === 'chua_dat'; })) status = 'bad';
+        else if(allItems.some(function(it){ return it.ket_luan === 'chua_the_hien'; })) status = 'warn';
         return {status: status, note: data.tong_ket || ''};
       }
     }
@@ -216,10 +232,9 @@
   var SLOT_MOCK = {
     kientruc: {status:'ok', note:'Xác định công năng: văn phòng hỗn hợp, 8 tầng nổi + 1 tầng hầm, ΣF ≈ 4.200 m².'},
     baochay: {status:'warn', note:'Thiếu thông tin loại trung tâm báo cháy và số zone trên sơ đồ nguyên lý.'},
-    ccnuoc: {status:'ok', note:'Họng nước trong nhà và sprinkler khớp với Bảng A.1 — chưa phát hiện thiếu sót.'},
+    ccnuoc: {status:'warn', note:'Chưa rõ bơm bù áp có khởi động độc lập với bơm chính hay không; họng nước trong nhà và sprinkler khớp với Bảng A.1.'},
     cckhi: {status:'bad', note:'Chưa thấy tính toán nồng độ thiết kế d₁, f₂ cho phòng điện — cần bổ sung.'},
     capnuocngoai: {status:'ok', note:'Trụ nước ngoài nhà bố trí đủ theo bán kính bảo vệ.'},
-    trambom: {status:'warn', note:'Chưa rõ bơm bù áp có khởi động độc lập với bơm chính hay không.'},
     binhcc: {status:'ok', note:'Số lượng và khoảng cách bình xách tay phù hợp TCVN 7435-1.'},
     densucco: {status:'warn', note:'Một số vị trí đèn chỉ dẫn thoát nạn cách nhau quá 20 m.'},
     dienpccc: {status:'ok', note:'Có cấp nguồn ưu tiên riêng, dây dẫn ghi chú chống cháy 70 phút.'}
@@ -269,26 +284,36 @@
     }).join(SECTION_DIVIDER);
   }
 
+  function itemsForMdcFile(d, fileEntry){
+    // ccnuoc gom nhiều mẫu (d.forms[loai].items); báo cháy/điện chỉ 1 mẫu (d.items).
+    if(d.forms && d.forms[fileEntry.loai]) return d.forms[fileEntry.loai].items || [];
+    return d.items || [];
+  }
+
   function renderMdcReal(sections){
     return sections.map(function(sec){
       var d = sec.data;
-      if(d.mdc_docx_base64){
-        var items = d.items || [];
-        var knCount = items.filter(function(it){ return it.ket_luan !== 'dat'; }).length;
-        var datCount = items.length - knCount;
-        var dataUrl = 'data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,' + d.mdc_docx_base64;
-        return '<h4>Mẫu đối chiếu (MĐC) đã điền — ' + sec.label + '</h4>' +
-          '<p>Đã điền ' + items.length + ' mục đối chiếu: ' + datCount + ' Đạt, ' + knCount + ' cần kiến nghị (KN).</p>' +
-          '<a class="btn-main" style="display:inline-block;text-decoration:none;text-align:center" download="' + d.mdc_docx_filename + '" href="' + dataUrl + '">Tải file MĐC (.docx)</a>';
-      }
-      return '<h4>Mẫu đối chiếu (MĐC) đã điền — ' + sec.label + '</h4><p style="color:var(--red-deep)">' + d.mdc_docx_error + '</p>';
+      var filesHtml = (d.mdc_docx_files || []).map(function(f){
+        if(f.base64){
+          var items = itemsForMdcFile(d, f);
+          var knCount = items.filter(function(it){ return it.ket_luan !== 'dat'; }).length;
+          var datCount = items.length - knCount;
+          var dataUrl = 'data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,' + f.base64;
+          return '<div style="margin-top:12px">' +
+            '<p><b>' + f.label + '</b> — đã điền ' + items.length + ' mục đối chiếu: ' + datCount + ' Đạt, ' + knCount + ' cần kiến nghị (KN).</p>' +
+            '<a class="btn-main" style="display:inline-block;text-decoration:none;text-align:center" download="' + f.filename + '" href="' + dataUrl + '">Tải file MĐC (.docx)</a>' +
+            '</div>';
+        }
+        return '<div style="margin-top:12px"><p><b>' + f.label + '</b></p><p style="color:var(--red-deep)">' + f.error + '</p></div>';
+      }).join('');
+      return '<h4>Mẫu đối chiếu (MĐC) đã điền — ' + sec.label + '</h4>' + filesHtml;
     }).join(SECTION_DIVIDER);
   }
 
   function outputPreviewHtml(key){
     switch(key){
       case 'mdc':
-        var mdcSections = collectRealSections(function(d){ return d.mdc_docx_base64 || d.mdc_docx_error; });
+        var mdcSections = collectRealSections(function(d){ return d.mdc_docx_files && d.mdc_docx_files.length; });
         if(mdcSections.length) return renderMdcReal(mdcSections);
         return '<h4>Mẫu đối chiếu (MĐC) đã điền — trích đoạn</h4>' +
           '<div class="tbl-wrap"><table><thead><tr><th>Mẫu</th><th>Kết luận</th><th>Ghi chú</th></tr></thead><tbody>' +
@@ -355,6 +380,23 @@
   var processingText = document.getElementById('aihoProcessingText');
   var resultsSection = document.getElementById('aihoResults');
 
+  /* ---- Khoá/mở khu vực chọn kết quả đầu ra trong lúc đang phân tích ---- */
+  function setOutputPickerLocked(locked){
+    if(locked){
+      panel.classList.remove('open');
+      trigger.setAttribute('aria-expanded', 'false');
+    }
+    trigger.disabled = locked;
+    Array.prototype.forEach.call(panel.querySelectorAll('input'), function(input){ input.disabled = locked; });
+    Array.prototype.forEach.call(roundStepper.querySelectorAll('button'), function(btn){ btn.disabled = locked; });
+  }
+
+  function fmtElapsed(sec){
+    if(sec < 60) return sec + ' giây';
+    var m = Math.floor(sec / 60), s = sec % 60;
+    return m + ' phút' + (s ? ' ' + s + ' giây' : '');
+  }
+
   cta.addEventListener('click', function(){
     if(!currentUser){
       window.openAuthModal();
@@ -365,21 +407,39 @@
     resultsSection.hidden = true;
     processing.hidden = false;
     cta.disabled = true;
+    setOutputPickerLocked(true);
 
     var activeSlots = Object.keys(REAL_CATEGORIES).filter(function(slot){ return !!realFiles[slot]; });
     activeSlots.forEach(function(slot){ realResults[slot] = null; realData[slot] = null; });
 
-    var steps = ['Đang đọc bản vẽ đã đính kèm…', 'Đang đối chiếu với mẫu MĐC B1–B14…', 'Đang tổng hợp kết quả đầu ra…'];
-    var i = 0;
-    processingText.textContent = steps[0];
-    processingFill.style.width = '8%';
-    var interval = setInterval(function(){
-      i++;
-      if(i < steps.length){
-        processingText.textContent = steps[i];
-        processingFill.style.width = (8 + i * 42) + '%';
+    var interval;
+
+    if(activeSlots.length){
+      // Ước lượng theo hạng mục chậm nhất đang chạy (chạy song song, không cộng dồn thời gian).
+      var estimatedSec = Math.max.apply(null, activeSlots.map(function(slot){ return REAL_CATEGORIES[slot].estimatedSeconds; }));
+      var startedAt = Date.now();
+      function updateRealProgress(){
+        var elapsedSec = Math.floor((Date.now() - startedAt) / 1000);
+        var percent = Math.min(92, 5 + (elapsedSec / estimatedSec) * 87);
+        processingFill.style.width = percent + '%';
+        processingText.textContent = 'Đang đọc bản vẽ và đối chiếu — đã chờ ' + fmtElapsed(elapsedSec) + ' (dự kiến khoảng ' + fmtElapsed(estimatedSec) + ')…';
       }
-    }, 700);
+      updateRealProgress();
+      interval = setInterval(updateRealProgress, 1000);
+    } else {
+      // Không có hạng mục AI thật nào được đính — chỉ mô phỏng nhanh cho mục đích xem giao diện.
+      var steps = ['Đang đọc bản vẽ đã đính kèm…', 'Đang đối chiếu với mẫu MĐC B1–B14…', 'Đang tổng hợp kết quả đầu ra…'];
+      var i = 0;
+      processingText.textContent = steps[0];
+      processingFill.style.width = '8%';
+      interval = setInterval(function(){
+        i++;
+        if(i < steps.length){
+          processingText.textContent = steps[i];
+          processingFill.style.width = (8 + i * 42) + '%';
+        }
+      }, 700);
+    }
 
     function finishUp(){
       clearInterval(interval);
@@ -387,6 +447,7 @@
       setTimeout(function(){
         processing.hidden = true;
         processingFill.style.width = '0%';
+        setOutputPickerLocked(false);
         renderResultTable();
         renderOutputPreviews();
         resultsSection.hidden = false;
@@ -421,6 +482,7 @@
               clearInterval(interval);
               processing.hidden = true;
               cta.disabled = false;
+              setOutputPickerLocked(false);
               msg.textContent = r.data.error || 'Phiên đăng nhập đã hết hạn — vui lòng đăng nhập lại.';
               msg.classList.add('show');
               window.openAuthModal();
