@@ -1,5 +1,10 @@
 window.PcccAuth = (function(){
-  var BACKEND_BASE = 'http://127.0.0.1:5000';
+  // Khi chạy local qua server tĩnh riêng (vd. python -m http.server ở cổng khác 5000) thì
+  // gọi thẳng tới Flask dev server ở cổng 5000. Khi đã lên production (Render), backend
+  // phục vụ luôn cả index.html/css/js cùng domain nên gọi API cùng gốc (rỗng = same-origin),
+  // không cần biết trước domain thật.
+  var isLocalDev = (location.hostname === '127.0.0.1' || location.hostname === 'localhost') && location.port !== '5000';
+  var BACKEND_BASE = isLocalDev ? 'http://127.0.0.1:5000' : '';
   var TOKEN_KEY = 'pcccAuthToken';
   var currentUser = null;
   var listeners = [];

@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: pccc-tuvan
+    env: python
+    plan: free
+    rootDir: backend
+    buildCommand: "pip install -r requirements.txt && flask db upgrade"
+    startCommand: "gunicorn run:app --bind 0.0.0.0:$PORT"
+    envVars:
+      - key: FLASK_APP
+        value: run:app
+      - key: SECRET_KEY
+        generateValue: true
+      - key: AI_PROVIDER
+        value: claude
+      - key: ANTHROPIC_MODEL
+        value: claude-sonnet-5
+      - key: AIHO_DAILY_QUOTA
+        value: "5"
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
