@@ -20,6 +20,7 @@ class ClaudeProvider(AIProvider):
         message = client.messages.create(
             model=self.model,
             max_tokens=1024,
+            thinking={"type": "disabled"},
             messages=[{"role": "user", "content": prompt}],
         )
         return "".join(
@@ -35,9 +36,13 @@ class ClaudeProvider(AIProvider):
         import anthropic
 
         client = anthropic.Anthropic(api_key=self.api_key)
-        message = client.messages.create(
+        # max_tokens lớn (đủ cho ~50 dòng tiêu chí + kiến nghị) buộc phải dùng streaming —
+        # request non-streaming của Anthropic giới hạn 10 phút, dễ bị từ chối ở mức token này.
+        with client.messages.stream(
             model=self.model,
-            max_tokens=4096,
+            max_tokens=32000,
+            thinking={"type": "adaptive"},
+            output_config={"effort": "high"},
             system=system_prompt,
             messages=[{
                 "role": "user",
@@ -46,7 +51,8 @@ class ClaudeProvider(AIProvider):
                     {"type": "text", "text": "Hãy đọc bản vẽ trên và trả lời theo đúng định dạng JSON đã yêu cầu."},
                 ],
             }],
-        )
+        ) as stream:
+            message = stream.get_final_message()
         return "".join(
             block.text for block in message.content if block.type == "text"
         )

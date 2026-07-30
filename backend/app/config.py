@@ -1,7 +1,12 @@
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+_BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Chỉ đích danh file .env theo vị trí của chính config.py — không dựa vào việc
+# tự dò tìm theo thư mục làm việc hiện tại (cwd), vốn có thể khác nhau tuỳ cách
+# khởi động backend (python run.py / flask run / reloader...) và từng gây lỗi
+# "Chưa cấu hình ANTHROPIC_API_KEY" dù .env đã có key.
+load_dotenv(os.path.join(_BASE_DIR, ".env"))
 
 
 class Config:
@@ -14,3 +19,9 @@ class Config:
     GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 
     FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
+
+    SECRET_KEY = os.getenv("SECRET_KEY", "doi-chuoi-nay-truoc-khi-dung-that-o-production")
+    SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL", f"sqlite:///{os.path.join(_BASE_DIR, 'app.db')}")
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+
+    AIHO_DAILY_QUOTA = int(os.getenv("AIHO_DAILY_QUOTA", "5"))

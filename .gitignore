@@ -10,6 +10,7 @@ backend/__pycache__/
 backend/**/__pycache__/
 backend/*.pyc
 backend/instance/
+backend/app.db
 
 # Env secrets (never commit)
 .env
