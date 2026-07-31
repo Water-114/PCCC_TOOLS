@@ -38,13 +38,13 @@ class ClaudeProvider(AIProvider):
         client = anthropic.Anthropic(api_key=self.api_key)
         # max_tokens lớn (đủ cho ~50 dòng tiêu chí + kiến nghị) buộc phải dùng streaming —
         # request non-streaming của Anthropic giới hạn 10 phút, dễ bị từ chối ở mức token này.
-        # effort "medium" (thay vì "high"): trên Render, request hay bị ngắt ở khoảng 6 phút
-        # do giới hạn ở tầng proxy trung gian (không chỉnh được qua gunicorn --timeout) —
-        # giảm effort giúp Claude trả lời nhanh hơn hẳn, vẫn đủ chính xác cho việc trích xuất
-        # theo tiêu chí có cấu trúc sẵn (không phải suy luận sáng tạo mở).
+        # 64000 (thay vì 32000): với bản vẽ thật phức tạp, phần "suy nghĩ" ẩn (thinking) của
+        # Claude có thể chiếm phần lớn max_tokens, khiến phần JSON hiển thị (47 tiêu chí +
+        # kiến nghị) bị cắt giữa chừng dù effort đã giảm — tăng tổng ngân sách token để còn
+        # đủ chỗ cho phần JSON hiển thị hoàn tất, dù thinking dùng bao nhiêu đi nữa.
         with client.messages.stream(
             model=self.model,
-            max_tokens=32000,
+            max_tokens=64000,
             thinking={"type": "adaptive"},
             output_config={"effort": "medium"},
             system=system_prompt,

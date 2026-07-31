@@ -42,4 +42,13 @@ def read_drawing_json(file_bytes: bytes, media_type: str, provider, system_promp
     try:
         return json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise AIReaderError(f"AI trả về không đúng định dạng JSON: {exc}. Nội dung nhận được: {raw[:300]}")
+        # Trích đoạn quanh đúng vị trí lỗi (exc.pos) — hữu ích hơn nhiều so với chỉ hiện
+        # đầu chuỗi, vì lỗi "Unterminated string" thường xảy ra ở cuối văn bản AI trả về
+        # (bị cắt giữa chừng do hết max_tokens), cách xa phần đầu.
+        start = max(0, exc.pos - 200)
+        snippet = raw[start:exc.pos + 50]
+        raise AIReaderError(
+            f"AI trả về không đúng định dạng JSON: {exc}. "
+            f"Tổng độ dài phản hồi: {len(raw)} ký tự. "
+            f"Đoạn quanh vị trí lỗi: ...{snippet}..."
+        )
