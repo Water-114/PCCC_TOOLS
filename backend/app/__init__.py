@@ -111,6 +111,7 @@ def create_app(config_overrides=None):
     from .routes.tham_dinh import bp as tham_dinh_bp
     from .routes.he_thong_bat_buoc import bp as he_thong_bat_buoc_bp
     from .routes.nuoc_chua_chay import bp as nuoc_chua_chay_bp
+    from .routes.phuong_tien import bp as phuong_tien_bp
     from .routes.drive import bp as drive_bp
     from .routes.aiho import bp as aiho_bp
     from .routes.auth import bp as auth_bp
@@ -122,6 +123,7 @@ def create_app(config_overrides=None):
     app.register_blueprint(tham_dinh_bp)
     app.register_blueprint(he_thong_bat_buoc_bp)
     app.register_blueprint(nuoc_chua_chay_bp)
+    app.register_blueprint(phuong_tien_bp)
     app.register_blueprint(drive_bp)
     app.register_blueprint(aiho_bp)
     app.register_blueprint(auth_bp)

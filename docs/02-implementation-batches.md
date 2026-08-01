@@ -143,26 +143,43 @@ tính tham khảo — không phải điều kiện chặn merge.
     undefined) thay vì báo lỗi rõ ràng — bản port trả về kết quả lỗi mềm
     (không phải ngưỡng/công thức, chỉ là xử lý input thiếu để tránh 500 ở
     route, đúng yêu cầu validation của batch này).
+- **Cụm 4 (phương tiện & hạng mục khác — Phụ lục D/E/F/G QCVN 10:2025/BCA,
+  TCVN 7435-1:2004, TCVN 13456:2022):** đã port
+  `backend/app/services/phuong_tien.py` (6 hàm:
+  `evaluate_pha_do`/`evaluate_mat_na`/`evaluate_co_gioi`/`evaluate_loa`/
+  `evaluate_binh`/`evaluate_den`, khớp `evalPhaDo`/`evalMatNa`/`evalCoGioi`/
+  `evalLoa`/`evalBinh`/`evalDen` trong JS) + route `/api/phuong-tien/evaluate`.
+  Xác nhận bằng 52 golden test + 19 test validation route (bổ sung 2 trường
+  mới `extLevel` enum và `pplFloor` số nguyên không âm tuỳ chọn).
+  - Cụm này khác 3 cụm trước: 2 hàm (`evaluate_binh`, `evaluate_den`) LUÔN
+    trả `result="yes"` — không phải quyết định ngưỡng mà tính/liệt kê NỘI
+    DUNG cụ thể (số lượng bình chữa cháy theo công thức
+    `n=max(ceil(areaFloor/dt), min)`; danh sách vị trí lắp đèn sự cố + ghi
+    chú có điều kiện). Golden test cho 2 hàm này kiểm tra đúng công thức/
+    ranh giới số học và đúng nội dung xuất hiện theo điều kiện, không phải
+    so sánh yes/no như các cụm khác.
+  - `evaluate_loa` có 5 điều kiện (TT1, TT2, TT3, TT4, TT6) **độc lập, có
+    thể đạt đồng thời** — đã port đúng cơ chế gom nhiều "hit" thay vì
+    if/elif loại trừ nhau như các cụm trước.
 - Owner quyết định: **giữ nguyên giao diện tính client-side trong giai đoạn
   này** — chưa chuyển frontend sang gọi API cho bất kỳ cụm nào, chưa xoá
   logic JS cũ; backend chỉ đóng vai trò "đối chiếu song song" (golden test),
   chưa phải nguồn duy nhất được frontend gọi tới.
-- Cụm còn lại (phương tiện) tiếp tục theo đúng hướng này khi được yêu cầu —
-  khảo sát, port sang backend có golden test, chưa chuyển frontend/xoá JS.
+- **Cả 4 cụm của Batch 3 đã port xong** (thẩm định, hệ thống bắt buộc,
+  nước chữa cháy, phương tiện) — chưa có cụm nào được frontend gọi tới.
 
 **Công việc**
 
-- Viết API contract cho rule results bằng schema rõ ràng — **cụm thẩm định,
-  hệ thống bắt buộc và nước chữa cháy đã có**; cụm phương tiện chưa làm.
+- Viết API contract cho rule results bằng schema rõ ràng — **cả 4 cụm đã có**.
 - Di chuyển theo từng cụm rule từ `js/tuvan-so-bo.js` vào backend service có
   test; **frontend TẠM THỜI vẫn tính client-side** cho mọi cụm — việc
   "frontend chỉ render API response" hoãn lại tới khi owner xác nhận chuyển đổi.
 - Mỗi rule có `rule_set_version`, nguồn, điều kiện đầu vào và test
-  dưới/bằng/trên ngưỡng — đã có cho cụm 1, 2, 3; "ngày hiệu lực" cụ thể
+  dưới/bằng/trên ngưỡng — đã có cho cả 4 cụm; "ngày hiệu lực" cụ thể
   chưa có (nguồn hiện chỉ trích dẫn tên văn bản chung, vd. "NĐ 105/2025",
   "QCVN 10:2025/BCA", "TCVN 14496:2025"), chỉ mang tính tham khảo thêm khi
   có, không phải điều kiện bắt buộc.
-- Chỉ chuyển một cụm mỗi PR: thẩm định -> hệ thống bắt buộc -> nước -> phương tiện.
+- Chỉ chuyển một cụm mỗi PR: thẩm định -> hệ thống bắt buộc -> nước -> phương tiện — **đã xong cả 4**.
 - Loại bỏ logic JS trùng lặp: **hoãn lại cho mọi cụm**, chỉ làm sau khi owner
   xác nhận chuyển frontend sang gọi API.
 
@@ -175,7 +192,9 @@ tính tham khảo — không phải điều kiện chặn merge.
       64 test tra bảng + 6 test end-to-end cụm nước chữa cháy (bao gồm 4 test
       regression cho lỗi mapping hXepM/hXepM2 đã sửa)
       (`backend/tests/test_nuoc_chua_chay_golden.py`,
-      `backend/tests/test_nuoc_chua_chay_evaluate.py`), tất cả pass.
+      `backend/tests/test_nuoc_chua_chay_evaluate.py`) +
+      52 test cụm phương tiện (`backend/tests/test_phuong_tien_golden.py`),
+      tất cả pass.
 - [x] Cảnh báo trách nhiệm chuyên môn thống nhất — hiển thị ở khu vực kết quả
       thẩm định (`js/tuvan-so-bo.js`, phần disclaimer cuối phiếu) và kết quả
       AI đọc bản vẽ (`index.html`, disclaimer tĩnh ngay sau `#aihoResults`).
