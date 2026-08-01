@@ -35,16 +35,18 @@ class ClaudeProvider(AIProvider):
 
         import anthropic
 
-        client = anthropic.Anthropic(api_key=self.api_key)
-        # max_tokens lớn (đủ cho ~50 dòng tiêu chí + kiến nghị) buộc phải dùng streaming —
-        # request non-streaming của Anthropic giới hạn 10 phút, dễ bị từ chối ở mức token này.
-        # 64000 (thay vì 32000): với bản vẽ thật phức tạp, phần "suy nghĩ" ẩn (thinking) của
-        # Claude có thể chiếm phần lớn max_tokens, khiến phần JSON hiển thị (47 tiêu chí +
-        # kiến nghị) bị cắt giữa chừng dù effort đã giảm — tăng tổng ngân sách token để còn
-        # đủ chỗ cho phần JSON hiển thị hoàn tất, dù thinking dùng bao nhiêu đi nữa.
+        # Timeout client thấp hơn timeout của gunicorn (900s) một chút — để nếu Claude thật
+        # sự chạy quá lâu, SDK tự ném lỗi rõ ràng (được bắt ở routes/aiho.py, trả về thông
+        # báo lỗi sạch cho người dùng) THAY VÌ bị gunicorn cắt kết nối giữa chừng trước,
+        # gây ra lỗi "Không kết nối được tới máy chủ AI" khó hiểu hơn nhiều.
+        client = anthropic.Anthropic(api_key=self.api_key, timeout=870.0)
+        # max_tokens = 128000 (mức tối đa Claude Sonnet 5 hỗ trợ khi dùng streaming): đây là
+        # NGÂN SÁCH TỐI ĐA được phép dùng, không phải mức luôn phải tốn — chi phí tính theo
+        # số token thực sự sinh ra, không theo mức trần này. Đặt cao để loại hẳn rủi ro bị
+        # cắt ngang JSON giữa chừng (đã gặp 2 lần ở mức thấp hơn) cho các bản vẽ phức tạp.
         with client.messages.stream(
             model=self.model,
-            max_tokens=64000,
+            max_tokens=128000,
             thinking={"type": "adaptive"},
             output_config={"effort": "medium"},
             system=system_prompt,
