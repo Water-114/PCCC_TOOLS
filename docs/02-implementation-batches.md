@@ -276,7 +276,7 @@ owner ở batch/thời điểm khác):**
 - Rủi ro cộng dồn timeout worst-case (retry mạng × retry-repair schema) nêu trên — đã giới hạn thực tế nhưng chưa airtight tuyệt đối ở trường hợp cực xấu lý thuyết.
 - Chưa gỡ package `google-generativeai` khỏi venv cục bộ (chỉ đổi `requirements.txt`) — không ảnh hưởng gì (không còn file nào import), chỉ là dọn dẹp không bắt buộc.
 
-## Batch 5A — Xác thực email, Bộ hồ sơ và chuyển khoản thủ công — **ĐANG TRIỂN KHAI (sub-bước 2/? đã xong)**
+## Batch 5A — Xác thực email, Bộ hồ sơ và chuyển khoản thủ công — **ĐANG TRIỂN KHAI (sub-bước 3/? đã xong)**
 
 **Mục tiêu:** chuyển mô hình quota "N lượt/ngày" hiện tại sang mô hình
 "Bộ hồ sơ" trả trước (credit-based), có xác thực email và nạp thêm bằng
@@ -417,6 +417,78 @@ quota AI đọc bản vẽ đang chạy thật):**
   — số liệu cũ vẫn xem được, chỉ đóng băng, không phải lỗi. **Cần bạn biết**
   nếu trang admin đó vẫn đang được dùng để theo dõi mức sử dụng AIHO thực tế.
 
+**Tiến độ — Sub-bước 3 (route nạp tiền + xác nhận/từ chối admin — CHỈ backend,
+chưa có UI/HTML thật):**
+
+- **State machine 3 trạng thái** (đã sửa lại theo đúng yêu cầu, sau khi bạn
+  chỉnh 1 bản nháp đầu gộp sai thành 1 bước):
+  `cho_chuyen_khoan` (vừa tạo, nháp — **CHƯA vào hàng đợi admin**) →
+  `cho_xac_nhan` (user tự bấm "Tôi đã chuyển khoản") →
+  `da_xac_nhan` | `tu_choi` (admin quyết định, trạng thái cuối). `status` đổi
+  default sang `'cho_chuyen_khoan'` — chỉ là default Python-side của
+  SQLAlchemy (`default=`, không phải `server_default`), không cần migration
+  riêng cho việc này.
+- **Đổi tên cột trung lập**: `TopupRequest.confirmed_at`/`confirmed_by_admin_id`
+  → `reviewed_at`/`reviewed_by_admin_id` (dùng chung cho cả xác nhận LẪN từ
+  chối, không thiên về "confirmed"). Vì bảng chưa deploy/chưa có dữ liệu thật,
+  đã sửa THẲNG vào migration `33a95593a87d` hiện có (không tạo migration mới)
+  — đã chạy lại `flask db migrate` để xác nhận **không còn lệch (drift)** giữa
+  `models.py` và migration sau khi đổi tên, và chạy upgrade thật trên SQLite
+  tạm để xác nhận đúng 2 cột mới tồn tại, 2 cột cũ không còn.
+- **Biến môi trường ngân hàng** (`BANK_ACCOUNT_NUMBER`/`BANK_ACCOUNT_NAME`/
+  `BANK_NAME`/`BANK_QR_URL`, thêm vào `config.py` + `.env.example` — **giá trị
+  RỖNG**, không có ví dụ/placeholder gần giống thật nào). Đã rà toàn bộ diff
+  bằng grep tên các ngân hàng phổ biến — xác nhận sạch, không lộ thông tin nào.
+- **`backend/app/services/topup.py`**: `_generate_reference_code()` sinh mã
+  dạng `BHS-XXXXXXXX` (bỏ ký tự dễ nhầm 0/O/1/I/L, kiểm tra unique trước khi
+  dùng). `bank_transfer_info()` raise `BankInfoNotConfigured` rõ ràng nếu
+  thiếu bất kỳ biến bắt buộc nào (số TK/tên chủ TK/ngân hàng — QR là tuỳ
+  chọn) — KHÔNG trả chuỗi rỗng ra UI như thể đó là thông tin thật.
+  `create_topup_request()` tạo với trạng thái `cho_chuyen_khoan`.
+  `confirm_transfer(request_id, user_id)` — hàm MỚI, chỉ chính chủ yêu cầu gọi
+  được (khác user hoặc không tồn tại đều coi là "không tìm thấy" — không lộ
+  sự tồn tại của yêu cầu người khác), chuyển sang `cho_xac_nhan`, KHÔNG cộng
+  gì. `confirm_topup_request()`/`reject_topup_request()` giờ CHỈ hợp lệ khi
+  đang `cho_xac_nhan` — cả `cho_chuyen_khoan` (user chưa xác nhận đã chuyển
+  khoản) lẫn trạng thái cuối kia đều bị chặn rõ ràng; cả 2 vẫn idempotent khi
+  gọi lại đúng trạng thái đích (không ghi ledger thêm, không cộng/đảo 2 lần).
+- **Route user** (`backend/app/routes/topup.py`, blueprint mới
+  `/api/topup/*`): `POST /request` (cần đăng nhập, giới hạn 10/giờ, tạo
+  `cho_chuyen_khoan`), `POST /<id>/confirm-transfer` (nút "Tôi đã chuyển
+  khoản" — route RIÊNG theo đúng lựa chọn mục 2, chỉ đổi trạng thái, không
+  cộng gì), `GET /ledger` (số dư + tối đa 200 dòng lịch sử ledger gần nhất,
+  mới nhất trước).
+- **Route admin** (thêm vào `routes/admin.py` — dùng đúng `@admin_required`
+  có sẵn): `GET /topup-requests` (mặc định chỉ hiện `cho_xac_nhan` — đơn còn
+  `cho_chuyen_khoan` sẽ KHÔNG xuất hiện; xem tất cả kể cả nháp qua
+  `?status=all`), `POST /topup-requests/<id>/confirm` (cộng đúng
+  `credits_to_grant` — hiện luôn là 5 — ghi `CreditLedger` reason=
+  `topup_confirmed`), `POST /topup-requests/<id>/reject`.
+- **Đăng ký blueprint mới** trong `app/__init__.py`, kèm thêm `/api/topup/*`
+  vào danh sách CORS mở rộng cho dev local (cùng nhóm với aiho/auth/admin/
+  feedback — sót bước này thì gọi từ frontend dev local sẽ bị CORS chặn).
+- **48 test** (đã viết lại toàn bộ 3 file test cho khớp state machine 3 trạng
+  thái + tên cột mới, cộng test mới cho `confirm_transfer` và cho đúng yêu
+  cầu "đơn `cho_chuyen_khoan` không hiện trong danh sách admin"):
+  `test_topup_service.py` (21, unit trực tiếp) + `test_topup_routes.py` (13,
+  route user, gồm cả `confirm-transfer`) + `test_admin_topup_routes.py` (12,
+  route admin, gồm 403 cho user thường, 400 khi thao tác sai trạng thái, và
+  test riêng xác nhận nháp không lọt vào danh sách mặc định lẫn `?status=all`
+  vẫn thấy đủ). `pytest -q` xác nhận **603/603 test backend pass** (từ 560),
+  chạy lại 3 lần liên tiếp không phát sinh flaky. `npm run lint` không đổi.
+- **1 lỗi thật phát hiện khi viết test (không phải lỗi nghiệp vụ)**: 3 test
+  route ban đầu bị `sqlite3.OperationalError: cannot start a transaction
+  within a transaction` — nguyên nhân do chính tôi viết dư 1 lớp
+  `with app.app_context():` lồng bên trong test, trong khi fixture `app`
+  (conftest.py) đã tự mở sẵn 1 app context bao trọn cả hàm test — lồng thêm
+  1 lớp nữa khiến tầng "BEGIN IMMEDIATE" (Batch 1) bị gọi 2 lần trên cùng 1
+  transaction. Đã sửa (bỏ lớp `with` dư) — lỗi ở cách viết test, không phải
+  ở `services/topup.py`.
+- **KHÔNG làm** (đúng phạm vi sub-bước 3): chưa có UI/HTML thật cho trang nạp
+  tiền và trang admin (chỉ route backend); chưa đổi thông báo "Chú ý trước
+  khi sử dụng"; chưa làm feedback bonus (5 góp ý hoàn thành +1 lượt hướng
+  dẫn) — 3 việc này đều nằm ngoài phạm vi sub-bước này theo đúng yêu cầu.
+
 **Chính sách nghiệp vụ (owner quyết định, giữ nguyên khi triển khai)**
 
 - Tài khoản xác thực email lần đầu được đúng **2 Bộ hồ sơ** dùng thử.
@@ -470,13 +542,16 @@ quota AI đọc bản vẽ đang chạy thật):**
   backend (chặn thật, không thể bypass) — **sub-bước 2**. Chưa có validate
   riêng ở frontend (xem giải thích ở gate kiểm tra bên dưới — UI hiện tại
   không thể chạm ngưỡng này nên chưa cần chặn sớm phía client).
-- [ ] Trang/luồng "Nạp thêm Bộ hồ sơ": tạo yêu cầu nạp với mã riêng, hiển thị
-  thông tin chuyển khoản (đọc từ biến môi trường), nút "Tôi đã chuyển khoản"
-  chỉ đổi trạng thái sang chờ — **chưa làm, sub-bước sau**.
-- [ ] Trang admin: danh sách yêu cầu nạp đang chờ, nút xác nhận thủ công (cộng
-  5 Bộ hồ sơ + ghi ledger), nút từ chối — **chưa làm, sub-bước sau**.
-- [ ] Trang người dùng: xem số dư Bộ hồ sơ còn lại + lịch sử ledger — **chưa
-  làm, sub-bước sau**.
+- [x] Luồng "Nạp thêm Bộ hồ sơ" (**backend only**, chưa có UI — sub-bước 3):
+  tạo yêu cầu nạp với mã riêng (trạng thái nháp `cho_chuyen_khoan`), hiển thị
+  thông tin chuyển khoản (đọc từ biến môi trường), route riêng cho nút "Tôi đã
+  chuyển khoản" (`confirm_transfer`, chuyển sang `cho_xac_nhan`, lúc này mới
+  vào hàng đợi admin) — đúng 2 bước như policy gốc.
+- [x] Route admin: danh sách yêu cầu nạp đang chờ, xác nhận thủ công (cộng 5
+  Bộ hồ sơ + ghi ledger), từ chối — **sub-bước 3** (`routes/admin.py`). Trang
+  admin (UI) chưa làm, chỉ có route.
+- [x] Route xem số dư Bộ hồ sơ còn lại + lịch sử ledger — **sub-bước 3**
+  (`GET /api/topup/ledger`). Trang người dùng (UI) chưa làm, chỉ có route.
 
 **Gate kiểm tra**
 
@@ -498,16 +573,23 @@ quota AI đọc bản vẽ đang chạy thật):**
   gọi AI thành công thì chưa phát sinh chi phí thật nào, hợp lý để hoàn dù
   nguyên nhân là gì. Nếu bạn muốn phân biệt chặt hơn (vd. lỗi định dạng file
   của người dùng thì KHÔNG hoàn dù toàn phiên thất bại), báo tôi làm thêm.
-- [ ] Test: chỉ admin mới gọi được endpoint xác nhận chuyển khoản; user thường
-  bị chặn (403) — **chưa làm, chưa có route xác nhận chuyển khoản (sub-bước sau)**.
-- [ ] Test: xác nhận chuyển khoản 2 lần cho cùng 1 yêu cầu không cộng 2 lần
-  (idempotent) — **chưa làm, sub-bước sau**.
+- [x] Test: chỉ admin mới gọi được endpoint xác nhận chuyển khoản; user thường
+  bị chặn (403) — **sub-bước 3**: `test_confirm_requires_admin` +
+  `test_reject_requires_admin` + `test_list_topup_requests_requires_admin`
+  (dùng đúng `@admin_required` có sẵn từ Batch 2, không tự viết cơ chế mới).
+- [x] Test: xác nhận chuyển khoản 2 lần cho cùng 1 yêu cầu không cộng 2 lần
+  (idempotent) — **sub-bước 3**: `test_confirm_twice_does_not_grant_twice` +
+  `test_admin_confirm_twice_does_not_grant_twice`. Cộng thêm (ngoài gate gốc,
+  hợp lý cần khoá lại): từ chối 1 yêu cầu đã xác nhận / xác nhận 1 yêu cầu đã
+  từ chối đều bị chặn rõ ràng (không tự đảo ngược ledger).
 - [ ] Test: đúng góp ý thứ 5 (Bộ hồ sơ đã hoàn thành) mới cộng +1 lượt hướng dẫn,
   không cộng lặp lại cho góp ý thứ 6, 7... trước khi đủ chu kỳ 5 tiếp theo —
-  **chưa làm, sub-bước sau**.
+  **chưa làm, sub-bước sau** (nằm ngoài phạm vi sub-bước 3 theo yêu cầu).
 - [x] Review: không có thông tin ngân hàng/QR nào xuất hiện trong git diff/log/docs
-  — sub-bước 1 chỉ thêm biến môi trường SMTP (không phải ngân hàng), khai báo
-  tên biến với giá trị rỗng trong `.env.example`, không có giá trị ví dụ nào.
+  — **sub-bước 3**: đã grep toàn bộ diff theo tên các ngân hàng phổ biến,
+  xác nhận sạch; `.env.example`/`config.py` chỉ khai tên 4 biến
+  `BANK_ACCOUNT_NUMBER`/`BANK_ACCOUNT_NAME`/`BANK_NAME`/`BANK_QR_URL`, giá
+  trị rỗng.
 - [x] Review: giới hạn 5 file/7 form MĐC được validate ở backend, không chỉ ở
   frontend — **sub-bước 2**: `ho_so_session.reserve_slot()` (backend, chặn
   thật, không thể bypass qua client) + `test_file_cap_exceeded_returns_400`/

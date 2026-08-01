@@ -66,6 +66,16 @@ class Config:
     SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
     SMTP_FROM_EMAIL = os.getenv("SMTP_FROM_EMAIL", "")
 
+    # Batch 5A sub-buoc 3: thong tin nhan chuyen khoan thu cong, CHI cau hinh
+    # qua bien moi truong - TUYET DOI khong dat gia tri vi du/placeholder nao o
+    # day hay trong .env.example (kem ca luc deploy that). Neu thieu bat ky bien
+    # nao trong 3 bien bat buoc (so TK/ten chu TK/ngan hang), routes/topup.py se
+    # tra loi ro rang thay vi lo chuoi rong ra UI nhu the la thong tin that.
+    BANK_ACCOUNT_NUMBER = os.getenv("BANK_ACCOUNT_NUMBER", "")
+    BANK_ACCOUNT_NAME = os.getenv("BANK_ACCOUNT_NAME", "")
+    BANK_NAME = os.getenv("BANK_NAME", "")
+    BANK_QR_URL = os.getenv("BANK_QR_URL", "")  # tuy chon - anh QR (neu co)
+
     # Gioi han kich thuoc toan bo request body o tang Flask/Werkzeug — chan som (413)
     # truoc khi buffer het vao RAM, thay vi chi dua vao kiem tra thu cong sau khi da
     # doc het file trong aiho.py (MAX_BYTES = 15MB/file). Co bien du cho multipart

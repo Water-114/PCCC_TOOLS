@@ -74,6 +74,7 @@ def create_app(config_overrides=None):
         r"/api/auth/*": {"origins": _wide_cors_origins},
         r"/api/feedback*": {"origins": _wide_cors_origins},
         r"/api/admin/*": {"origins": _wide_cors_origins},
+        r"/api/topup/*": {"origins": _wide_cors_origins},
     })
 
     @app.after_request
@@ -117,6 +118,7 @@ def create_app(config_overrides=None):
     from .routes.auth import bp as auth_bp
     from .routes.feedback import bp as feedback_bp
     from .routes.admin import bp as admin_bp
+    from .routes.topup import bp as topup_bp
 
     app.register_blueprint(water_bp)
     app.register_blueprint(ai_bp)
@@ -129,6 +131,7 @@ def create_app(config_overrides=None):
     app.register_blueprint(auth_bp)
     app.register_blueprint(feedback_bp)
     app.register_blueprint(admin_bp)
+    app.register_blueprint(topup_bp)
 
     @app.get("/api/health")
     def health():

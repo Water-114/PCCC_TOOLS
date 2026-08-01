@@ -1,11 +1,12 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, g, jsonify, request
 from sqlalchemy import func
 from sqlalchemy.orm import joinedload
 
 from ..auth import admin_required
 from ..config import Config
 from ..extensions import db
-from ..models import AIHO_API_NAME, Feedback, User, UsageLog, _start_of_day_utc, count_usage_today
+from ..models import AIHO_API_NAME, Feedback, TopupRequest, User, UsageLog, _start_of_day_utc, count_usage_today
+from ..services import topup
 
 bp = Blueprint("admin", __name__, url_prefix="/api/admin")
 
@@ -149,3 +150,63 @@ def feedback():
         "total": pagination.total,
         "pages": pagination.pages,
     })
+
+
+def _topup_request_dict(r: TopupRequest) -> dict:
+    return {
+        "id": r.id,
+        "reference_code": r.reference_code,
+        "amount_vnd": r.amount_vnd,
+        "credits_to_grant": r.credits_to_grant,
+        "status": r.status,
+        "user_email": r.user.email if r.user else None,
+        "created_at": r.created_at.isoformat(),
+        "reviewed_at": r.reviewed_at.isoformat() if r.reviewed_at else None,
+    }
+
+
+@bp.get("/topup-requests")
+@admin_required
+def topup_requests():
+    # Mac dinh chi hien "dang cho" (dung yeu cau goc: "danh sach yeu cau nap
+    # dang cho") - cho phep xem trang thai khac/tat ca qua ?status= khi can doi
+    # chieu lich su, khong can them endpoint rieng.
+    status_filter = request.args.get("status", "cho_xac_nhan")
+    page, per_page = _pagination_params()
+    query = TopupRequest.query.options(joinedload(TopupRequest.user))
+    if status_filter and status_filter != "all":
+        query = query.filter_by(status=status_filter)
+    pagination = query.order_by(TopupRequest.created_at.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    return jsonify({
+        "topup_requests": [_topup_request_dict(r) for r in pagination.items],
+        "page": pagination.page,
+        "per_page": per_page,
+        "total": pagination.total,
+        "pages": pagination.pages,
+    })
+
+
+@bp.post("/topup-requests/<int:request_id>/confirm")
+@admin_required
+def confirm_topup_request(request_id):
+    try:
+        row = topup.confirm_topup_request(request_id, g.current_user.id)
+    except topup.TopupRequestNotFound as exc:
+        return jsonify({"error": str(exc)}), 404
+    except topup.InvalidTopupStatusTransition as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify(_topup_request_dict(row))
+
+
+@bp.post("/topup-requests/<int:request_id>/reject")
+@admin_required
+def reject_topup_request(request_id):
+    try:
+        row = topup.reject_topup_request(request_id, g.current_user.id)
+    except topup.TopupRequestNotFound as exc:
+        return jsonify({"error": str(exc)}), 404
+    except topup.InvalidTopupStatusTransition as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify(_topup_request_dict(row))

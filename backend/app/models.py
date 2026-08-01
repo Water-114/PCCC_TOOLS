@@ -140,9 +140,14 @@ class CreditLedger(db.Model):
 
 
 class TopupRequest(db.Model):
-    """Yêu cầu nạp thêm Bộ hồ sơ bằng chuyển khoản thủ công (Batch 5A) — CHƯA có
-    route nào dùng tới bảng này ở sub-bước 1 (chỉ tạo schema trước theo đúng
-    phạm vi), sẽ dùng khi làm luồng "Nạp thêm Bộ hồ sơ" + trang admin xác nhận."""
+    """Yêu cầu nạp thêm Bộ hồ sơ bằng chuyển khoản thủ công (Batch 5A). Sub-bước 1
+    chỉ tạo schema; sub-bước 3 dùng thật qua routes/topup.py (tạo yêu cầu, user
+    tự xác nhận đã chuyển khoản) và routes/admin.py (admin xác nhận/từ chối).
+
+    State machine 3 trạng thái (sub-bước 3): 'cho_chuyen_khoan' (vừa tạo, user
+    chưa xác nhận đã chuyển khoản — CHƯA vào hàng đợi admin) -> 'cho_xac_nhan'
+    (user đã bấm "Tôi đã chuyển khoản", admin bắt đầu thấy trong danh sách) ->
+    'da_xac_nhan' | 'tu_choi' (admin quyết định, trạng thái cuối cùng)."""
 
     __tablename__ = "topup_request"
 
@@ -151,13 +156,16 @@ class TopupRequest(db.Model):
     reference_code = db.Column(db.String(40), nullable=False, unique=True, index=True)
     amount_vnd = db.Column(db.Integer, nullable=False, default=100000)
     credits_to_grant = db.Column(db.Integer, nullable=False, default=5)
-    status = db.Column(db.String(20), nullable=False, default="pending")  # 'pending' | 'confirmed' | 'rejected'
+    # 'cho_chuyen_khoan' | 'cho_xac_nhan' | 'da_xac_nhan' | 'tu_choi'
+    status = db.Column(db.String(20), nullable=False, default="cho_chuyen_khoan")
     created_at = db.Column(db.DateTime(timezone=True), default=_utcnow, nullable=False)
-    confirmed_at = db.Column(db.DateTime(timezone=True), nullable=True)
-    confirmed_by_admin_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    # Ten trung lap (khong phai "confirmed_*") vi cot nay dung chung cho CA
+    # hanh dong xac nhan LAN tu choi cua admin - xem services/topup.py.
+    reviewed_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    reviewed_by_admin_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
 
     user = db.relationship("User", foreign_keys=[user_id])
-    confirmed_by_admin = db.relationship("User", foreign_keys=[confirmed_by_admin_id])
+    reviewed_by_admin = db.relationship("User", foreign_keys=[reviewed_by_admin_id])
 
 
 class HoSoSession(db.Model):

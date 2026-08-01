@@ -55,9 +55,9 @@ def upgrade():
     sa.Column('credits_to_grant', sa.Integer(), nullable=False),
     sa.Column('status', sa.String(length=20), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-    sa.Column('confirmed_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('confirmed_by_admin_id', sa.Integer(), nullable=True),
-    sa.ForeignKeyConstraint(['confirmed_by_admin_id'], ['users.id'], ),
+    sa.Column('reviewed_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('reviewed_by_admin_id', sa.Integer(), nullable=True),
+    sa.ForeignKeyConstraint(['reviewed_by_admin_id'], ['users.id'], ),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
