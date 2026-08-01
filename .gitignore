@@ -1,8 +1,12 @@
 # Node / frontend
+node_modules/
 frontend/node_modules/
 frontend/dist/
 frontend/.vite/
 frontend/*.local
+
+# Python / backend test artifacts
+backend/.pytest_cache/
 
 # Python / backend
 backend/venv/

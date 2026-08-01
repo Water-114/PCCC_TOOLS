@@ -1109,14 +1109,19 @@ function render(d){
       </table></div>
       <div class="nhanxet" style="margin-top:14px"><b>Nhận xét:</b><ul>${nx.map(x=>`<li>${x}</li>`).join("")}</ul></div>
       <div class="actions no-print" style="margin-top:16px">
-        <button type="button" class="btn-main" onclick="window.print()">In / xuất PDF phiếu</button>
-        <button type="button" class="btn-ghost" onclick="xuatWord()">Xuất Word (.doc)</button>
-        <button type="button" class="btn-ghost" onclick="themVaoSoSanh()">Thêm vào bảng so sánh</button>
+        <button type="button" class="btn-main" id="btnInPhieu">In / xuất PDF phiếu</button>
+        <button type="button" class="btn-ghost" id="btnXuatWord">Xuất Word (.doc)</button>
+        <button type="button" class="btn-ghost" id="btnThemSoSanh">Thêm vào bảng so sánh</button>
       </div>
       <div class="disclaimer">
         <b>Lưu ý sử dụng:</b> Phiếu này là kết quả <b>sàng lọc sơ bộ</b> theo logic cố định, dùng tham khảo nội bộ — không thay thế thẩm định chính thức của cơ quan Cảnh sát PCCC&amp;CNCH và không thay thế đánh giá của kỹ sư đối với trường hợp đặc thù (công năng hỗn hợp phức tạp; khu vực/gian phòng/thiết bị theo Bảng A.2/A.3/A.4; chống khói theo QCVN 06 Phụ lục D — xử lý ở bước riêng). Các ô đánh dấu ⚠️ dựng từ bản OCR, <b>bắt buộc đối chiếu bản gốc văn bản</b> trước khi sử dụng chính thức. TCVN 3890 đã hết hiệu lực — không dùng.
       </div>
     </section>`;
+  // Gan lai bang addEventListener (thay vi onclick="..." inline trong template
+  // string o tren) de CSP script-src 'self' khong can 'unsafe-inline'.
+  document.getElementById("btnInPhieu").addEventListener("click", () => window.print());
+  document.getElementById("btnXuatWord").addEventListener("click", xuatWord);
+  document.getElementById("btnThemSoSanh").addEventListener("click", themVaoSoSanh);
   $("phieu").classList.add("show");
   $("phieu").scrollIntoView({behavior:"smooth",block:"start"});
 }
@@ -1183,13 +1188,33 @@ function renderBangSoSanh(){
     ["Cấp nước ngoài nhà", x => BADGE[x.capNuocNgoai]],
     ["Bể nước sơ bộ", x => x.beNuoc != null ? fmt(Math.round(x.beNuoc)) + " m³" : "—"],
   ];
-  let html = "<tr><th>Tiêu chí</th>" + list.map(x =>
-    `<th>${x.nhan} <button type="button" onclick="xoaSoSanh(${x.id})" title="Xoá phương án này" style="border:none;background:none;color:var(--ink-soft);cursor:pointer;font-weight:700;font-size:13px">✕</button></th>`
-  ).join("") + "</tr>";
+  let bodyHtml = "";
   rows.forEach(([label, f]) => {
-    html += `<tr><td><b>${label}</b></td>` + list.map(x => `<td>${f(x)}</td>`).join("") + "</tr>";
+    bodyHtml += `<tr><td><b>${label}</b></td>` + list.map(x => `<td>${f(x)}</td>`).join("") + "</tr>";
   });
-  $("tblSoSanh").innerHTML = html;
+  $("tblSoSanh").innerHTML = bodyHtml;
+
+  // Dong dau: ten phuong an (x.nhan) do nguoi dung go qua prompt() trong
+  // themVaoSoSanh(), luu vao localStorage - khong dang tin cay. Dung
+  // createElement/textContent/addEventListener thay vi noi chuoi + onclick
+  // inline de tranh XSS luu qua localStorage va phu hop CSP script-src 'self'.
+  const headerRow = document.createElement("tr");
+  const thCrit = document.createElement("th");
+  thCrit.textContent = "Tiêu chí";
+  headerRow.appendChild(thCrit);
+  list.forEach(x => {
+    const th = document.createElement("th");
+    th.appendChild(document.createTextNode(x.nhan + " "));
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.title = "Xoá phương án này";
+    btn.style.cssText = "border:none;background:none;color:var(--ink-soft);cursor:pointer;font-weight:700;font-size:13px";
+    btn.textContent = "✕";
+    btn.addEventListener("click", () => xoaSoSanh(x.id));
+    th.appendChild(btn);
+    headerRow.appendChild(th);
+  });
+  $("tblSoSanh").insertBefore(headerRow, $("tblSoSanh").firstChild);
 }
 
 /* ---------- Sự kiện ---------- */

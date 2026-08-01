@@ -7,27 +7,86 @@
     try { return new Date(iso).toLocaleString('vi-VN'); } catch(e){ return iso; }
   }
 
+  function headerRow(labels){
+    var tr = document.createElement('tr');
+    labels.forEach(function(label){
+      var th = document.createElement('th');
+      th.textContent = label;
+      tr.appendChild(th);
+    });
+    return tr;
+  }
+
+  // Dung DOM API (textContent) thay vi noi chuoi + innerHTML cho moi gia tri
+  // nguoi dung/AI kiem soat (email, comment, feature...) - tranh XSS luu tru.
+  // Xem Batch 1 (docs/02-implementation-batches.md).
   function renderUsers(users){
-    var rows = '<tr><th>Email</th><th>Vai trò</th><th>Ngày tạo</th><th>Đã dùng / hạn mức hôm nay</th><th>Chỉnh hạn mức/ngày</th></tr>';
+    var table = document.getElementById('adminUsersTable');
+    table.innerHTML = '';
+    table.appendChild(headerRow(['Email', 'Vai trò', 'Ngày tạo', 'Đã dùng / hạn mức hôm nay', 'Chỉnh hạn mức/ngày']));
+
     users.forEach(function(u){
       var isCustom = u.daily_quota !== null && u.daily_quota !== undefined;
       var effective = isCustom ? u.daily_quota : u.default_quota;
-      rows += '<tr>' +
-        '<td>' + u.email + '</td>' +
-        '<td>' + u.role + '</td>' +
-        '<td>' + fmtDate(u.created_at) + '</td>' +
-        '<td>' + u.used_today + ' / ' + effective + '</td>' +
-        '<td>' +
-          '<span class="quota-edit">' +
-            '<input type="number" min="0" class="quota-input" value="' + effective + '">' +
-            '<button type="button" class="btn-quota-save" data-id="' + u.id + '">Lưu</button>' +
-            (isCustom ? '<button type="button" class="btn-quota-reset" data-id="' + u.id + '">Về mặc định (' + u.default_quota + ')</button>' : '<span class="hint-default">mặc định chung</span>') +
-          '</span>' +
-          '<span class="quota-err" hidden></span>' +
-        '</td>' +
-      '</tr>';
+      var tr = document.createElement('tr');
+
+      var tdEmail = document.createElement('td');
+      tdEmail.textContent = u.email;
+      tr.appendChild(tdEmail);
+
+      var tdRole = document.createElement('td');
+      tdRole.textContent = u.role;
+      tr.appendChild(tdRole);
+
+      var tdCreated = document.createElement('td');
+      tdCreated.textContent = fmtDate(u.created_at);
+      tr.appendChild(tdCreated);
+
+      var tdUsage = document.createElement('td');
+      tdUsage.textContent = u.used_today + ' / ' + effective;
+      tr.appendChild(tdUsage);
+
+      var tdQuota = document.createElement('td');
+      var span = document.createElement('span');
+      span.className = 'quota-edit';
+
+      var input = document.createElement('input');
+      input.type = 'number';
+      input.min = '0';
+      input.className = 'quota-input';
+      input.value = effective;
+      span.appendChild(input);
+
+      var saveBtn = document.createElement('button');
+      saveBtn.type = 'button';
+      saveBtn.className = 'btn-quota-save';
+      saveBtn.dataset.id = u.id;
+      saveBtn.textContent = 'Lưu';
+      span.appendChild(saveBtn);
+
+      if(isCustom){
+        var resetBtn = document.createElement('button');
+        resetBtn.type = 'button';
+        resetBtn.className = 'btn-quota-reset';
+        resetBtn.dataset.id = u.id;
+        resetBtn.textContent = 'Về mặc định (' + u.default_quota + ')';
+        span.appendChild(resetBtn);
+      } else {
+        var hint = document.createElement('span');
+        hint.className = 'hint-default';
+        hint.textContent = 'mặc định chung';
+        span.appendChild(hint);
+      }
+      tdQuota.appendChild(span);
+
+      var errEl = document.createElement('span');
+      errEl.className = 'quota-err';
+      errEl.hidden = true;
+      tdQuota.appendChild(errEl);
+
+      tr.appendChild(tdQuota);
+      table.appendChild(tr);
     });
-    document.getElementById('adminUsersTable').innerHTML = rows;
     wireQuotaControls();
   }
 
@@ -79,16 +138,28 @@
   }
 
   function renderFeedback(items){
+    var table = document.getElementById('adminFeedbackTable');
+    table.innerHTML = '';
     if(!items.length){
-      document.getElementById('adminFeedbackTable').innerHTML = '<tr><td style="color:var(--ink-soft)">Chưa có góp ý nào.</td></tr>';
+      var trEmpty = document.createElement('tr');
+      var tdEmpty = document.createElement('td');
+      tdEmpty.style.color = 'var(--ink-soft)';
+      tdEmpty.textContent = 'Chưa có góp ý nào.';
+      trEmpty.appendChild(tdEmpty);
+      table.appendChild(trEmpty);
       return;
     }
-    var rows = '<tr><th>Sao</th><th>Nhận xét</th><th>Người gửi</th><th>Tính năng</th><th>Thời gian</th></tr>';
+    table.appendChild(headerRow(['Sao', 'Nhận xét', 'Người gửi', 'Tính năng', 'Thời gian']));
     items.forEach(function(f){
       var stars = f.rating ? '★'.repeat(f.rating) + '☆'.repeat(5 - f.rating) : '—';
-      rows += '<tr><td>' + stars + '</td><td>' + (f.comment || '—') + '</td><td>' + (f.user_email || 'Ẩn danh') + '</td><td>' + f.feature + '</td><td>' + fmtDate(f.created_at) + '</td></tr>';
+      var tr = document.createElement('tr');
+      [stars, f.comment || '—', f.user_email || 'Ẩn danh', f.feature, fmtDate(f.created_at)].forEach(function(text){
+        var td = document.createElement('td');
+        td.textContent = text;
+        tr.appendChild(td);
+      });
+      table.appendChild(tr);
     });
-    document.getElementById('adminFeedbackTable').innerHTML = rows;
   }
 
   function loadDashboard(){
@@ -121,7 +192,12 @@
     dashboard.hidden = true;
     gate.hidden = false;
     if(user){
-      gate.innerHTML = 'Tài khoản <b>' + user.email + '</b> không có quyền quản trị.';
+      gate.innerHTML = '';
+      gate.appendChild(document.createTextNode('Tài khoản '));
+      var b = document.createElement('b');
+      b.textContent = user.email;
+      gate.appendChild(b);
+      gate.appendChild(document.createTextNode(' không có quyền quản trị.'));
     } else {
       gate.innerHTML = 'Cần đăng nhập bằng tài khoản có quyền quản trị để xem trang này.' +
         '<div class="actions" style="margin-top:10px"><button type="button" class="btn-main" id="adminLoginBtn">Đăng nhập</button></div>';

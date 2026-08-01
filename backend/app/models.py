@@ -9,6 +9,10 @@ from .extensions import db
 # tất cả cùng tính vào 1 hạn mức "N lượt/ngày" duy nhất, không tách riêng theo hạng mục.
 AIHO_API_NAME = "aiho_analysis"
 
+# Quota riêng cho /api/ai/comment (diễn giải kết quả tính nước — MVP frontend/) —
+# tách khỏi AIHO_API_NAME vì đây là tính năng khác, không liên quan tới đọc bản vẽ.
+AI_COMMENT_API_NAME = "ai_comment"
+
 
 def _utcnow():
     return datetime.now(timezone.utc)
@@ -45,21 +49,27 @@ class UsageLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
     api_name = db.Column(db.String(80), nullable=False)
-    status = db.Column(db.String(20), nullable=False)  # 'success' | 'error' | 'quota_exceeded'
+    status = db.Column(db.String(20), nullable=False)  # 'success' | 'error' | 'quota_exceeded' | 'pending'
     created_at = db.Column(db.DateTime(timezone=True), default=_utcnow, nullable=False, index=True)
 
     user = db.relationship("User")
 
 
+def _start_of_day_utc():
+    return datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+
+
 def count_usage_today(user_id: int, api_name: str) -> int:
-    """So luot da dung hom nay (theo gio UTC) — tinh ca 'success' lan 'error', vi ca hai deu la
-    1 lan da thuc su goi toi AI provider (khong tinh 'quota_exceeded', vi do chi la ban ghi bi chan)."""
-    now = datetime.now(timezone.utc)
-    start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    """So luot da dung hom nay (theo gio UTC) — tinh ca 'success', 'error' va 'pending':
+    'pending' la luot dang duoc "giu cho" ngay khi request bat dau (truoc khi goi AI xong),
+    de nhieu request dong thoi khong the cung luc "lot qua" kiem tra hen muc truoc khi bat
+    ky request nao kip ghi nhan (xem _reserve_usage_slot o routes/aiho.py). Khong tinh
+    'quota_exceeded' vi do chi la ban ghi bi chan, khong phai 1 luot da dung."""
+    start_of_day = _start_of_day_utc()
     return UsageLog.query.filter(
         UsageLog.user_id == user_id,
         UsageLog.api_name == api_name,
-        UsageLog.status.in_(("success", "error")),
+        UsageLog.status.in_(("success", "error", "pending")),
         UsageLog.created_at >= start_of_day,
     ).count()
 

@@ -5,17 +5,39 @@ chua chay tu dong (sprinkler/drencher), cap nuoc ngoai nha. Khong bao gom
 module kho ke cao (TCVN 14496) - de danh phase sau.
 """
 
+import math
+
+
+def _parse_number(payload: dict, key: str) -> float:
+    """Parse 1 truong so tu payload, tu choi ro rang moi truong hop khong hop le
+    (khong phai kieu vo huong, khong parse duoc, NaN/Infinity, hoac am) thay vi
+    de loi ro ri (TypeError khong bat duoc) hoac NaN lot vao ket qua tra ve."""
+    v = payload.get(key)
+    if v is None or v == "":
+        return 0.0
+    if isinstance(v, bool) or not isinstance(v, (int, float, str)):
+        raise ValueError(f"Giá trị của '{key}' phải là số, không phải {type(v).__name__}.")
+    try:
+        n = float(v)
+    except (TypeError, ValueError):
+        raise ValueError(f"Giá trị của '{key}' không phải là số hợp lệ: {v!r}.")
+    if not math.isfinite(n):
+        raise ValueError(f"Giá trị của '{key}' không hợp lệ (NaN/Infinity).")
+    if n < 0:
+        raise ValueError(f"Giá trị của '{key}' không được âm.")
+    return n
+
 
 def calculate_water_tank(payload: dict) -> dict:
-    htn_n = float(payload.get("htn_n") or 0)
-    htn_q = float(payload.get("htn_q") or 0)
-    htn_t = float(payload.get("htn_t") or 0)
+    htn_n = _parse_number(payload, "htn_n")
+    htn_q = _parse_number(payload, "htn_q")
+    htn_t = _parse_number(payload, "htn_t")
 
-    sp_q = float(payload.get("sp_q") or 0)
-    sp_t = float(payload.get("sp_t") or 0)
+    sp_q = _parse_number(payload, "sp_q")
+    sp_t = _parse_number(payload, "sp_t")
 
-    nn_q = float(payload.get("nn_q") or 0)
-    nn_t = float(payload.get("nn_t") or 0)
+    nn_q = _parse_number(payload, "nn_q")
+    nn_t = _parse_number(payload, "nn_t")
 
     q_tn = htn_n * htn_q
     v_tn = q_tn * htn_t * 60

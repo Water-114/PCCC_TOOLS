@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 import json
 import os
 import urllib.parse
@@ -43,8 +43,9 @@ def list_files():
         except Exception:
             message = str(exc)
         return jsonify({"error": f"Drive API error: {message}"}), exc.code
-    except Exception as exc:
-        return jsonify({"error": f"Drive request failed: {exc}"}), 500
+    except Exception:
+        current_app.logger.exception("Loi goi Google Drive API (folderId=%s)", folder_id)
+        return jsonify({"error": "Lỗi kết nối Google Drive — vui lòng thử lại sau."}), 502
 
     files = data.get("files", [])
     docs = [

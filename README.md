@@ -2,12 +2,16 @@
 
 APP HƯỚNG DẪN VẤN ĐÁP PCCC
 
+## Kế hoạch cải thiện
+
+Tài liệu triển khai theo kiến trúc đơn giản (Render Web Service + PostgreSQL managed), các batch test/review và prompt handoff cho Claude nằm tại [docs/README.md](docs/README.md). Đọc bộ tài liệu này trước khi thực hiện thay đổi lớn hoặc deploy.
+
 Dự án gồm 2 phần chạy song song:
 
 - **`index.html`** (thư mục gốc) — trang chính đang dùng thật, đầy đủ 5 mục: Hướng dẫn thiết kế/tư vấn sơ bộ, Công cụ tính toán, **AI kiểm tra hồ sơ** (đã gắn AI thật cho hạng mục "Báo cháy tự động", có đăng nhập + giới hạn lượt/ngày), Thư viện pháp luật, AI trợ lý.
 - **`admin.html`** (thư mục gốc) — trang quản trị riêng: đăng nhập bằng tài khoản `role=admin`, xem thống kê tổng số tài khoản/lượt gọi API/góp ý, danh sách user kèm lượt còn lại, bảng góp ý.
 - **`backend/`** — Flask API phục vụ cả 2 trang trên: tính nước chữa cháy, AI gateway (Claude/Gemini), đăng nhập/đăng ký, AI đọc bản vẽ báo cháy (có giới hạn quota), góp ý, thống kê quản trị. Có database SQLite (`backend/app.db`, không commit) qua SQLAlchemy + Flask-Migrate.
-- **`frontend/`** — React + Vite, một MVP tách riêng (2 tính năng: tính nước chữa cháy, diện thẩm định Phụ lục III) — không liên quan tới `index.html`/`admin.html`.
+- **`frontend/`** — React + Vite, một MVP tách riêng (2 tính năng: tính nước chữa cháy, diện thẩm định Phụ lục III) — **đã đóng băng**: không nhận tính năng mới, không deploy độc lập, chỉ giữ lại để tham khảo. `index.html` (root static UI) là giao diện production chính thức duy nhất.
 
 ## Đăng nhập & giới hạn lượt dùng (tính năng AI đọc bản vẽ)
 
@@ -38,6 +42,23 @@ python run.py                  # chạy tại http://localhost:5000
 Chưa có API key vẫn chạy được — các endpoint tính toán hoạt động bình thường, riêng `/api/ai/comment` và `/api/aiho/read-baochay` sẽ trả lỗi rõ ràng "Chưa cấu hình ... API_KEY" thay vì crash (vẫn tính 1 lượt quota vì đã thực sự cố gọi AI).
 
 Mở `index.html`/`admin.html` qua server tĩnh (không mở trực tiếp bằng `file://`) để các lệnh gọi API chạy đúng, ví dụ: `python -m http.server 8080` tại thư mục gốc, rồi truy cập `http://127.0.0.1:8080/index.html`.
+
+## Chạy test (Batch 0 — baseline)
+
+```bash
+cd backend
+venv/Scripts/pip install pytest==8.3.4   # hoặc: pip install -r requirements-dev.txt (cần sẵn PostgreSQL build tools nếu build psycopg2-binary từ source)
+venv/Scripts/pytest -v                    # không đụng backend/app.db thật, không gọi API AI trả phí
+```
+
+Chi tiết phạm vi test: [backend/tests/README.md](backend/tests/README.md).
+
+Lint cho `js/*.js` (root static UI — tách biệt hoàn toàn `frontend/`):
+
+```bash
+npm install
+npm run lint
+```
 
 ## Chạy frontend (React + Vite)
 

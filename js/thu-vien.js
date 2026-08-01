@@ -132,22 +132,50 @@
         });
 
         if(!items.length){
-          docList.innerHTML = '<div style="color:var(--ink-soft);padding:18px;border:1px solid rgba(46,58,78,.08);border-radius:18px;background:#fff">Không tìm thấy văn bản nào. Thử tìm kiếm khác hoặc chuyển tab.</div>';
+          docList.innerHTML = '';
+          const empty = document.createElement('div');
+          empty.style.cssText = 'color:var(--ink-soft);padding:18px;border:1px solid rgba(46,58,78,.08);border-radius:18px;background:#fff';
+          empty.textContent = 'Không tìm thấy văn bản nào. Thử tìm kiếm khác hoặc chuyển tab.';
+          docList.appendChild(empty);
           return;
         }
 
-        docList.innerHTML = items.map(d => `
-          <div class="doc-card" data-link="${d.link || ''}" data-title="${d.title.replace(/"/g,'&quot;')}">
-            <div class="doc-card-left">
-              <span class="doc-dot"></span>
-              <div>
-                <strong class="doc-card-title">${d.title}</strong>
-                <div class="doc-card-sub">Chạm để mở tài liệu</div>
-              </div>
-            </div>
-            <button class="btn-open" type="button">Mở file</button>
-          </div>
-        `).join('');
+        // d.title/d.link den tu Google Sheet cong khai (nguon ngoai, khong dang
+        // tin cay) - dung textContent/.dataset thay vi noi chuoi vao HTML/thuoc
+        // tinh de tranh XSS neu sheet bi chinh sua chua ma doc hai.
+        docList.innerHTML = '';
+        items.forEach(d => {
+          const card = document.createElement('div');
+          card.className = 'doc-card';
+          card.dataset.link = d.link || '';
+          card.dataset.title = d.title;
+
+          const left = document.createElement('div');
+          left.className = 'doc-card-left';
+          const dot = document.createElement('span');
+          dot.className = 'doc-dot';
+          left.appendChild(dot);
+
+          const textWrap = document.createElement('div');
+          const strong = document.createElement('strong');
+          strong.className = 'doc-card-title';
+          strong.textContent = d.title;
+          textWrap.appendChild(strong);
+          const sub = document.createElement('div');
+          sub.className = 'doc-card-sub';
+          sub.textContent = 'Chạm để mở tài liệu';
+          textWrap.appendChild(sub);
+          left.appendChild(textWrap);
+          card.appendChild(left);
+
+          const btn = document.createElement('button');
+          btn.className = 'btn-open';
+          btn.type = 'button';
+          btn.textContent = 'Mở file';
+          card.appendChild(btn);
+
+          docList.appendChild(card);
+        });
 
         docList.querySelectorAll('.btn-open').forEach(btn => {
           btn.addEventListener('click', () => {

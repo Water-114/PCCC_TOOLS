@@ -29,6 +29,22 @@
   var MAX_FILE_MB = 15;
   var MAX_FILE_BYTES = MAX_FILE_MB * 1024 * 1024;
 
+  // Dung createElement/.textContent thay vi noi chuoi + innerHTML - ten file
+  // nguoi dung tu chon (f.name) khong dang tin cay, co the chua ky tu HTML.
+  function buildFileRow(text){
+    var row = document.createElement('div');
+    row.className = 'drop-file';
+    var span = document.createElement('span');
+    span.textContent = text;
+    row.appendChild(span);
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.setAttribute('aria-label', 'Gỡ file');
+    btn.textContent = '✕';
+    row.appendChild(btn);
+    return row;
+  }
+
   /* ===================================================================
      Các ô có AI thật — đính file thật, gọi API thật (khác các ô demo còn lại).
      Mỗi hạng mục chỉ cần thêm 1 mục vào đây + route backend tương ứng.
@@ -112,9 +128,7 @@
       var existing = body.querySelector('.drop-file');
       if(existing) existing.remove();
       var sizeMb = (f.size / (1024 * 1024)).toFixed(1);
-      var fileRow = document.createElement('div');
-      fileRow.className = 'drop-file';
-      fileRow.innerHTML = '<span>' + f.name + ' · ' + sizeMb + ' MB</span><button type="button" aria-label="Gỡ file">✕</button>';
+      var fileRow = buildFileRow(f.name + ' · ' + sizeMb + ' MB');
       fileRow.querySelector('button').addEventListener('click', function(e){
         e.stopPropagation();
         realFiles[slot] = null;
@@ -149,10 +163,7 @@
       status.textContent = '● Đã đính kèm';
       status.classList.add('attached');
       if(!existing){
-        var fileRow = document.createElement('div');
-        fileRow.className = 'drop-file';
-        fileRow.innerHTML = '<span>' + card.dataset.file + '</span><button type="button" aria-label="Gỡ file">✕</button>';
-        body.appendChild(fileRow);
+        body.appendChild(buildFileRow(card.dataset.file));
       }
     } else {
       status.textContent = '○ Chưa đính kèm';
@@ -267,15 +278,35 @@
 
   function renderResultTable(){
     var filledCards = Array.prototype.slice.call(grid.querySelectorAll('.drop-card.filled'));
-    var rows = filledCards.map(function(card){
+    var container = document.getElementById('aihoResultTable');
+    container.innerHTML = '';
+    // mock.note co the la van ban AI sinh ra (data.tong_ket hoac loi co doan
+    // trich tu phan hoi AI) - dung textContent, khong noi chuoi vao innerHTML.
+    filledCards.forEach(function(card){
       var slot = card.dataset.slot;
       var label = card.querySelector('h4').childNodes[0].textContent.trim();
       var mock = (REAL_CATEGORIES[slot] && realResults[slot]) ? realResults[slot] : (SLOT_MOCK[slot] || {status:'ok', note:'Chưa phát hiện thiếu sót.'});
-      return '<div class="result-row"><span class="r-label">' + label + '</span>' +
-        '<span class="status-pill status-' + mock.status + '">' + STATUS_LABEL[mock.status] + '</span>' +
-        '<span class="r-note">' + mock.note + '</span></div>';
+
+      var row = document.createElement('div');
+      row.className = 'result-row';
+
+      var labelSpan = document.createElement('span');
+      labelSpan.className = 'r-label';
+      labelSpan.textContent = label;
+      row.appendChild(labelSpan);
+
+      var pill = document.createElement('span');
+      pill.className = 'status-pill status-' + mock.status;
+      pill.textContent = STATUS_LABEL[mock.status];
+      row.appendChild(pill);
+
+      var note = document.createElement('span');
+      note.className = 'r-note';
+      note.textContent = mock.note;
+      row.appendChild(note);
+
+      container.appendChild(row);
     });
-    document.getElementById('aihoResultTable').innerHTML = rows.join('');
   }
 
   var KIEN_NGHI_NHOM = [
@@ -307,16 +338,40 @@
     return failed;
   }
 
+  // Dung createElement/.textContent de dung noi dung AI sinh ra (khong dang tin
+  // cay) an toan, roi doc lai .innerHTML de co chuoi HTML da duoc escape dung -
+  // giu nguyen kien truc noi chuoi hien co cua outputPreviewHtml()/SECTION_DIVIDER
+  // ma van chan duoc XSS o dung diem nguy hiem (danh sach kien nghi AI sinh ra).
   function renderKienNghiReal(sections){
     return sections.map(function(sec){
-      var groups = KIEN_NGHI_NHOM.map(function(nhom){
+      var wrapper = document.createElement('div');
+      var h4 = document.createElement('h4');
+      h4.textContent = 'Danh sách kiến nghị (theo văn phong PC07) — ' + sec.label;
+      wrapper.appendChild(h4);
+      KIEN_NGHI_NHOM.forEach(function(nhom){
         var items = sec.data.kien_nghi[nhom.key] || [];
-        var body = items.length
-          ? '<ol>' + items.map(function(c){ return '<li>' + c + '</li>'; }).join('') + '</ol>'
-          : '<p style="color:var(--ink-soft)">(Không có)</p>';
-        return '<p style="margin-top:10px"><b>' + nhom.label + '</b></p>' + body;
-      }).join('');
-      return '<h4>Danh sách kiến nghị (theo văn phong PC07) — ' + sec.label + '</h4>' + groups;
+        var p = document.createElement('p');
+        p.style.marginTop = '10px';
+        var b = document.createElement('b');
+        b.textContent = nhom.label;
+        p.appendChild(b);
+        wrapper.appendChild(p);
+        if(items.length){
+          var ol = document.createElement('ol');
+          items.forEach(function(c){
+            var li = document.createElement('li');
+            li.textContent = c;
+            ol.appendChild(li);
+          });
+          wrapper.appendChild(ol);
+        } else {
+          var empty = document.createElement('p');
+          empty.style.color = 'var(--ink-soft)';
+          empty.textContent = '(Không có)';
+          wrapper.appendChild(empty);
+        }
+      });
+      return wrapper.innerHTML;
     }).join(SECTION_DIVIDER);
   }
 
@@ -329,21 +384,66 @@
   function renderMdcReal(sections){
     return sections.map(function(sec){
       var d = sec.data;
-      var filesHtml = (d.mdc_docx_files || []).map(function(f){
+      var wrapper = document.createElement('div');
+      var h4 = document.createElement('h4');
+      h4.textContent = 'Mẫu đối chiếu (MĐC) đã điền — ' + sec.label;
+      wrapper.appendChild(h4);
+      (d.mdc_docx_files || []).forEach(function(f){
+        var fileDiv = document.createElement('div');
+        fileDiv.style.marginTop = '12px';
         if(f.base64){
           var items = itemsForMdcFile(d, f);
           var knCount = items.filter(function(it){ return it.ket_luan !== 'dat'; }).length;
           var datCount = items.length - knCount;
           var dataUrl = 'data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,' + f.base64;
-          return '<div style="margin-top:12px">' +
-            '<p><b>' + f.label + '</b> — đã điền ' + items.length + ' mục đối chiếu: ' + datCount + ' Đạt, ' + knCount + ' cần kiến nghị (KN).</p>' +
-            '<a class="btn-main" style="display:inline-block;text-decoration:none;text-align:center" download="' + f.filename + '" href="' + dataUrl + '">Tải file MĐC (.docx)</a>' +
-            '</div>';
+
+          var p = document.createElement('p');
+          var b = document.createElement('b');
+          b.textContent = f.label;
+          p.appendChild(b);
+          p.appendChild(document.createTextNode(' — đã điền ' + items.length + ' mục đối chiếu: ' + datCount + ' Đạt, ' + knCount + ' cần kiến nghị (KN).'));
+          fileDiv.appendChild(p);
+
+          var a = document.createElement('a');
+          a.className = 'btn-main';
+          a.style.display = 'inline-block';
+          a.style.textDecoration = 'none';
+          a.style.textAlign = 'center';
+          a.download = f.filename;
+          a.href = dataUrl;
+          a.textContent = 'Tải file MĐC (.docx)';
+          fileDiv.appendChild(a);
+        } else {
+          var p2 = document.createElement('p');
+          var b2 = document.createElement('b');
+          b2.textContent = f.label;
+          p2.appendChild(b2);
+          fileDiv.appendChild(p2);
+
+          var errP = document.createElement('p');
+          errP.style.color = 'var(--red-deep)';
+          errP.textContent = f.error;
+          fileDiv.appendChild(errP);
         }
-        return '<div style="margin-top:12px"><p><b>' + f.label + '</b></p><p style="color:var(--red-deep)">' + f.error + '</p></div>';
-      }).join('');
-      return '<h4>Mẫu đối chiếu (MĐC) đã điền — ' + sec.label + '</h4>' + filesHtml;
+        wrapper.appendChild(fileDiv);
+      });
+      return wrapper.innerHTML;
     }).join(SECTION_DIVIDER);
+  }
+
+  // Dung chung cho 2 nhanh "khong co du lieu that" cua outputPreviewHtml() -
+  // f.note co the chua doan trich loi tu AI (khong dang tin cay), f.label la
+  // nhan hang muc co dinh (an toan) nhung van di qua textContent cho dong bo.
+  function buildFailedNoteHtml(heading, note){
+    var wrapper = document.createElement('div');
+    var h4 = document.createElement('h4');
+    h4.textContent = heading;
+    wrapper.appendChild(h4);
+    var p = document.createElement('p');
+    p.style.color = 'var(--red-deep)';
+    p.textContent = note;
+    wrapper.appendChild(p);
+    return wrapper.innerHTML;
   }
 
   function outputPreviewHtml(key){
@@ -355,7 +455,7 @@
           var mdcParts = [];
           if(mdcSections.length) mdcParts.push(renderMdcReal(mdcSections));
           mdcFailed.forEach(function(f){
-            mdcParts.push('<h4>Mẫu đối chiếu (MĐC) đã điền — ' + f.label + '</h4><p style="color:var(--red-deep)">' + f.note + '</p>');
+            mdcParts.push(buildFailedNoteHtml('Mẫu đối chiếu (MĐC) đã điền — ' + f.label, f.note));
           });
           return mdcParts.join(SECTION_DIVIDER);
         }
@@ -372,7 +472,7 @@
           var loiParts = [];
           if(kienNghiSections.length) loiParts.push(renderKienNghiReal(kienNghiSections));
           loiFailed.forEach(function(f){
-            loiParts.push('<h4>Danh sách kiến nghị (theo văn phong PC07) — ' + f.label + '</h4><p style="color:var(--red-deep)">' + f.note + '</p>');
+            loiParts.push(buildFailedNoteHtml('Danh sách kiến nghị (theo văn phong PC07) — ' + f.label, f.note));
           });
           return loiParts.join(SECTION_DIVIDER);
         }

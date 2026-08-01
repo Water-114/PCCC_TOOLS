@@ -1,14 +1,19 @@
 import re
 
-from flask import Blueprint, g, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, request
+from sqlalchemy.exc import IntegrityError
 
 from ..auth import create_token, login_required
-from ..extensions import db
+from ..extensions import db, limiter
 from ..models import AIHO_API_NAME, User, count_usage_today
 
 bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
-EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+# Loại trừ thêm <>"' (ký tự đặc biệt HTML) khỏi local-part/domain — email hợp lệ
+# thông thường không bao giờ cần các ký tự này; chặn thêm 1 lớp phòng thủ cho
+# XSS lưu trữ qua trường email (được escape đúng ở phía hiển thị — đây chỉ là
+# lớp bổ sung, không phải chỗ chặn chính).
+EMAIL_RE = re.compile(r"^[^@\s<>\"']+@[^@\s<>\"']+\.[^@\s<>\"']+$")
 
 
 def _user_payload(user: User) -> dict:
@@ -25,6 +30,7 @@ def _user_payload(user: User) -> dict:
 
 
 @bp.post("/register")
+@limiter.limit("5/hour")
 def register():
     payload = request.get_json(silent=True) or {}
     email = (payload.get("email") or "").strip().lower()
@@ -40,12 +46,20 @@ def register():
     user = User(email=email, role="user")
     user.set_password(password)
     db.session.add(user)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        # Phong rang buoc unique bi vi pham do 2 request dang ky cung email
+        # gan nhu dong thoi (kiem tra o dong 37 khong nguyen tu voi insert nay).
+        db.session.rollback()
+        current_app.logger.warning("Dang ky trung email do race condition: %s", email)
+        return jsonify({"error": "Email này đã đăng ký tài khoản rồi — thử đăng nhập."}), 409
 
     return jsonify({"token": create_token(user.id), "user": _user_payload(user)})
 
 
 @bp.post("/login")
+@limiter.limit("10/minute")
 def login():
     payload = request.get_json(silent=True) or {}
     email = (payload.get("email") or "").strip().lower()

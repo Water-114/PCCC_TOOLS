@@ -4,6 +4,8 @@ Port từ index.html (hàm evalThamDinh) — rule-based thuần, không dùng AI
 để tránh rủi ro suy diễn sai quy định pháp lý.
 """
 
+import math
+
 BASE_FIELDS = {
     "totalArea": {"label": "Tổng diện tích sàn ΣF (m²)", "ph": "VD: 3500"},
     "floors": {"label": "Số tầng (đã gộp bán hầm nếu có)", "ph": "VD: 8"},
@@ -69,9 +71,20 @@ def _fmt(n):
 
 def _num(payload, key):
     v = payload.get(key)
-    if v in (None, ""):
+    if v is None or v == "":
         return 0
-    return float(v)
+    label = BASE_FIELDS.get(key, EXTRA_FIELDS.get(key, {})).get("label", key)
+    if isinstance(v, bool) or not isinstance(v, (int, float, str)):
+        raise ThamDinhInputError(f"Giá trị của '{label}' phải là số, không phải {type(v).__name__}.")
+    try:
+        n = float(v)
+    except (TypeError, ValueError):
+        raise ThamDinhInputError(f"Giá trị của '{label}' không phải là số hợp lệ: {v!r}.")
+    if not math.isfinite(n):
+        raise ThamDinhInputError(f"Giá trị của '{label}' không hợp lệ (NaN/Infinity).")
+    if n < 0:
+        raise ThamDinhInputError(f"Giá trị của '{label}' không được âm.")
+    return n
 
 
 def _cc(muc):

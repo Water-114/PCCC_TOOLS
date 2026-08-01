@@ -1,6 +1,6 @@
 import base64
 
-from flask import Blueprint, g, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, request
 
 from ..auth import login_required
 from ..extensions import db
@@ -15,9 +15,48 @@ bp = Blueprint("aiho", __name__, url_prefix="/api/aiho")
 ALLOWED_TYPES = {"application/pdf", "image/png", "image/jpeg", "image/webp"}
 MAX_BYTES = 15 * 1024 * 1024  # 15MB, khớp ghi chú trên giao diện
 
+# file.mimetype la Content-Type client tu khai trong multipart request - gia mao
+# duoc de dang (khong lien quan gi toi noi dung file that). Kiem tra them byte dau
+# thuc te de xac nhan dung dinh dang, khong chi tin loi client noi.
+_MAGIC_PREFIXES = {
+    "application/pdf": (b"%PDF-",),
+    "image/png": (b"\x89PNG\r\n\x1a\n",),
+    "image/jpeg": (b"\xff\xd8\xff",),
+}
+
+
+def _sniff_magic_bytes(data: bytes, media_type: str) -> bool:
+    if media_type == "image/webp":
+        return data[:4] == b"RIFF" and data[8:12] == b"WEBP"
+    prefixes = _MAGIC_PREFIXES.get(media_type, ())
+    return any(data.startswith(p) for p in prefixes)
+
 
 def _log_usage(user_id: int, status: str):
     db.session.add(UsageLog(user_id=user_id, api_name=AIHO_API_NAME, status=status))
+    db.session.commit()
+
+
+def _reserve_usage_slot(user_id: int, limit: int):
+    """Giữ trước 1 lượt dùng NGAY LẬP TỨC (trước khi gọi AI) bằng cách ghi 1 bản ghi
+    'pending' trong cùng 1 lần kiểm tra+ghi — thu hẹp đáng kể khoảng thời gian có thể
+    xảy ra race condition giữa nhiều request đồng thời (từ cỡ vài phút — thời gian gọi
+    AI — xuống còn 1 lần truy vấn DB), so với trước đây chỉ ghi nhận SAU KHI AI gọi
+    xong. Đây không phải khoá nguyên tử tuyệt đối cấp cơ sở dữ liệu (cần SERIALIZABLE +
+    retry ở Postgres — để dành Batch 2 khi chuyển sang Postgres) nhưng giảm mạnh rủi ro
+    thực tế với kiến trúc hiện tại. Trả về UsageLog vừa tạo nếu còn chỗ, None nếu hết.
+    """
+    used = count_usage_today(user_id, AIHO_API_NAME)
+    if used >= limit:
+        return None
+    reservation = UsageLog(user_id=user_id, api_name=AIHO_API_NAME, status="pending")
+    db.session.add(reservation)
+    db.session.commit()
+    return reservation
+
+
+def _finalize_usage(reservation: UsageLog, status: str):
+    reservation.status = status
     db.session.commit()
 
 
@@ -46,25 +85,20 @@ def _build_mdc_file(loai: str, label: str, items: list) -> dict:
             "filename": mdc_filler.filename_for(loai),
             "base64": base64.b64encode(docx_bytes).decode("ascii"),
         }
-    except Exception as exc:
-        return {"loai": loai, "label": label, "error": f"Không tạo được file MĐC: {exc}"}
+    except Exception:
+        current_app.logger.exception("Khong dien duoc file MDC loai=%s", loai)
+        return {"loai": loai, "label": label, "error": "Không tạo được file MĐC — vui lòng thử lại sau."}
 
 
 def _handle_read_request(read_drawing_fn, build_mdc_files):
-    """Xử lý chung cho mọi hạng mục AI đọc bản vẽ: kiểm tra quota, file, gọi AI, sinh MĐC nếu cần.
+    """Xử lý chung cho mọi hạng mục AI đọc bản vẽ: kiểm tra file, giữ chỗ quota nguyên
+    tử ngay trước khi gọi AI, sinh MĐC nếu cần.
 
     build_mdc_files(result) -> list các entry {loai, label, filename, base64} hoặc {loai, label, error}
     — mỗi hạng mục tự quyết định cần điền mấy file MĐC (báo cháy/điện: 1 file; chữa cháy nước: 3 file).
     """
     user = g.current_user
     limit = user.effective_quota()
-    used = count_usage_today(user.id, AIHO_API_NAME)
-    if used >= limit:
-        _log_usage(user.id, "quota_exceeded")
-        return jsonify({
-            "error": f"Đã dùng hết {limit} lượt đọc bản vẽ hôm nay — quay lại vào ngày mai.",
-            "quota": {"limit": limit, "used_today": used, "remaining_today": 0},
-        }), 429
 
     file = request.files.get("file")
     if not file:
@@ -78,6 +112,9 @@ def _handle_read_request(read_drawing_fn, build_mdc_files):
     if len(data) > MAX_BYTES:
         return jsonify({"error": "File vượt quá 15MB."}), 400
 
+    if not _sniff_magic_bytes(data, media_type):
+        return jsonify({"error": "Nội dung file không khớp với định dạng khai báo — file có thể bị hỏng hoặc sai định dạng thật."}), 400
+
     wants_mdc = "mdc" in {o.strip() for o in (request.form.get("outputs") or "").split(",")}
 
     provider_name = request.form.get("provider")
@@ -86,20 +123,30 @@ def _handle_read_request(read_drawing_fn, build_mdc_files):
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 
+    reservation = _reserve_usage_slot(user.id, limit)
+    if reservation is None:
+        used = count_usage_today(user.id, AIHO_API_NAME)
+        _log_usage(user.id, "quota_exceeded")
+        return jsonify({
+            "error": f"Đã dùng hết {limit} lượt đọc bản vẽ hôm nay — quay lại vào ngày mai.",
+            "quota": {"limit": limit, "used_today": used, "remaining_today": 0},
+        }), 429
+
     try:
         result = read_drawing_fn(data, media_type, provider)
     except ProviderNotConfigured as exc:
-        _log_usage(user.id, "error")
+        _finalize_usage(reservation, "error")
         return jsonify({"error": str(exc), "provider": provider.name}), 503
     except AIReaderError as exc:
-        _log_usage(user.id, "error")
+        _finalize_usage(reservation, "error")
         return jsonify({"error": str(exc)}), 502
-    except Exception as exc:  # lỗi mạng/SDK bên thứ ba
-        _log_usage(user.id, "error")
-        return jsonify({"error": f"Lỗi gọi provider '{provider.name}': {exc}"}), 502
+    except Exception:  # lỗi mạng/SDK bên thứ ba — không lộ chi tiết ra client
+        _finalize_usage(reservation, "error")
+        current_app.logger.exception("Loi goi provider '%s'", provider.name)
+        return jsonify({"error": f"Lỗi gọi máy chủ AI ('{provider.name}') — vui lòng thử lại sau."}), 502
 
-    _log_usage(user.id, "success")
-    used_after = used + 1
+    _finalize_usage(reservation, "success")
+    used_after = count_usage_today(user.id, AIHO_API_NAME)
     result["provider"] = provider.name
     result["quota"] = {
         "limit": limit,

@@ -6,29 +6,104 @@ from flask_cors import CORS
 from flask_migrate import Migrate
 
 from .config import Config
-from .extensions import db
+from .extensions import db, limiter
 
 # Thư mục gốc của repo (chứa index.html, css/, js/) — 2 cấp trên package app/ này
 # (backend/app/__init__.py -> backend/app -> backend -> gốc repo).
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
+# Render tự set biến này cho mọi service chạy trên nền tảng của họ — dùng làm
+# tín hiệu đáng tin cậy để biết "đang chạy production" mà không cần thêm biến
+# môi trường mới người dùng phải nhớ cấu hình.
+_IS_RENDER = bool(os.getenv("RENDER"))
 
-def create_app():
+_INSECURE_SECRET_KEY_FALLBACK = "doi-chuoi-nay-truoc-khi-dung-that-o-production"
+
+
+def create_app(config_overrides=None):
     app = Flask(__name__)
     app.config.from_object(Config)
+    if config_overrides:
+        app.config.update(config_overrides)
+
+    # Chặn cứng nếu chạy trên Render (production) mà SECRET_KEY vẫn là chuỗi
+    # fallback công khai (đã commit trong backend/.env.example) — chuỗi này ký
+    # được token đăng nhập giả mạo bất kỳ tài khoản nào nếu ai đó biết trước.
+    if _IS_RENDER and app.config.get("SECRET_KEY") == _INSECURE_SECRET_KEY_FALLBACK:
+        raise RuntimeError(
+            "SECRET_KEY đang dùng giá trị mặc định không an toàn trên môi trường "
+            "Render — phải đặt biến môi trường SECRET_KEY thật (vd. generateValue "
+            "trong render.yaml) trước khi khởi động."
+        )
 
     db.init_app(app)
     Migrate(app, db)
+    limiter.init_app(app)
+
+    with app.app_context():
+        if db.engine.dialect.name == "sqlite":
+            # Mac dinh, pysqlite tri hoan viec khoa ghi cho toi cau lenh ghi DAU
+            # TIEN trong transaction (thay vi ngay khi transaction bat dau) - nghia
+            # la nhieu transaction co the cung doc (SELECT COUNT) truoc khi bat ky
+            # transaction nao kip ghi, gay rang buoc kiem tra-roi-ghi (quota
+            # reservation o routes/aiho.py) khong nguyen tu that su. Bat "BEGIN
+            # IMMEDIATE" cho MOI transaction tren SQLite de khoa ghi ngay tu dau,
+            # buoc cac transaction dong thoi phai xep hang - day la khuyen nghi
+            # chinh thuc cua SQLAlchemy cho pysqlite khi can transaction dang tin
+            # cay duoi tai da luong/da tien trinh.
+            from sqlalchemy import event
+
+            @event.listens_for(db.engine, "connect")
+            def _sqlite_disable_pysqlite_autobegin(dbapi_connection, connection_record):
+                dbapi_connection.isolation_level = None
+
+            @event.listens_for(db.engine, "begin")
+            def _sqlite_begin_immediate(conn):
+                conn.exec_driver_sql("BEGIN IMMEDIATE")
 
     CORS(app, origins=[app.config["FRONTEND_ORIGIN"]])
     # Trang tĩnh index.html (mở qua file:// hoặc server khác) gọi các tính năng AI đọc bản vẽ,
-    # đăng nhập/đăng ký, góp ý — mở CORS riêng rộng hơn cho các nhóm route này vì chỉ chạy local/demo.
+    # đăng nhập/đăng ký, góp ý — mở CORS riêng rộng hơn cho các nhóm route này khi chạy dev
+    # local (server tĩnh cổng khác). Trên Render (production, cùng origin với frontend nên
+    # trình duyệt không cần CORS cho người dùng thật), thắt lại theo đúng FRONTEND_ORIGIN
+    # thay vì "*" — an toàn hơn cho các route auth/admin/aiho/feedback.
+    _wide_cors_origins = [app.config["FRONTEND_ORIGIN"]] if _IS_RENDER else "*"
     CORS(app, resources={
-        r"/api/aiho/*": {"origins": "*"},
-        r"/api/auth/*": {"origins": "*"},
-        r"/api/feedback*": {"origins": "*"},
-        r"/api/admin/*": {"origins": "*"},
+        r"/api/aiho/*": {"origins": _wide_cors_origins},
+        r"/api/auth/*": {"origins": _wide_cors_origins},
+        r"/api/feedback*": {"origins": _wide_cors_origins},
+        r"/api/admin/*": {"origins": _wide_cors_origins},
     })
+
+    @app.after_request
+    def _set_security_headers(response):
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self'; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            "img-src 'self' data:; "
+            "connect-src *; "
+            "frame-ancestors 'none'; "
+            "base-uri 'self'; "
+            "form-action 'self'"
+        )
+        return response
+
+    @app.errorhandler(Exception)
+    def _handle_uncaught_exception(exc):
+        # Luoi an toan cuoi cung cho MOI exception khong duoc route nao tu bat
+        # rieng (vd. loi DB bat ngo o admin.py) - log day du server-side, chi
+        # tra ve client 1 thong bao chung chung, khong lo noi dung exception
+        # that (co the chua chi tiet noi bo) ra ngoai.
+        from werkzeug.exceptions import HTTPException
+
+        if isinstance(exc, HTTPException):
+            return exc
+        app.logger.exception("Loi khong duoc xu ly rieng: %s", exc)
+        return jsonify({"error": "Đã có lỗi xảy ra, vui lòng thử lại sau."}), 500
 
     from .routes.water import bp as water_bp
     from .routes.ai import bp as ai_bp

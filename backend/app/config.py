@@ -33,3 +33,9 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     AIHO_DAILY_QUOTA = int(os.getenv("AIHO_DAILY_QUOTA", "5"))
+
+    # Gioi han kich thuoc toan bo request body o tang Flask/Werkzeug — chan som (413)
+    # truoc khi buffer het vao RAM, thay vi chi dua vao kiem tra thu cong sau khi da
+    # doc het file trong aiho.py (MAX_BYTES = 15MB/file). Co bien du cho multipart
+    # overhead + cac field form khac di kem file.
+    MAX_CONTENT_LENGTH = 20 * 1024 * 1024
