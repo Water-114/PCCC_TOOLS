@@ -14,7 +14,7 @@ cả 3, rồi gộp kết quả lại. Nếu 1-2 mẫu lỗi vẫn trả về m�
 from concurrent.futures import ThreadPoolExecutor
 
 from . import mdc_filler
-from .ai_reader_common import AIReaderError, read_and_validate_drawing_json
+from .ai_reader_common import AIReaderError, read_and_validate_drawing_json, system_prompt_version
 from .ai_schema import KHONG_XAC_DINH_SO_HIEU, ReaderResult, validate_reader_result
 
 FORMS = [
@@ -76,6 +76,7 @@ Trả lời DUY NHẤT bằng JSON hợp lệ theo đúng cấu trúc sau, khôn
 
 
 SYSTEM_PROMPTS = {f["loai"]: _build_system_prompt(f["loai"], f["mdc_label"], f["ten_he_thong"]) for f in FORMS}
+SYSTEM_PROMPT_VERSIONS = {loai: system_prompt_version(prompt) for loai, prompt in SYSTEM_PROMPTS.items()}
 
 CcNuocReaderError = AIReaderError
 

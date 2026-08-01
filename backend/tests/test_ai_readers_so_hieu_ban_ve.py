@@ -4,6 +4,7 @@ toàn (KHÔNG gọi AI thật, không tốn phí)."""
 
 import json
 
+from app.providers.base import GenerationResult
 from app.services import baochay_reader, ccnuoc_reader, dienpccc_reader, mdc_filler
 from app.services.ai_schema import KHONG_XAC_DINH_SO_HIEU
 
@@ -12,6 +13,7 @@ EMPTY_KIEN_NGHI = {"I_chua_the_hien": [], "II_chua_thong_nhat": [], "III_chua_ph
 
 class FakeProvider:
     name = "fake"
+    model = "fake-model"
 
     def __init__(self, fn):
         self.fn = fn
@@ -19,7 +21,7 @@ class FakeProvider:
 
     def generate_with_document(self, system_prompt, content_block):
         self.calls += 1
-        return self.fn(system_prompt)
+        return GenerationResult(text=self.fn(system_prompt))
 
 
 def _items_for(loai):

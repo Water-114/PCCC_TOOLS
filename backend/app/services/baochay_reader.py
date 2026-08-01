@@ -8,7 +8,7 @@ bộ tiêu chí tương ứng — không suy đoán ngoài nội dung bản vẽ
 """
 
 from . import mdc_filler
-from .ai_reader_common import AIReaderError, read_and_validate_drawing_json
+from .ai_reader_common import AIReaderError, read_and_validate_drawing_json, system_prompt_version
 from .ai_schema import BaoChayReaderResult, validate_reader_result
 
 
@@ -71,6 +71,7 @@ Trả lời DUY NHẤT bằng JSON hợp lệ theo đúng cấu trúc sau, khôn
 
 
 SYSTEM_PROMPT = _build_system_prompt()
+SYSTEM_PROMPT_VERSION = system_prompt_version(SYSTEM_PROMPT)  # doi tu dong khi noi dung prompt tren doi
 
 BaoChayReaderError = AIReaderError  # giữ tên cũ để không phải sửa chỗ khác đang import
 

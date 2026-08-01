@@ -231,25 +231,50 @@ owner ở batch/thời điểm khác):**
 - Bổ sung "ngày hiệu lực" cụ thể cho từng `rule_set_version` (hiện chỉ có
   tên văn bản, không phải điều kiện bắt buộc theo quyết định owner).
 
-## Batch 4 — AI reliability và tính đúng đắn đầu ra
+## Batch 4 — AI reliability và tính đúng đắn đầu ra — **HOÀN THÀNH**
+
+> Toàn bộ phần thuộc trách nhiệm code/kỹ thuật đã xong. Còn đúng 1 gate **KHÔNG
+> phải việc code** — thuộc trách nhiệm nghiệp vụ của owner/kỹ sư PCCC (review
+> thủ công 1 bộ bản vẽ thật đã ẩn danh) — xem chi tiết ở mục Gate kiểm tra và
+> "Việc CHƯA làm" cuối phần này. Không có việc code nào còn treo.
 
 **Mục tiêu:** AI là trợ lý có kiểm soát, không tạo MĐC sai cấu trúc.
 
-**Công việc**
+**Tổng kết (2 sub-bước, chia nhỏ theo yêu cầu owner để duyệt từng phần):**
 
-- Định nghĩa JSON Schema/Pydantic model cho từng loại đọc bản vẽ.
-- Validate đủ tiêu chí, id chính xác, enum `dat/chua_dat/chua_the_hien`, giới hạn độ dài nội dung.
-- Khi invalid: retry repair tối đa một lần; sau đó trả lỗi rõ ràng, không sinh MĐC nửa vời.
-- Ghi provider, model, prompt template version, thời gian, usage/cost nếu có.
-- Cài timeout/retry backoff/circuit-breaker tối thiểu; bỏ output demo khỏi luồng "AI thật" hoặc gắn nhãn không thể nhầm lẫn.
-- Chuyển Gemini SDK legacy sang SDK được nhà cung cấp hỗ trợ, kèm regression test provider adapter.
+| Sub-bước | Nội dung | Test mới |
+|---|---|---:|
+| 1 | Pydantic schema, retry-repair schema, `so_hieu_ban_ve`, xuất kiến nghị `.docx` | 35 |
+| 2 | Gemini SDK migration, timeout/retry/circuit-breaker, logging, audit demo-vs-AI-thật | 44 |
+| **Tổng Batch 4** | | **79** |
+
+**79 test riêng cho Batch 4**, nằm trong tổng **508 test toàn bộ backend** — `pytest -q` xác nhận **508/508 pass**, không hồi quy. `npm run lint` không phát sinh cảnh báo mới.
+
+**Trạng thái hiện tại (từng việc trong mục "Công việc" gốc):**
+
+- **Pydantic model cho từng loại đọc bản vẽ** — `backend/app/services/ai_schema.py` (`ItemResult`, `KienNghi`, `ReaderResult`, `BaoChayReaderResult`).
+- **Validate đủ tiêu chí, id chính xác (khớp tuyệt đối — không thiếu, không thừa), enum `dat/chua_dat/chua_the_hien`, giới hạn 3000 ký tự nội dung** — `validate_reader_result()`; cả 2 con số (3000 ký tự, id khớp tuyệt đối) là lựa chọn của tôi, **đã được owner duyệt**.
+- **Retry repair tối đa 1 lần khi invalid; sau đó trả lỗi rõ ràng, không sinh MĐC nửa vời** — `ai_reader_common.read_and_validate_drawing_json()`.
+- **Ghi provider, model, prompt template version, thời gian, usage** — `ai_reader_common._log_ai_call()`, 1 dòng log/lần gọi AI (kể cả lần repair). Dùng logger chuẩn `logging.getLogger(__name__)`, KHÔNG dùng `current_app.logger` — đã xác nhận bằng thử nghiệm thực tế rằng `current_app` ném `RuntimeError` khi gọi từ trong `ThreadPoolExecutor` (bối cảnh Flask app-context là thread-local, không tự có trong worker thread do executor tạo), mà `ccnuoc_reader` luôn gọi 3 lần AI song song qua `ThreadPoolExecutor` — nếu dùng `current_app.logger` sẽ làm SẬP tính năng chữa cháy nước khi lên production. "Prompt template version" = 12 ký tự đầu sha256 nội dung prompt gốc, tự đổi khi prompt đổi, không cần nhớ bump tay. **"Cost" không ghi được** — cả Claude lẫn Gemini đều không trả giá tiền trong response, chỉ có token usage (đã ghi `input_tokens`/`output_tokens`) — đúng tinh thần "nếu có" của yêu cầu gốc.
+- **Timeout/retry backoff/circuit-breaker tối thiểu** — `backend/app/providers/resilience.py`: circuit breaker dùng chung theo tên provider, mở sau 3 lỗi hạ tầng liên tiếp, nghỉ 60s rồi tự "thăm dò" lại. Claude: timeout 870s (giữ nguyên, đã có từ trước) + `max_retries=1` tường minh (SDK `anthropic` tự nhận diện lỗi mạng/429/5xx để retry). Gemini: **timeout 300s + 1 lần retry mạng — hoàn toàn MỚI** (trước đây không có timeout riêng, chỉ dựa vào gunicorn cắt cứng ở 900s).
+  - **Quyết định cần bạn biết:** timeout Gemini (300s) thấp hơn Claude (870s) có chủ đích, để giữ biên độ an toàn khi cộng dồn với retry mạng + retry-repair schema (sub-bước 1). Trường hợp xấu nhất về lý thuyết (mọi lớp retry đều rơi đúng lúc timeout tối đa, cực kỳ hiếm) vẫn có thể vượt 900s của gunicorn: Claude ước tính tới ~3480s (2 lần đọc × 2 lần thử mỗi lần × 870s), Gemini ~1200s (2×2×300s). Đây là đánh đổi có chủ đích giữa "đủ thời gian cho hồ sơ thật phức tạp nhất (~150s đo thực tế)" và "giới hạn worst-case" — CHƯA giải quyết triệt để 100% vì retry mạng (sub-bước 2) và retry-repair schema (sub-bước 1) là 2 lớp độc lập, cộng dồn được. Nếu muốn siết chặt hơn (vd. bỏ retry mạng khi 1 lần đã hết đúng timeout, chỉ retry cho lỗi phản hồi nhanh), báo tôi làm thêm — chưa tự quyết định thu hẹp vì ngoài phạm vi "tối thiểu" bạn yêu cầu.
+- **Bỏ output demo khỏi luồng AI thật / gắn nhãn không thể nhầm lẫn** — rà toàn bộ `js/ai-doc-ho-so.js`: `renderResultTable()` trước đây dùng 1 ternary dùng chung fallback, khiến 1 hạng mục "AI thật" (có trong `REAL_CATEGORIES`) có thể ngầm hiện nội dung minh hoạ (`SLOT_MOCK`) dưới đúng nhãn "AI thật" nếu `realResults[slot]` vì lý do gì đó chưa kịp ghi nhận — đã tách hẳn 2 nhánh, hạng mục AI thật không còn đường nào chạm tới `SLOT_MOCK` nữa (kể cả khi thiếu kết quả, hiện rõ "Chưa có kết quả phân tích thật" thay vì minh hoạ). Xoá luôn 3 entry demo chết (baochay/ccnuoc/dienpccc) trong `SLOT_MOCK` — nay không còn cách nào đọc tới. `collectRealSections()`/`collectFailedRealSlots()` (dùng cho khối MĐC/kiến nghị) đã rà lại — vốn AN TOÀN từ trước (không có fallback sang mock), không cần sửa.
+- **Chuyển Gemini SDK legacy sang SDK được nhà cung cấp hỗ trợ hiện tại** — `google-generativeai` (Google đã khai tử: dừng hỗ trợ 2025-08-31, deprecated hẳn 2025-11-30) → `google-genai` (SDK chính thức hiện tại, bản 2.16.0). Viết lại toàn bộ `gemini_provider.py`; hành vi output không đổi (vẫn trả JSON text để `ai_reader_common` parse) — xác nhận bằng 14 test regression (mock `google.genai.Client` hoàn toàn, không gọi Gemini thật).
 
 **Gate kiểm tra**
 
-- Fixture output malformed/missing id bị chặn.
-- Test MĐC: đúng số dòng, không tự điền "Đạt" khi model trả enum sai.
-- Test không có API key, provider timeout, quota exhausted, partial result chữa cháy nước.
-- Review bằng ít nhất một bộ bản vẽ đã được ẩn danh và được kỹ sư PCCC đối chiếu thủ công.
+- [x] Fixture output malformed/missing id bị chặn — `test_ai_schema.py` (10 test).
+- [x] Test MĐC: đúng số dòng, không tự điền "Đạt" khi model trả enum sai — validate thất bại (kể cả enum sai) → `AIReaderError` rõ ràng, KHÔNG build MĐC — `test_ai_reader_retry_repair.py`.
+- [x] Test không có API key — `test_aiho_read_routes.py::test_no_api_key_returns_503_with_clean_message`.
+- [x] Test provider timeout — `test_aiho_read_routes.py::test_provider_timeout_returns_502_without_leaking_internals` + `test_circuit_breaker_open_returns_502_with_breaker_message`.
+- [x] Test quota exhausted — `test_aiho_read_routes.py::test_quota_exhausted_returns_429_without_calling_ai_again`.
+- [x] Test partial result chữa cháy nước — `test_aiho_read_routes.py::test_ccnuoc_partial_result_when_one_form_fails` + `test_ccnuoc_partial_result_mdc_files_flag_failed_form`.
+- [ ] **[VIỆC CỦA OWNER — KHÔNG PHẢI VIỆC CODE]** Review bằng ít nhất một bộ bản vẽ đã được ẩn danh và được kỹ sư PCCC đối chiếu thủ công — đây là bước nghiệp vụ đòi hỏi bản vẽ thật + đánh giá chuyên môn của kỹ sư PCCC, không thể tự động hoá hay thực hiện bằng code. Toàn bộ hạ tầng kỹ thuật (schema, validate, retry, timeout, logging, test) đã sẵn sàng để owner/kỹ sư PCCC thực hiện review này bất kỳ lúc nào có bản vẽ phù hợp — không phải việc đang thiếu code, chỉ đang chờ owner thực hiện.
+
+**Việc CHƯA làm (không phải code — chờ owner quyết định/thực hiện riêng):**
+- Gate "kỹ sư PCCC đối chiếu thủ công" nêu trên — việc nghiệp vụ của owner, không phải khoảng trống kỹ thuật.
+- Rủi ro cộng dồn timeout worst-case (retry mạng × retry-repair schema) nêu trên — đã giới hạn thực tế nhưng chưa airtight tuyệt đối ở trường hợp cực xấu lý thuyết.
+- Chưa gỡ package `google-generativeai` khỏi venv cục bộ (chỉ đổi `requirements.txt`) — không ảnh hưởng gì (không còn file nào import), chỉ là dọn dẹp không bắt buộc.
 
 ## Batch 5A — Xác thực email, Bộ hồ sơ và chuyển khoản thủ công
 

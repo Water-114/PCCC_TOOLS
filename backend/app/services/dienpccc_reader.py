@@ -6,7 +6,7 @@ mdc_templates/. Khác báo cháy: không cần bước phân loại (chỉ có 1
 """
 
 from . import mdc_filler
-from .ai_reader_common import AIReaderError, read_and_validate_drawing_json
+from .ai_reader_common import AIReaderError, read_and_validate_drawing_json, system_prompt_version
 from .ai_schema import ReaderResult, validate_reader_result
 
 
@@ -61,6 +61,7 @@ Trả lời DUY NHẤT bằng JSON hợp lệ theo đúng cấu trúc sau, khôn
 
 
 SYSTEM_PROMPT = _build_system_prompt()
+SYSTEM_PROMPT_VERSION = system_prompt_version(SYSTEM_PROMPT)  # doi tu dong khi noi dung prompt tren doi
 
 DienPcccReaderError = AIReaderError  # cùng loại lỗi dùng chung với baochay_reader
 

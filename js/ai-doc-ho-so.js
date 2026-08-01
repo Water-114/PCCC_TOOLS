@@ -265,15 +265,15 @@
     }
   }
 
-  /* ---- Dữ liệu minh hoạ cho màn kết quả (demo, chưa phải phân tích thật) ---- */
+  /* ---- Dữ liệu minh hoạ cho màn kết quả (demo, chưa phải phân tích thật) ----
+     CHỈ cho các slot "Sắp có" (không có trong REAL_CATEGORIES) — renderResultTable()
+     ưu tiên tuyệt đối REAL_CATEGORIES trước, các key trùng tên ở đây (nếu có) sẽ
+     không bao giờ được đọc tới, nên không khai báo demo cho baochay/ccnuoc/dienpccc. */
   var SLOT_MOCK = {
     kientruc: {status:'ok', note:'Xác định công năng: văn phòng hỗn hợp, 8 tầng nổi + 1 tầng hầm, ΣF ≈ 4.200 m².'},
-    baochay: {status:'warn', note:'Thiếu thông tin loại trung tâm báo cháy và số zone trên sơ đồ nguyên lý.'},
-    ccnuoc: {status:'warn', note:'Chưa rõ bơm bù áp có khởi động độc lập với bơm chính hay không; họng nước trong nhà và sprinkler khớp với Bảng A.1.'},
     cckhi: {status:'bad', note:'Chưa thấy tính toán nồng độ thiết kế d₁, f₂ cho phòng điện — cần bổ sung.'},
     capnuocngoai: {status:'ok', note:'Trụ nước ngoài nhà bố trí đủ theo bán kính bảo vệ.'},
-    densucco_binhcc: {status:'warn', note:'Số lượng và khoảng cách bình xách tay phù hợp TCVN 7435-1; một số vị trí đèn chỉ dẫn thoát nạn cách nhau quá 20 m.'},
-    dienpccc: {status:'ok', note:'Có cấp nguồn ưu tiên riêng, dây dẫn ghi chú chống cháy 70 phút.'}
+    densucco_binhcc: {status:'warn', note:'Số lượng và khoảng cách bình xách tay phù hợp TCVN 7435-1; một số vị trí đèn chỉ dẫn thoát nạn cách nhau quá 20 m.'}
   };
   var STATUS_LABEL = {ok:'Đạt', warn:'Cần bổ sung', bad:'Thiếu sót'};
 
@@ -286,7 +286,17 @@
     filledCards.forEach(function(card){
       var slot = card.dataset.slot;
       var label = card.querySelector('h4').childNodes[0].textContent.trim();
-      var mock = (REAL_CATEGORIES[slot] && realResults[slot]) ? realResults[slot] : (SLOT_MOCK[slot] || {status:'ok', note:'Chưa phát hiện thiếu sót.'});
+      // Hang la "AI thật" (co trong REAL_CATEGORIES) TUYET DOI khong duoc roi
+      // vao noi dung demo (SLOT_MOCK) trong bat ky truong hop nao - tach han 2
+      // nhanh thay vi 1 ternary dung chung 1 fallback, de du realResults[slot]
+      // vi ly do gi do chua duoc ghi nhan thi hien ro "chua co ket qua that",
+      // khong bao gio ngam lay tam du lieu minh hoa cua cac o "Sắp có".
+      var mock;
+      if(REAL_CATEGORIES[slot]){
+        mock = realResults[slot] || {status: 'warn', note: 'Chưa có kết quả phân tích thật cho hạng mục này.'};
+      } else {
+        mock = SLOT_MOCK[slot] || {status: 'ok', note: 'Chưa phát hiện thiếu sót.'};
+      }
 
       var row = document.createElement('div');
       row.className = 'result-row';

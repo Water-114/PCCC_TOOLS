@@ -5,6 +5,7 @@ import json
 
 import pytest
 
+from app.providers.base import GenerationResult
 from app.services.ai_reader_common import AIReaderError, read_and_validate_drawing_json
 from app.services.ai_schema import SchemaValidationError
 
@@ -29,6 +30,7 @@ def _validate(data):
 
 class FakeProvider:
     name = "fake"
+    model = "fake-model"
 
     def __init__(self, responses):
         self.responses = list(responses)
@@ -36,7 +38,7 @@ class FakeProvider:
 
     def generate_with_document(self, system_prompt, content_block):
         self.calls.append(system_prompt)
-        return self.responses.pop(0)
+        return GenerationResult(text=self.responses.pop(0))
 
 
 def test_first_attempt_valid_no_retry_needed():
