@@ -276,7 +276,7 @@ owner ở batch/thời điểm khác):**
 - Rủi ro cộng dồn timeout worst-case (retry mạng × retry-repair schema) nêu trên — đã giới hạn thực tế nhưng chưa airtight tuyệt đối ở trường hợp cực xấu lý thuyết.
 - Chưa gỡ package `google-generativeai` khỏi venv cục bộ (chỉ đổi `requirements.txt`) — không ảnh hưởng gì (không còn file nào import), chỉ là dọn dẹp không bắt buộc.
 
-## Batch 5A — Xác thực email, Bộ hồ sơ và chuyển khoản thủ công — **ĐANG TRIỂN KHAI (sub-bước 1/? đã xong)**
+## Batch 5A — Xác thực email, Bộ hồ sơ và chuyển khoản thủ công — **ĐANG TRIỂN KHAI (sub-bước 2/? đã xong)**
 
 **Mục tiêu:** chuyển mô hình quota "N lượt/ngày" hiện tại sang mô hình
 "Bộ hồ sơ" trả trước (credit-based), có xác thực email và nạp thêm bằng
@@ -336,6 +336,87 @@ quota AI đọc bản vẽ đang chạy thật):**
   tôi để tránh đổi hành vi `register()` hiện có, có thể đổi lại nếu bạn muốn
   tự động gửi ngay lúc đăng ký).
 
+**Tiến độ — Sub-bước 2 (đổi luồng AI đọc bản vẽ sang "Bộ hồ sơ" qua khái niệm
+"phiên", theo đúng thiết kế đã trình bày và được duyệt trước khi code):**
+
+- **Thiết kế đã duyệt trước khi code** (5 điểm, xem hội thoại): 1 lần bấm
+  "Bắt đầu phân tích" = 1 phiên, tự đóng ngay sau khi các hạng mục xong, không
+  cộng dồn qua nhiều lượt bấm khác nhau; double-click/2 tab → trả về phiên
+  đang mở (idempotent); timeout phiên bị bỏ quên = 60 phút; đổi hiển thị quota
+  ở 2 vị trí + thêm dòng phụ giải thích 5 file/7 form; giới hạn 5 file/7 form
+  là validate phòng ngừa cho tương lai (UI hiện tại đúng 3 hạng mục cố định,
+  không bao giờ chạm ngưỡng thật).
+- **Schema mới**: `HoSoSession` (`backend/app/models.py`) — `status`
+  (`open`/`closed_used`/`closed_refunded`), `files_used`/`forms_used`/
+  `success_count`, `ledger_entry_id` (trỏ đúng dòng `-1` lúc mở phiên).
+  Migration `4ca63b0c73f2_add_ho_so_session...py`, đã chạy thật upgrade →
+  downgrade → upgrade lại trên SQLite local (file tạm), khoá lại bằng test
+  `test_batch_5a_ho_so_session_migration_downgrades_and_reupgrades_cleanly`.
+- **`backend/app/services/ho_so_session.py`** (logic nghiệp vụ, tái dùng ý
+  tưởng "giữ chỗ nguyên tử" của Batch 1 nhưng ở cấp phiên): `open_session()`
+  trừ ngay 1 Bộ hồ sơ (ghi `CreditLedger` delta=-1) cùng transaction với tạo
+  phiên; idempotent nếu đang có phiên `open` chưa hết hạn; tự lazy-đóng (dùng
+  hoặc hoàn tuỳ `success_count`) phiên cũ nếu đã quá 60 phút trước khi mở
+  phiên mới. `reserve_slot()` kiểm tra + tăng `files_used`/`forms_used` TRƯỚC
+  khi gọi AI (chặn sớm nếu vượt 5/7, không tốn 1 lần gọi AI cho yêu cầu chắc
+  chắn bị từ chối) — KHÔNG rollback nếu AI sau đó lỗi kỹ thuật (giữ đơn giản,
+  UI hiện tại không có đường nào "thử lại đúng hạng mục trong cùng phiên").
+  `close_session()` giữ nguyên nếu `success_count > 0`, hoàn `+1` nếu bằng 0;
+  idempotent (gọi lại với phiên đã đóng không lỗi, không hoàn 2 lần).
+- **`backend/app/routes/aiho.py`**: `_handle_read_request()` bỏ hẳn
+  `_reserve_usage_slot`/`_finalize_usage`/`UsageLog` (Batch 1) khỏi luồng đọc
+  bản vẽ — nhận `session_id` (form field), xác nhận phiên thuộc đúng user +
+  đang mở + còn hạn, kiểm tra giới hạn qua `reserve_slot()` rồi mới gọi AI.
+  Response mỗi hạng mục nay có `ho_so: {session_id, files_used, forms_used,
+  max_files, max_forms}` thay cho `quota` cũ. 2 route mới: `POST
+  /api/aiho/session/open` (trả 429 kèm `bo_ho_so_con_lai` nếu hết Bộ hồ sơ) và
+  `POST /api/aiho/session/close`. **`/api/ai/comment` (tính năng khác, quota
+  riêng `AI_COMMENT_API_NAME`) hoàn toàn KHÔNG bị đụng tới.**
+- **`_user_payload()` (`routes/auth.py`)**: đổi field `quota` (lượt/ngày cũ)
+  thành `bo_ho_so: {con_lai}` — dùng chung cho response `register`/`login`/`me`.
+- **Frontend**: `js/ai-doc-ho-so.js` — `cta` click handler nay `await` gọi
+  `/session/open` (giữ `session_id` trong biến JS cục bộ của lượt chạy đó)
+  TRƯỚC KHI bắn 3 fetch hạng mục song song (mỗi fetch thêm `session_id` vào
+  `FormData`), gọi `/session/close` ngay trong `finishUp()` sau khi tất cả đã
+  settle. Bỏ nhánh `429` cũ trong xử lý per-hạng-mục (không còn route nào trả
+  429 nữa — chỉ `/session/open` trả 429). `updateCta()` + `js/auth.js` (dòng
+  trạng thái đăng nhập trên nav) đổi hiển thị "còn X/Y lượt đọc bản vẽ hôm
+  nay" → "còn N Bộ hồ sơ (mỗi Bộ hồ sơ tối đa 5 file bản vẽ, 7 form MĐC)".
+  `A.setUserQuota`/`updateQuotaDisplay` đổi tên thành `A.setUserBoHoSo`/
+  `updateBoHoSoDisplay` cho đúng ngữ nghĩa mới.
+- **Test**: 17 test mới (`test_ho_so_session_service.py`, unit test trực tiếp
+  cho `ho_so_session.py`) + viết lại toàn bộ `test_aiho_read_routes.py` cho
+  luồng phiên (8 → 15 test) + viết lại `test_quota_concurrency.py` cho
+  `open_session()` (1 → 2 test, thay cho `_reserve_usage_slot` đã gỡ) + 1 test
+  migration mới — tổng bộ test tăng từ 534 lên **560/560 pass**, chạy lại 3
+  lần liên tiếp không phát sinh flaky. `npm run lint` không phát sinh cảnh
+  báo mới.
+- **2 lỗi thật phát hiện và sửa trong lúc làm** (cả 2 đều từ test concurrency
+  mới, KHÔNG phải lỗi trong code nghiệp vụ):
+  1. `test_quota_concurrency.py` (bản viết lại) thỉnh thoảng báo
+     `DetachedInstanceError`/`database is locked` ngẫu nhiên khi chạy 20 luồng
+     đồng thời. Nguyên nhân: Flask-SQLAlchemy 3.x scope session theo `id()`
+     của app-context — tạo/huỷ nhiều app context dồn dập ở nhiều luồng mà
+     không giữ tham chiếu sống có thể khiến Python tái sử dụng cùng 1 địa chỉ
+     bộ nhớ cho 2 app context KHÁC NHAU ở 2 luồng (id() trùng do garbage
+     collect), khiến 2 luồng vô tình dùng chung 1 scoped session. Xác nhận
+     bằng thực nghiệm (không giữ tham chiếu: lỗi ~1/5 lần; giữ tham chiếu:
+     sạch 10/10 lần) — đã sửa TRONG TEST (giữ tham chiếu app context sống
+     suốt vòng đời luồng), không phải lỗi ở `ho_so_session.py`.
+  2. Nhân tiện phát hiện `_build_engine_options()` cho SQLite chưa từng đặt
+     `connect_args={"timeout": ...}` — mặc định driver chỉ chờ ngắn trước khi
+     báo "database is locked" khi nhiều request cùng xếp hàng qua `BEGIN
+     IMMEDIATE` (Batch 1). Đã thêm `timeout: 30` giây — cải thiện chịu tải
+     đồng thời thật, không chỉ riêng cho test. `test_config.py` cập nhật theo.
+- **KHÔNG đổi** (đúng phạm vi sub-bước 2): chưa có trang nạp tiền/admin xác
+  nhận; chưa đổi giới hạn form MĐC ở nơi khác; chưa đổi thông báo UI "Chú ý
+  trước khi sử dụng"; trang quản trị (`quan-tri.js`/`admin.py`) hoàn toàn
+  KHÔNG bị đụng — vẫn dùng `daily_quota`/`UsageLog` cũ y nguyên, NHƯNG cột
+  "used_today" của nó cho AIHO trên trang admin sẽ **không còn tăng nữa** kể
+  từ sub-bước này (vì `aiho.py` không còn ghi `UsageLog` cho luồng đọc bản vẽ)
+  — số liệu cũ vẫn xem được, chỉ đóng băng, không phải lỗi. **Cần bạn biết**
+  nếu trang admin đó vẫn đang được dùng để theo dõi mức sử dụng AIHO thực tế.
+
 **Chính sách nghiệp vụ (owner quyết định, giữ nguyên khi triển khai)**
 
 - Tài khoản xác thực email lần đầu được đúng **2 Bộ hồ sơ** dùng thử.
@@ -381,12 +462,14 @@ quota AI đọc bản vẽ đang chạy thật):**
   có route dùng tới.
 - [x] Xác thực email: sinh token một lần, gửi email, endpoint xác nhận, tự động
   cấp 2 Bộ hồ sơ khi xác thực thành công lần đầu — **sub-bước 1**.
-- [ ] Đổi luồng quota AI đọc bản vẽ: kiểm tra/trừ theo "Bộ hồ sơ còn lại" thay
+- [x] Đổi luồng quota AI đọc bản vẽ: kiểm tra/trừ theo "Bộ hồ sơ còn lại" thay
   vì đếm lượt/ngày; giữ nguyên cơ chế giữ-chỗ nguyên tử đã có ở Batch 1 (áp
-  dụng cho đơn vị "Bộ hồ sơ" thay vì "lượt gọi API") — **chưa làm, sub-bước
-  sau** (sub-bước 1 chủ động giữ nguyên "lượt/ngày" cũ đang chạy thật).
-- [ ] Giới hạn 1 Bộ hồ sơ: tối đa 5 file bản vẽ/tối đa 7 form MĐC — validate ở
-  cả frontend và backend — **chưa làm, sub-bước sau**.
+  dụng cho đơn vị "Bộ hồ sơ" — qua khái niệm "phiên" gộp nhiều lần gọi AI —
+  thay vì "lượt gọi API") — **sub-bước 2**.
+- [x] Giới hạn 1 Bộ hồ sơ: tối đa 5 file bản vẽ/tối đa 7 form MĐC — validate ở
+  backend (chặn thật, không thể bypass) — **sub-bước 2**. Chưa có validate
+  riêng ở frontend (xem giải thích ở gate kiểm tra bên dưới — UI hiện tại
+  không thể chạm ngưỡng này nên chưa cần chặn sớm phía client).
 - [ ] Trang/luồng "Nạp thêm Bộ hồ sơ": tạo yêu cầu nạp với mã riêng, hiển thị
   thông tin chuyển khoản (đọc từ biến môi trường), nút "Tôi đã chuyển khoản"
   chỉ đổi trạng thái sang chờ — **chưa làm, sub-bước sau**.
@@ -402,10 +485,19 @@ quota AI đọc bản vẽ đang chạy thật):**
   `test_auth_email_verification_routes.py` (17 test), cộng test riêng cho
   token hết hạn/token dùng 1 lần/tài khoản cũ chưa xác thực (không nằm trong
   danh sách gate gốc nhưng thuộc yêu cầu cụ thể của sub-bước 1).
-- [ ] Test: dùng hết Bộ hồ sơ → chặn đúng, không cho âm số dư — **chưa làm,
-  cần luồng quota AI đọc bản vẽ đổi sang Bộ hồ sơ trước (sub-bước sau)**.
-- [ ] Test: hoàn lượt đúng khi lỗi kỹ thuật, không hoàn khi lỗi do người dùng
-  (vd. file sai định dạng) — **chưa làm, sub-bước sau**.
+- [x] Test: dùng hết Bộ hồ sơ → chặn đúng, không cho âm số dư — **sub-bước 2**:
+  `test_open_session_raises_insufficient_credits_when_balance_zero` +
+  `test_concurrent_session_open_when_zero_balance_never_grants_any` (kể cả
+  dưới tải đồng thời).
+- [x] Test: hoàn lượt đúng khi lỗi kỹ thuật — **sub-bước 2**:
+  `test_close_session_with_no_success_refunds` +
+  `test_closing_session_with_zero_successes_refunds_credit`. **Diễn giải cần
+  bạn biết**: ở cấp phiên (khác cấp từng lần gọi AI của policy gốc), quy tắc
+  thực tế là "hoàn nếu phiên có 0 lần đọc thành công" — KHÔNG phân biệt lý do
+  cụ thể (lỗi kỹ thuật hay lỗi định dạng file người dùng), vì nếu chưa từng
+  gọi AI thành công thì chưa phát sinh chi phí thật nào, hợp lý để hoàn dù
+  nguyên nhân là gì. Nếu bạn muốn phân biệt chặt hơn (vd. lỗi định dạng file
+  của người dùng thì KHÔNG hoàn dù toàn phiên thất bại), báo tôi làm thêm.
 - [ ] Test: chỉ admin mới gọi được endpoint xác nhận chuyển khoản; user thường
   bị chặn (403) — **chưa làm, chưa có route xác nhận chuyển khoản (sub-bước sau)**.
 - [ ] Test: xác nhận chuyển khoản 2 lần cho cùng 1 yêu cầu không cộng 2 lần
@@ -416,8 +508,15 @@ quota AI đọc bản vẽ đang chạy thật):**
 - [x] Review: không có thông tin ngân hàng/QR nào xuất hiện trong git diff/log/docs
   — sub-bước 1 chỉ thêm biến môi trường SMTP (không phải ngân hàng), khai báo
   tên biến với giá trị rỗng trong `.env.example`, không có giá trị ví dụ nào.
-- [ ] Review: giới hạn 5 file/7 form MĐC được validate ở backend, không chỉ ở
-  frontend (client có thể bị bypass) — **chưa làm, sub-bước sau**.
+- [x] Review: giới hạn 5 file/7 form MĐC được validate ở backend, không chỉ ở
+  frontend — **sub-bước 2**: `ho_so_session.reserve_slot()` (backend, chặn
+  thật, không thể bypass qua client) + `test_file_cap_exceeded_returns_400`/
+  `test_form_cap_exceeded_returns_400`. Frontend hiện KHÔNG có validate riêng
+  cho 2 giới hạn này (chỉ hiện thông báo lỗi trả về từ backend nếu vượt) — vì
+  UI hiện tại đúng 3 hạng mục cố định không bao giờ chạm ngưỡng thật (xem
+  điểm 5 thiết kế đã duyệt), nên chưa cần chặn sớm phía client cho trường hợp
+  không thể xảy ra; sẽ thêm validate frontend thật khi có hạng mục mới khiến
+  ngưỡng này chạm được trong luồng UI bình thường.
 
 ## Batch 5 — UAT và release readiness
 

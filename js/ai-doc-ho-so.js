@@ -23,7 +23,7 @@
   var BACKEND_BASE = A.BACKEND_BASE;
   var currentUser = A.getUser();
   function getToken(){ return A.getToken(); }
-  function updateQuotaDisplay(quota){ A.setUserQuota(quota); }
+  function updateBoHoSoDisplay(boHoSo){ A.setUserBoHoSo(boHoSo); }
   A.onChange(function(user){ currentUser = user; updateCta(); });
 
   var MAX_FILE_MB = 15;
@@ -261,7 +261,7 @@
     } else if(!currentUser){
       ctaHint.textContent = 'Cần đăng nhập trước khi phân tích — bấm nút sẽ mở màn đăng nhập';
     } else {
-      ctaHint.textContent = 'Sẵn sàng — còn ' + currentUser.quota.remaining_today + '/' + currentUser.quota.limit + ' lượt đọc bản vẽ hôm nay';
+      ctaHint.textContent = 'Sẵn sàng — còn ' + currentUser.bo_ho_so.con_lai + ' Bộ hồ sơ (mỗi Bộ hồ sơ tối đa 5 file bản vẽ, 7 form MĐC).';
     }
   }
 
@@ -599,21 +599,20 @@
     return m + ' phút' + (s ? ' ' + s + ' giây' : '');
   }
 
-  cta.addEventListener('click', function(){
-    if(!currentUser){
-      window.openAuthModal();
-      return;
-    }
-
-    msg.classList.remove('show');
-    feedbackConfirm.hidden = true;
-    feedbackCta.disabled = true;
-    resultsSection.hidden = true;
-    processing.hidden = false;
-    isProcessing = true;
+  // Batch 5A sub-buoc 2: 1 lan bam "Bắt đầu phân tích" = 1 phien Bo ho so (tru
+  // ngay 1 Bo ho so luc mo, giu hoac hoan luc dong tuy co lan doc nao thanh
+  // cong hay khong) - mo phien TRUOC khi ban cac fetch hang muc song song,
+  // dong phien NGAY SAU khi tat ca da settle (trong finishUp()).
+  function abortProcessing(errorText){
+    processing.hidden = true;
+    isProcessing = false;
+    setOutputPickerLocked(false);
     updateCta();
-    setOutputPickerLocked(true);
+    msg.textContent = errorText;
+    msg.classList.add('show');
+  }
 
+  function runAnalysis(sessionId){
     var activeSlots = Object.keys(REAL_CATEGORIES).filter(function(slot){ return !!realFiles[slot]; });
     activeSlots.forEach(function(slot){ realResults[slot] = null; realData[slot] = null; });
 
@@ -646,23 +645,39 @@
       }, 700);
     }
 
+    function closeSessionIfAny(){
+      if(!sessionId) return Promise.resolve();
+      return fetch(BACKEND_BASE + '/api/aiho/session/close', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken()},
+        body: JSON.stringify({session_id: sessionId})
+      })
+        .then(function(res){ return res.json().then(function(data){ return {status: res.status, data: data}; }); })
+        .then(function(r){
+          if(r.data && r.data.bo_ho_so_con_lai !== undefined) updateBoHoSoDisplay({con_lai: r.data.bo_ho_so_con_lai});
+        })
+        .catch(function(){ /* dong phien la best-effort - khong chan hien ket qua neu loi mang luc dong */ });
+    }
+
     function finishUp(){
       clearInterval(interval);
       processingFill.style.width = '100%';
-      setTimeout(function(){
-        processing.hidden = true;
-        processingFill.style.width = '0%';
-        isProcessing = false;
-        setOutputPickerLocked(false);
-        renderResultTable();
-        renderOutputPreviews();
-        maybeExportKienNghiDocx();
-        resultsSection.hidden = false;
-        resultsSection.scrollIntoView({behavior: 'smooth', block: 'start'});
-        updateCta();
-        // Khong tu bat popup gop y - chi kich hoat nut, nguoi dung tu bam khi san sang.
-        feedbackCta.disabled = false;
-      }, 300);
+      closeSessionIfAny().then(function(){
+        setTimeout(function(){
+          processing.hidden = true;
+          processingFill.style.width = '0%';
+          isProcessing = false;
+          setOutputPickerLocked(false);
+          renderResultTable();
+          renderOutputPreviews();
+          maybeExportKienNghiDocx();
+          resultsSection.hidden = false;
+          resultsSection.scrollIntoView({behavior: 'smooth', block: 'start'});
+          updateCta();
+          // Khong tu bat popup gop y - chi kich hoat nut, nguoi dung tu bam khi san sang.
+          feedbackCta.disabled = false;
+        }, 300);
+      });
     }
 
     if(activeSlots.length){
@@ -676,6 +691,7 @@
         var form = new FormData();
         form.append('file', realFiles[slot]);
         form.append('outputs', outputsValue);
+        form.append('session_id', sessionId);
         fetch(BACKEND_BASE + cfg.endpoint, {
           method: 'POST',
           headers: {'Authorization': 'Bearer ' + getToken()},
@@ -697,20 +713,12 @@
               window.openAuthModal();
               return;
             }
-            if(r.status === 429){
-              msg.textContent = r.data.error;
-              msg.classList.add('show');
-              if(r.data.quota) updateQuotaDisplay(r.data.quota);
-              realResults[slot] = {status: 'bad', note: cfg.label + ': ' + (r.data.error || 'Đã hết lượt đọc bản vẽ hôm nay.')};
-              return;
-            }
             if(r.status >= 400){
               realResults[slot] = {status: 'warn', note: cfg.label + ': AI đọc bản vẽ báo lỗi: ' + (r.data.error || 'không rõ nguyên nhân') + '.'};
               return;
             }
             realResults[slot] = cfg.summarize(r.data);
             realData[slot] = r.data;
-            if(r.data.quota) updateQuotaDisplay(r.data.quota);
           })
           .catch(function(){
             realResults[slot] = {status: 'warn', note: cfg.label + ': Không kết nối được tới máy chủ AI — thử lại sau.'};
@@ -723,6 +731,52 @@
     } else {
       setTimeout(finishUp, 2200);
     }
+  }
+
+  cta.addEventListener('click', function(){
+    if(!currentUser){
+      window.openAuthModal();
+      return;
+    }
+
+    msg.classList.remove('show');
+    feedbackConfirm.hidden = true;
+    feedbackCta.disabled = true;
+    resultsSection.hidden = true;
+    processing.hidden = false;
+    isProcessing = true;
+    updateCta();
+    setOutputPickerLocked(true);
+
+    var hasRealSlot = Object.keys(REAL_CATEGORIES).some(function(slot){ return !!realFiles[slot]; });
+    if(!hasRealSlot){
+      runAnalysis(null);
+      return;
+    }
+
+    fetch(BACKEND_BASE + '/api/aiho/session/open', {
+      method: 'POST',
+      headers: {'Authorization': 'Bearer ' + getToken()}
+    })
+      .then(function(res){ return res.json().then(function(data){ return {status: res.status, data: data}; }); })
+      .then(function(r){
+        if(r.status === 401){
+          A.logout();
+          abortProcessing(r.data.error || 'Phiên đăng nhập đã hết hạn — vui lòng đăng nhập lại.');
+          window.openAuthModal();
+          return;
+        }
+        if(r.status >= 400){
+          if(r.data.bo_ho_so_con_lai !== undefined) updateBoHoSoDisplay({con_lai: r.data.bo_ho_so_con_lai});
+          abortProcessing(r.data.error || 'Không mở được phiên Bộ hồ sơ — vui lòng thử lại sau.');
+          return;
+        }
+        if(r.data.bo_ho_so_con_lai !== undefined) updateBoHoSoDisplay({con_lai: r.data.bo_ho_so_con_lai});
+        runAnalysis(r.data.session_id);
+      })
+      .catch(function(){
+        abortProcessing('Không kết nối được tới máy chủ — vui lòng thử lại sau.');
+      });
   });
 
   /* ===================================================================

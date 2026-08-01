@@ -7,7 +7,7 @@ from app.config import _build_engine_options
 
 def test_engine_options_for_sqlite_has_no_pool_size():
     options = _build_engine_options("sqlite:///app.db")
-    assert options == {"pool_pre_ping": True}
+    assert options == {"pool_pre_ping": True, "connect_args": {"timeout": 30}}
 
 
 def test_engine_options_for_postgres_has_pool_settings():

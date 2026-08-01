@@ -15,7 +15,7 @@ from app import create_app
 from app.extensions import db
 from flask_migrate import downgrade, upgrade
 
-BATCH_5A_TABLES = {"credit_ledger", "email_verification_token", "topup_request"}
+BATCH_5A_TABLES = {"credit_ledger", "email_verification_token", "topup_request", "ho_so_session"}
 
 
 def test_migrations_upgrade_cleanly_on_empty_database(tmp_path):
@@ -71,3 +71,31 @@ def test_batch_5a_migration_downgrades_and_reupgrades_cleanly(tmp_path):
         assert BATCH_5A_TABLES.issubset(set(inspector.get_table_names()))
         user_columns = {col["name"] for col in inspector.get_columns("users")}
         assert "email_verified_at" in user_columns
+
+
+def test_batch_5a_ho_so_session_migration_downgrades_and_reupgrades_cleanly(tmp_path):
+    """Sub-buoc 2: rieng migration ho_so_session (1 buoc, tren nen da co san
+    sub-buoc 1) - downgrade dung 1 buoc (khac test tren downgrade ca 2 buoc)."""
+    db_path = tmp_path / "batch5a_step2_migration_roundtrip_test.db"
+    application = create_app(config_overrides={
+        "SQLALCHEMY_DATABASE_URI": f"sqlite:///{db_path}",
+        "TESTING": True,
+        "SECRET_KEY": "test-secret-batch5a-step2",
+    })
+    with application.app_context():
+        upgrade()
+        inspector = inspect(db.engine)
+        assert "ho_so_session" in set(inspector.get_table_names())
+
+        downgrade(revision="33a95593a87d")  # 1 buoc truoc migration ho_so_session
+        inspector = inspect(db.engine)
+        tables_after_downgrade = set(inspector.get_table_names())
+        assert "ho_so_session" not in tables_after_downgrade
+        # Cac bang sub-buoc 1 van con nguyen (chi lui dung 1 buoc)
+        assert {"credit_ledger", "email_verification_token", "topup_request"}.issubset(tables_after_downgrade)
+
+        upgrade()
+        inspector = inspect(db.engine)
+        assert "ho_so_session" in set(inspector.get_table_names())
+        ho_so_columns = {col["name"] for col in inspector.get_columns("ho_so_session")}
+        assert {"status", "files_used", "forms_used", "success_count", "ledger_entry_id"}.issubset(ho_so_columns)

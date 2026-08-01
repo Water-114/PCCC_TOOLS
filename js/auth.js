@@ -47,7 +47,7 @@ window.PcccAuth = (function(){
   }
 
   function logout(){ setToken(null); currentUser = null; notify(); }
-  function setUserQuota(quota){ if(currentUser){ currentUser.quota = quota; notify(); } }
+  function setUserBoHoSo(boHoSo){ if(currentUser){ currentUser.bo_ho_so = boHoSo; notify(); } }
 
   return {
     BACKEND_BASE: BACKEND_BASE,
@@ -59,7 +59,7 @@ window.PcccAuth = (function(){
     register: register,
     logout: logout,
     onChange: onChange,
-    setUserQuota: setUserQuota
+    setUserBoHoSo: setUserBoHoSo
   };
 })();
 
@@ -82,7 +82,7 @@ window.PcccAuth = (function(){
 
   function updateAuthUI(user){
     if(user){
-      authStatusEl.textContent = user.email + ' · còn ' + user.quota.remaining_today + '/' + user.quota.limit + ' lượt đọc bản vẽ hôm nay' + (user.role === 'admin' ? ' · admin' : '');
+      authStatusEl.textContent = user.email + ' · còn ' + user.bo_ho_so.con_lai + ' Bộ hồ sơ' + (user.role === 'admin' ? ' · admin' : '');
       authOpenBtn.hidden = true;
       authLogoutBtn.hidden = false;
     } else {

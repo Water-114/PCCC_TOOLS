@@ -158,3 +158,27 @@ class TopupRequest(db.Model):
 
     user = db.relationship("User", foreign_keys=[user_id])
     confirmed_by_admin = db.relationship("User", foreign_keys=[confirmed_by_admin_id])
+
+
+class HoSoSession(db.Model):
+    """1 phiên "Bộ hồ sơ" (Batch 5A, sub-bước 2) — gộp nhiều lần gọi AI đọc bản vẽ
+    (nhiều hạng mục của CÙNG 1 công trình) vào đúng 1 lượt trừ Bộ hồ sơ, thay vì
+    mỗi lần gọi AI trừ riêng. Mở phiên = trừ ngay 1 Bộ hồ sơ (ghi CreditLedger
+    delta=-1); đóng phiên = giữ nguyên nếu có ít nhất 1 lần gọi thành công, hoàn
+    lại (+1) nếu toàn bộ đều lỗi kỹ thuật hoặc phiên không dùng gì cả. Xem
+    services/ho_so_session.py để biết toàn bộ logic mở/đóng/kiểm tra giới hạn."""
+
+    __tablename__ = "ho_so_session"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    status = db.Column(db.String(20), nullable=False, default="open")  # 'open' | 'closed_used' | 'closed_refunded'
+    files_used = db.Column(db.Integer, nullable=False, default=0)
+    forms_used = db.Column(db.Integer, nullable=False, default=0)
+    success_count = db.Column(db.Integer, nullable=False, default=0)
+    ledger_entry_id = db.Column(db.Integer, db.ForeignKey("credit_ledger.id"), nullable=True)
+    opened_at = db.Column(db.DateTime(timezone=True), default=_utcnow, nullable=False)
+    closed_at = db.Column(db.DateTime(timezone=True), nullable=True)
+
+    user = db.relationship("User")
+    ledger_entry = db.relationship("CreditLedger")

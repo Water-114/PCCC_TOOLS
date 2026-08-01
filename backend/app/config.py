@@ -29,7 +29,12 @@ def _build_engine_options(db_url: str) -> dict:
             "pool_size": 5,
             "max_overflow": 10,
         }
-    return {"pool_pre_ping": True}
+    # connect_args timeout: so giay 1 connection SQLite CHO (block, tu dong thu
+    # lai o tang driver) truoc khi nem "database is locked", thay vi mac dinh
+    # 5s cua sqlite3 - qua ngan khi nhieu request dong thoi cung xep hang qua
+    # "BEGIN IMMEDIATE" (co chu dich, xem app/__init__.py) cho 1 transaction
+    # nhieu buoc (vd mo phien Bo ho so: kiem tra so du + ghi ledger + ghi phien).
+    return {"pool_pre_ping": True, "connect_args": {"timeout": 30}}
 
 
 class Config:

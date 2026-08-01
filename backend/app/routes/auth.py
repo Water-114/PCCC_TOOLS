@@ -5,8 +5,8 @@ from sqlalchemy.exc import IntegrityError
 
 from ..auth import create_token, login_required
 from ..extensions import db, limiter
-from ..models import AIHO_API_NAME, User, count_usage_today
-from ..services import email_verification, mailer
+from ..models import User
+from ..services import credits, email_verification, mailer
 
 bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
@@ -18,15 +18,11 @@ EMAIL_RE = re.compile(r"^[^@\s<>\"']+@[^@\s<>\"']+\.[^@\s<>\"']+$")
 
 
 def _user_payload(user: User) -> dict:
-    used = count_usage_today(user.id, AIHO_API_NAME)
-    limit = user.effective_quota()
+    # Batch 5A sub-buoc 2: doi "quota" (luot/ngay cu, aiho.py khong con dung nua)
+    # sang so du "Bo ho so" - nguon su that duy nhat la CreditLedger.
     return {
         **user.to_public_dict(),
-        "quota": {
-            "limit": limit,
-            "used_today": used,
-            "remaining_today": max(0, limit - used),
-        },
+        "bo_ho_so": {"con_lai": credits.credit_balance(user.id)},
     }
 
 
