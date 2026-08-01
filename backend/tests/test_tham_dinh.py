@@ -19,6 +19,15 @@ def test_happy_path_chungcu_dat_nguong(client):
     assert data["result"] == "yes"
 
 
+def test_response_includes_rule_set_version(client):
+    """Batch 3: mỗi kết quả rule phải kèm rule_set_version để truy vết được
+    đang đối chiếu theo phiên bản nguồn pháp lý nào."""
+    resp = client.post("/api/tham-dinh/evaluate", json={
+        "occ": "chungcu", "floors": 8, "totalArea": 500,
+    })
+    assert resp.get_json()["rule_set_version"] == "ND105-2025-PLIII"
+
+
 def test_unknown_occupation_rejected_with_400(client):
     resp = client.post("/api/tham-dinh/evaluate", json={"occ": "khong_ton_tai"})
     assert resp.status_code == 400

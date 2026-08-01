@@ -1,6 +1,6 @@
 "use strict";
 /* =====================================================================
-   TƯ VẤN SƠ BỘ PCCC — rule engine
+   HƯỚNG DẪN SƠ BỘ PCCC — rule engine
    Nguồn ngưỡng: NĐ 105/2025 PL III; QCVN 10:2025/BCA PL A–G;
    TCVN 7435-1:2004; TCVN 13456:2022 (bảng dựng từ bản OCR — ô ⚠️ cần đối chiếu)
    Trạng thái kết luận: yes = THUỘC DIỆN | no = KHÔNG THUỘC | warn = CẦN ĐỐI CHIẾU ⚠️ | na = KHÔNG NÊU TRONG PHỤ LỤC
@@ -1038,7 +1038,7 @@ function render(d){
   $("phieu").innerHTML = `
     <div class="phieu-head">
       <div>
-        <div class="eyebrow">Phiếu tư vấn sơ bộ</div>
+        <div class="eyebrow">Phiếu hướng dẫn sơ bộ</div>
         <h2>${occ.label}</h2>
         <div class="sub">${d.floorsNoi} tầng nổi${d.semiBasements>0?` + ${d.semiBasements} bán hầm (số tầng tính toán: ${d.floors})`:""}${d.basements>0?` + ${d.basements} tầng hầm`:""} · DT tầng ${fmt(d.areaFloor)} m² · ΣF ${fmt(d.totalArea)} m² · V ${fmt(d.volume)} m³ · Chiều cao PCCC ${d.hFire} m${d.hazard?` · Hạng ${d.hazard}`:""}${d.kids!==null?` · ${fmt(d.kids)} cháu`:""}${d.seats!==null?` · ${fmt(d.seats)} chỗ`:""}</div>
       </div>
@@ -1114,6 +1114,7 @@ function render(d){
         <button type="button" class="btn-ghost" id="btnThemSoSanh">Thêm vào bảng so sánh</button>
       </div>
       <div class="disclaimer">
+        <p>${PCCC_DISCLAIMER}</p>
         <b>Lưu ý sử dụng:</b> Phiếu này là kết quả <b>sàng lọc sơ bộ</b> theo logic cố định, dùng tham khảo nội bộ — không thay thế thẩm định chính thức của cơ quan Cảnh sát PCCC&amp;CNCH và không thay thế đánh giá của kỹ sư đối với trường hợp đặc thù (công năng hỗn hợp phức tạp; khu vực/gian phòng/thiết bị theo Bảng A.2/A.3/A.4; chống khói theo QCVN 06 Phụ lục D — xử lý ở bước riêng). Các ô đánh dấu ⚠️ dựng từ bản OCR, <b>bắt buộc đối chiếu bản gốc văn bản</b> trước khi sử dụng chính thức. TCVN 3890 đã hết hiệu lực — không dùng.
       </div>
     </section>`;
@@ -1129,7 +1130,7 @@ function render(d){
 /* ---------- Xuất Word (.doc) ---------- */
 function xuatWord(){
   const noiDung = $("phieu").innerHTML;
-  const soPhieu = $("phieu").dataset.soPhieu || "phieu-tu-van-so-bo";
+  const soPhieu = $("phieu").dataset.soPhieu || "phieu-huong-dan-so-bo";
   const html = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
 <head><meta charset="utf-8"><title>${soPhieu}</title>
 <style>

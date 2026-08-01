@@ -89,19 +89,68 @@ các gate này nếu chưa thực sự chạy trên `pccc-trolynghiepvu-db`.
 
 **Mục tiêu:** một nguồn sự thật cho kết luận rule-based, có truy vết pháp lý.
 
+**Quyết định của owner (thay cho gate "kỹ sư PCCC duyệt" ban đầu):** đây là
+công cụ trợ lý/hỗ trợ tham khảo, **không có quyền thẩm định, phê duyệt hoặc
+đưa ra quyết định chuyên môn cuối cùng** — bỏ hoàn toàn mọi workflow phê
+duyệt nội bộ (không cần "kỹ sư PCCC ký duyệt" hay bất kỳ ai duyệt
+source/version trước khi merge). Thay vào đó, mọi kết quả rule/AI phải kèm
+đúng **cảnh báo thống nhất**:
+
+> "Kết quả từ công cụ chỉ mang tính hỗ trợ tham khảo trong quá trình rà soát
+> hồ sơ. Kết luận, thẩm định và trách nhiệm chuyên môn cuối cùng thuộc về kỹ
+> sư PCCC."
+
+`rule_set_version` và nguồn quy định (`can_cu`) vẫn được giữ để **truy vết
+thông tin** (biết đang đối chiếu theo văn bản/phiên bản nào), nhưng chỉ mang
+tính tham khảo — không phải điều kiện chặn merge.
+
+**Trạng thái hiện tại:**
+- **Cụm 1 (thẩm định):** đã có sẵn `backend/app/services/tham_dinh.py` +
+  `backend/app/routes/tham_dinh.py` (`/api/tham-dinh/occupancies`,
+  `/api/tham-dinh/evaluate`) từ trước — port khớp với `evalThamDinh()` trong
+  `js/tuvan-so-bo.js`, đã xác nhận bằng 61 golden test.
+- **Cụm 2 (hệ thống bắt buộc — QCVN 10:2025/BCA):** đã port
+  `backend/app/services/he_thong_bat_buoc.py` (4 hàm:
+  `evaluate_bao_chay`/`evaluate_sprinkler`/`evaluate_hong_nuoc`/`evaluate_ngoai_nha`,
+  khớp `evalBaoChay`/`evalA3`/`evalSprinkler`/`evalHongNuoc`/`evalNgoaiNha`
+  trong JS) + route `/api/he-thong-bat-buoc/evaluate`, xác nhận bằng 145
+  golden test.
+- Owner quyết định: **giữ nguyên giao diện tính client-side trong giai đoạn
+  này** — chưa chuyển frontend sang gọi API cho bất kỳ cụm nào, chưa xoá
+  logic JS cũ; backend chỉ đóng vai trò "đối chiếu song song" (golden test),
+  chưa phải nguồn duy nhất được frontend gọi tới.
+- 2 cụm còn lại (nước, phương tiện) tiếp tục theo đúng hướng này khi được
+  yêu cầu — khảo sát, port sang backend có golden test, chưa chuyển
+  frontend/xoá JS.
+
 **Công việc**
 
-- Viết API contract cho water/thẩm định/rule results bằng schema rõ ràng.
-- Di chuyển theo từng cụm rule từ `js/tuvan-so-bo.js` vào backend service có test; frontend chỉ render API response.
-- Mỗi rule phải có `rule_set_version`, nguồn, ngày hiệu lực, điều kiện đầu vào và test dưới/bằng/trên ngưỡng.
+- Viết API contract cho rule results bằng schema rõ ràng — **cụm thẩm định
+  và cụm hệ thống bắt buộc đã có**; 2 cụm còn lại (nước, phương tiện) chưa làm.
+- Di chuyển theo từng cụm rule từ `js/tuvan-so-bo.js` vào backend service có
+  test; **frontend TẠM THỜI vẫn tính client-side** cho mọi cụm — việc
+  "frontend chỉ render API response" hoãn lại tới khi owner xác nhận chuyển đổi.
+- Mỗi rule có `rule_set_version`, nguồn, điều kiện đầu vào và test
+  dưới/bằng/trên ngưỡng — đã có cho cụm 1 và cụm 2; "ngày hiệu lực" cụ thể
+  chưa có (nguồn hiện chỉ trích dẫn tên văn bản chung, vd. "NĐ 105/2025",
+  "QCVN 10:2025/BCA"), chỉ mang tính tham khảo thêm khi có, không phải điều
+  kiện bắt buộc.
 - Chỉ chuyển một cụm mỗi PR: thẩm định -> hệ thống bắt buộc -> nước -> phương tiện.
-- Loại bỏ logic JS trùng lặp chỉ sau khi endpoint tương ứng đã qua regression test.
+- Loại bỏ logic JS trùng lặp: **hoãn lại cho mọi cụm**, chỉ làm sau khi owner
+  xác nhận chuyển frontend sang gọi API.
 
 **Gate kiểm tra**
 
-- Golden test cho mọi công năng và biên ngưỡng đã chuyển.
-- Kỹ sư PCCC duyệt source/version của rule trước merge.
-- Browser test xác nhận phiếu in/xuất giữ nguyên kết quả trên bộ dữ liệu chuẩn.
+- [x] Golden test cho công năng và biên ngưỡng đã chuyển:
+      61 test cụm thẩm định (`backend/tests/test_tham_dinh_golden.py`) +
+      145 test cụm hệ thống bắt buộc
+      (`backend/tests/test_he_thong_bat_buoc_golden.py`), tất cả pass.
+- [x] Cảnh báo trách nhiệm chuyên môn thống nhất — hiển thị ở khu vực kết quả
+      thẩm định (`js/tuvan-so-bo.js`, phần disclaimer cuối phiếu) và kết quả
+      AI đọc bản vẽ (`index.html`, disclaimer tĩnh ngay sau `#aihoResults`).
+- [ ] Browser test xác nhận phiếu in/xuất giữ nguyên kết quả trên bộ dữ liệu
+      chuẩn — chưa cần thiết ở giai đoạn "đối chiếu song song" (frontend
+      chưa đổi hành vi hiển thị); áp dụng khi thật sự chuyển sang gọi API.
 
 ## Batch 4 — AI reliability và tính đúng đắn đầu ra
 
@@ -123,20 +172,101 @@ các gate này nếu chưa thực sự chạy trên `pccc-trolynghiepvu-db`.
 - Test không có API key, provider timeout, quota exhausted, partial result chữa cháy nước.
 - Review bằng ít nhất một bộ bản vẽ đã được ẩn danh và được kỹ sư PCCC đối chiếu thủ công.
 
-## Batch 5 — Release staging và quyết định worker
+## Batch 5A — Xác thực email, Bộ hồ sơ và chuyển khoản thủ công
 
-**Mục tiêu:** phát hành staging an toàn và chỉ tăng độ phức tạp khi có dữ liệu.
+**Mục tiêu:** chuyển mô hình quota "N lượt/ngày" hiện tại sang mô hình
+"Bộ hồ sơ" trả trước (credit-based), có xác thực email và nạp thêm bằng
+chuyển khoản ngân hàng thủ công — chưa tích hợp cổng thanh toán tự động.
 
-**Công việc**
+**Chính sách nghiệp vụ (owner quyết định, giữ nguyên khi triển khai)**
 
-- Deploy staging trên Render Web Service + Render PostgreSQL.
-- Thiết lập env tách biệt, monitoring lỗi, structured logging, health/readiness check.
-- Chạy smoke test và UAT theo checklist; đo p50/p95 AI và tỷ lệ lỗi.
-- Lập runbook incident: AI provider down, rollback deployment, rollback migration, revoke secret.
-- Quyết định có cần Redis/worker theo ngưỡng trong kiến trúc mục tiêu hay không.
+- Tài khoản xác thực email lần đầu được đúng **2 Bộ hồ sơ** dùng thử.
+- Thay quota theo ngày bằng số dư **"Bộ hồ sơ còn lại"** (bỏ hẳn khái niệm
+  hạn mức/ngày hiện tại cho luồng AI đọc bản vẽ).
+- Nạp **100.000 VNĐ** được cộng **5 Bộ hồ sơ**, chỉ sau khi admin xác nhận
+  đã nhận được chuyển khoản thật.
+- Một Bộ hồ sơ = tối đa **5 file bản vẽ** của cùng một công trình/cùng một
+  phiên bản, tối đa **7 form MĐC**.
+- Mỗi yêu cầu nạp có **mã chuyển khoản riêng** (để đối chiếu); nút "Tôi đã
+  chuyển khoản" chỉ chuyển đơn sang trạng thái **chờ xác nhận**, không tự
+  động cộng Bộ hồ sơ.
+- Chỉ **admin** xem giao dịch ngân hàng thật và bấm xác nhận thủ công mới
+  cộng +5 Bộ hồ sơ vào tài khoản.
+- Có **ledger/lịch sử** đầy đủ: cấp 2 lượt lúc xác thực email, trừ 1 lượt
+  lúc dùng, hoàn lại lượt khi lỗi kỹ thuật (AI/hệ thống lỗi, không phải lỗi
+  người dùng), cộng 5 lượt lúc admin xác nhận chuyển khoản.
+- Email xác thực dùng **liên kết một lần** (one-time link/token có hạn sử
+  dụng) — không gửi mật khẩu qua email trong bất kỳ trường hợp nào.
+- **Chưa** tích hợp payOS, VNPAY, webhook hay bất kỳ hình thức tự động đọc
+  biến động số dư ngân hàng nào — toàn bộ xác nhận chuyển khoản trong batch
+  này là thủ công do admin thực hiện.
+- Thông tin tài khoản ngân hàng/mã QR nhận tiền **chỉ cấu hình qua biến môi
+  trường** lúc triển khai batch này — không đưa vào source code, docs hay
+  git dưới bất kỳ hình thức nào (kể cả ví dụ/placeholder gần giống thật).
+
+**Công việc (khi được duyệt triển khai)**
+
+- Thiết kế schema mới: bảng credit/ledger cho "Bộ hồ sơ" (số dư, lịch sử
+  cấp/trừ/hoàn/cộng), bảng yêu cầu nạp tiền (mã chuyển khoản, trạng thái
+  chờ/đã xác nhận/từ chối, thời điểm admin xác nhận).
+- Xác thực email: sinh token một lần, gửi email, endpoint xác nhận, tự động
+  cấp 2 Bộ hồ sơ khi xác thực thành công lần đầu.
+- Đổi luồng quota AI đọc bản vẽ: kiểm tra/trừ theo "Bộ hồ sơ còn lại" thay
+  vì đếm lượt/ngày; giữ nguyên cơ chế giữ-chỗ nguyên tử đã có ở Batch 1 (áp
+  dụng cho đơn vị "Bộ hồ sơ" thay vì "lượt gọi API").
+- Giới hạn 1 Bộ hồ sơ: tối đa 5 file bản vẽ/tối đa 7 form MĐC — validate ở
+  cả frontend và backend.
+- Trang/luồng "Nạp thêm Bộ hồ sơ": tạo yêu cầu nạp với mã riêng, hiển thị
+  thông tin chuyển khoản (đọc từ biến môi trường), nút "Tôi đã chuyển khoản"
+  chỉ đổi trạng thái sang chờ.
+- Trang admin: danh sách yêu cầu nạp đang chờ, nút xác nhận thủ công (cộng
+  5 Bộ hồ sơ + ghi ledger), nút từ chối.
+- Trang người dùng: xem số dư Bộ hồ sơ còn lại + lịch sử ledger.
 
 **Gate kiểm tra**
 
+- Test: xác thực email cấp đúng 2 Bộ hồ sơ, không cấp lại lần 2 nếu xác
+  thực lại.
+- Test: dùng hết Bộ hồ sơ → chặn đúng, không cho âm số dư.
+- Test: hoàn lượt đúng khi lỗi kỹ thuật, không hoàn khi lỗi do người dùng
+  (vd. file sai định dạng).
+- Test: chỉ admin mới gọi được endpoint xác nhận chuyển khoản; user thường
+  bị chặn (403).
+- Test: xác nhận chuyển khoản 2 lần cho cùng 1 yêu cầu không cộng 2 lần
+  (idempotent).
+- Review: không có thông tin ngân hàng/QR nào xuất hiện trong git diff/log/docs.
+- Review: giới hạn 5 file/7 form MĐC được validate ở backend, không chỉ ở
+  frontend (client có thể bị bypass).
+
+## Batch 5 — UAT và release readiness
+
+**Mục tiêu:** đưa production (một PostgreSQL production duy nhất —
+`pccc-trolynghiepvu-db`, không có staging riêng, xem
+`docs/01-target-architecture.md`) qua kiểm thử có kiểm soát trước khi thật sự
+mở cho người dùng, và quyết định có cần tăng độ phức tạp (worker/Redis) hay
+không.
+
+**Công việc**
+
+- Gắn `DATABASE_URL` vào web service, chạy `flask db upgrade` trên
+  `pccc-trolynghiepvu-db` theo đúng `docs/04-migration-runbook.md` (backup
+  trước, xác nhận `flask db current` sau) — đóng 4 gate còn treo từ Batch 2.
+- Thiết lập monitoring lỗi, structured logging, health/readiness check
+  (`/api/health` đã kiểm tra kết nối database thật từ Batch 2).
+- Chạy smoke test và UAT theo checklist ngay trên production (vì không có
+  staging riêng) — thực hiện ở khung giờ kiểm soát được, trước khi mời
+  người dùng thật, và có kế hoạch rollback nhanh nếu phát hiện lỗi; đo
+  p50/p95 AI và tỷ lệ lỗi.
+- Lập runbook incident: AI provider down, rollback deployment, rollback
+  migration (đã có runbook migration cơ bản, bổ sung phần incident khác),
+  revoke secret.
+- Quyết định có cần Redis/worker theo ngưỡng trong kiến trúc mục tiêu hay
+  không (xem `docs/01-target-architecture.md` mục "AI ở giai đoạn đơn giản").
+
+**Gate kiểm tra**
+
+- 4 gate còn treo từ Batch 2 (migration Postgres thật, smoke test, restart
+  không mất dữ liệu, review backup/rollback) đã pass.
 - Không có lỗi P0/P1 mở.
 - Security checklist pass và secret không xuất hiện trong repository/log.
 - UAT được người nghiệp vụ ký xác nhận.

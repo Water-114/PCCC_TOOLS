@@ -58,7 +58,13 @@ AI vẫn chạy đồng bộ trong batch đầu, nhưng phải được bao bọ
 - Validate file theo kích thước, magic bytes, số trang và MIME; không chỉ tin `file.mimetype`.
 - Validate chặt JSON AI: schema, enum, đầy đủ id tiêu chí, không có id lạ.
 - Ghi nhận provider/model/prompt version/latency/token usage nếu SDK cung cấp.
-- Kết quả luôn hiển thị là hỗ trợ sơ bộ và phải có bước kỹ sư phê duyệt.
+- Công cụ là trợ lý/hỗ trợ tham khảo — **không có quyền thẩm định, phê duyệt
+  hoặc đưa ra quyết định chuyên môn cuối cùng**, và không có workflow phê
+  duyệt nội bộ nào chặn việc dùng kết quả (xem quyết định của owner ở
+  `docs/02-implementation-batches.md` mục Batch 3). Mọi kết quả rule/AI phải
+  kèm đúng cảnh báo thống nhất: *"Kết quả từ công cụ chỉ mang tính hỗ trợ
+  tham khảo trong quá trình rà soát hồ sơ. Kết luận, thẩm định và trách
+  nhiệm chuyên môn cuối cùng thuộc về kỹ sư PCCC."*
 
 Khi đạt một trong các ngưỡng sau thì mới mở batch kiến trúc bất đồng bộ: p95 AI trên 90 giây, từ 10 job AI/ngày trở lên, có timeout/mất kết quả, hoặc cần nhiều người dùng cùng lúc. Khi đó bổ sung Redis + worker riêng; không làm sớm hơn.
 

@@ -91,8 +91,22 @@ def _cc(muc):
     return f"Phụ lục III NĐ 105/2025, mục {muc}"
 
 
+# Batch 3: dinh danh phien ban bo nguon phap ly dang dung cho service nay -
+# doi khi va chi khi noi dung Phu luc III NĐ 105/2025 duoc thay the/sua doi
+# chinh thuc VA da co kỹ su PCCC xac nhan lai toan bo nguong (khong tu y doi
+# theo suy doan). Chua co ngay hieu luc cu the rieng duoc dan trong source
+# hien tai nen dung dung ten van ban lam dinh danh.
+RULE_SET_VERSION = "ND105-2025-PLIII"
+
+
 def _result(v, detail, can_cu, notes=None):
-    return {"result": v, "detail": detail, "can_cu": can_cu, "notes": notes or []}
+    return {
+        "result": v,
+        "detail": detail,
+        "can_cu": can_cu,
+        "notes": notes or [],
+        "rule_set_version": RULE_SET_VERSION,
+    }
 
 
 class ThamDinhInputError(Exception):

@@ -109,6 +109,7 @@ def create_app(config_overrides=None):
     from .routes.water import bp as water_bp
     from .routes.ai import bp as ai_bp
     from .routes.tham_dinh import bp as tham_dinh_bp
+    from .routes.he_thong_bat_buoc import bp as he_thong_bat_buoc_bp
     from .routes.drive import bp as drive_bp
     from .routes.aiho import bp as aiho_bp
     from .routes.auth import bp as auth_bp
@@ -118,6 +119,7 @@ def create_app(config_overrides=None):
     app.register_blueprint(water_bp)
     app.register_blueprint(ai_bp)
     app.register_blueprint(tham_dinh_bp)
+    app.register_blueprint(he_thong_bat_buoc_bp)
     app.register_blueprint(drive_bp)
     app.register_blueprint(aiho_bp)
     app.register_blueprint(auth_bp)
