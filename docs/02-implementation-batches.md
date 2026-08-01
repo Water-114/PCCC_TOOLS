@@ -115,26 +115,53 @@ tính tham khảo — không phải điều kiện chặn merge.
   khớp `evalBaoChay`/`evalA3`/`evalSprinkler`/`evalHongNuoc`/`evalNgoaiNha`
   trong JS) + route `/api/he-thong-bat-buoc/evaluate`, xác nhận bằng 145
   golden test.
+- **Cụm 3 (nước chữa cháy sơ bộ — QCVN 06, TCVN 7336:2021, TCVN 14496:2025):**
+  đã port `backend/app/services/nuoc_chua_chay.py` (toàn bộ bảng tra + hàm:
+  `traBang11`/`traBang12`/`traBang8`/`traSprinkler`/`heSoPsi14496`/
+  `tinh14496_1tang`/`tinh14496_nhieutang`/`traBang1_14496`/`evalNuoc` trong
+  JS) + route `/api/nuoc-chua-chay/evaluate` — tự gọi 3 hàm cụm 2
+  (sprinkler/họng nước/ngoài nhà) để lấy đầu vào, đúng luồng `render()` gốc
+  gọi `evalNuoc(d, sp, hn, nn)`. Xác nhận bằng 64 golden test cho các hàm
+  tra bảng nội bộ + 6 test end-to-end đối chiếu Vtn/Vnn/Vtd/Vtong/bơm sơ bộ
+  tính tay độc lập theo công thức nguồn.
+  - **Đã sửa lỗi mapping dữ liệu** (owner yêu cầu sau khi review lần 1,
+    không phải "giữ nguyên hành vi cũ"): chế độ "nhiều tầng đầu phun"
+    (Điều 6, `tinh14496_nhieutang`) từng đọc nhầm field `hXepM` (field của
+    chế độ "1 tầng đầu phun", Điều 5) thay vì `hXepM2` (field riêng mà form
+    thực sự thu thập cho chế độ nhiều tầng). Đã sửa đồng bộ ở cả
+    `js/tuvan-so-bo.js` (production) và `backend/app/services/nuoc_chua_chay.py`
+    — chỉ đổi nguồn dữ liệu đầu vào, không đổi công thức/ngưỡng/kết luận/căn
+    cứ quy chuẩn nào (Qi=A×B×n×i, iD theo ngưỡng h≤16m/&gt;16m, Qd=iD×Sd,
+    Qs=Qi+Qd giữ nguyên 100%). Có 3 regression test riêng xác nhận: (1) để
+    trống hXepM, chỉ nhập hXepM2 vẫn tính được; (2) hXepM và hXepM2 khác giá
+    trị thì kết quả theo đúng hXepM2; (3) ngưỡng hXepM2 ≤16m/&gt;16m quyết
+    định đúng cường độ phun dưới mái — cộng thêm 1 test end-to-end qua
+    `evaluate_nuoc()` xác nhận lỗi không còn xuất hiện khi tính trọn luồng.
+  - Phát hiện thêm (không phải bug mapping field, không sửa): nếu nhóm nguy
+    cơ cháy (nhomNC) trống khi sprinkler bắt
+    buộc phải tính, bản JS gốc sẽ lỗi runtime (truy cập thuộc tính của
+    undefined) thay vì báo lỗi rõ ràng — bản port trả về kết quả lỗi mềm
+    (không phải ngưỡng/công thức, chỉ là xử lý input thiếu để tránh 500 ở
+    route, đúng yêu cầu validation của batch này).
 - Owner quyết định: **giữ nguyên giao diện tính client-side trong giai đoạn
   này** — chưa chuyển frontend sang gọi API cho bất kỳ cụm nào, chưa xoá
   logic JS cũ; backend chỉ đóng vai trò "đối chiếu song song" (golden test),
   chưa phải nguồn duy nhất được frontend gọi tới.
-- 2 cụm còn lại (nước, phương tiện) tiếp tục theo đúng hướng này khi được
-  yêu cầu — khảo sát, port sang backend có golden test, chưa chuyển
-  frontend/xoá JS.
+- Cụm còn lại (phương tiện) tiếp tục theo đúng hướng này khi được yêu cầu —
+  khảo sát, port sang backend có golden test, chưa chuyển frontend/xoá JS.
 
 **Công việc**
 
-- Viết API contract cho rule results bằng schema rõ ràng — **cụm thẩm định
-  và cụm hệ thống bắt buộc đã có**; 2 cụm còn lại (nước, phương tiện) chưa làm.
+- Viết API contract cho rule results bằng schema rõ ràng — **cụm thẩm định,
+  hệ thống bắt buộc và nước chữa cháy đã có**; cụm phương tiện chưa làm.
 - Di chuyển theo từng cụm rule từ `js/tuvan-so-bo.js` vào backend service có
   test; **frontend TẠM THỜI vẫn tính client-side** cho mọi cụm — việc
   "frontend chỉ render API response" hoãn lại tới khi owner xác nhận chuyển đổi.
 - Mỗi rule có `rule_set_version`, nguồn, điều kiện đầu vào và test
-  dưới/bằng/trên ngưỡng — đã có cho cụm 1 và cụm 2; "ngày hiệu lực" cụ thể
+  dưới/bằng/trên ngưỡng — đã có cho cụm 1, 2, 3; "ngày hiệu lực" cụ thể
   chưa có (nguồn hiện chỉ trích dẫn tên văn bản chung, vd. "NĐ 105/2025",
-  "QCVN 10:2025/BCA"), chỉ mang tính tham khảo thêm khi có, không phải điều
-  kiện bắt buộc.
+  "QCVN 10:2025/BCA", "TCVN 14496:2025"), chỉ mang tính tham khảo thêm khi
+  có, không phải điều kiện bắt buộc.
 - Chỉ chuyển một cụm mỗi PR: thẩm định -> hệ thống bắt buộc -> nước -> phương tiện.
 - Loại bỏ logic JS trùng lặp: **hoãn lại cho mọi cụm**, chỉ làm sau khi owner
   xác nhận chuyển frontend sang gọi API.
@@ -144,7 +171,11 @@ tính tham khảo — không phải điều kiện chặn merge.
 - [x] Golden test cho công năng và biên ngưỡng đã chuyển:
       61 test cụm thẩm định (`backend/tests/test_tham_dinh_golden.py`) +
       145 test cụm hệ thống bắt buộc
-      (`backend/tests/test_he_thong_bat_buoc_golden.py`), tất cả pass.
+      (`backend/tests/test_he_thong_bat_buoc_golden.py`) +
+      64 test tra bảng + 6 test end-to-end cụm nước chữa cháy (bao gồm 4 test
+      regression cho lỗi mapping hXepM/hXepM2 đã sửa)
+      (`backend/tests/test_nuoc_chua_chay_golden.py`,
+      `backend/tests/test_nuoc_chua_chay_evaluate.py`), tất cả pass.
 - [x] Cảnh báo trách nhiệm chuyên môn thống nhất — hiển thị ở khu vực kết quả
       thẩm định (`js/tuvan-so-bo.js`, phần disclaimer cuối phiếu) và kết quả
       AI đọc bản vẽ (`index.html`, disclaimer tĩnh ngay sau `#aihoResults`).

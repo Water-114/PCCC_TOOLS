@@ -548,7 +548,9 @@ const I_KEHANG_14496 = {
 
 /* Chế độ B — Điều 6: nhiều tầng đầu phun. Trả {err} hoặc {Qi, Qd, Qs, chiTiet} */
 function tinh14496_nhieutang(d){
-  const h=d.hXepM;
+  const h=d.hXepM2; /* Che do nhieu tang dau phun (Dieu 6) doc dung field rieng
+    hXepM2 - sua loi mapping tung doc nham hXepM (field cua che do 1 tang dau
+    phun, Dieu 5). Khong doi cong thuc/nguong, chi sua dung nguon du lieu dau vao. */
   if(h<5.5) return { err:"Chiều cao xếp hàng h ≤ 5,5 m — thuộc phạm vi TCVN 7336, không thuộc TCVN 14496." };
   if(h>25) return { err:"Chiều cao xếp hàng h = "+fmt(h)+" m > 25 m — vượt phạm vi áp dụng TCVN 14496 (tối đa 25 m)." };
   const A = A_PALLET_14496[d.loaiPallet14496];
