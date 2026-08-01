@@ -272,8 +272,7 @@
     ccnuoc: {status:'warn', note:'Chưa rõ bơm bù áp có khởi động độc lập với bơm chính hay không; họng nước trong nhà và sprinkler khớp với Bảng A.1.'},
     cckhi: {status:'bad', note:'Chưa thấy tính toán nồng độ thiết kế d₁, f₂ cho phòng điện — cần bổ sung.'},
     capnuocngoai: {status:'ok', note:'Trụ nước ngoài nhà bố trí đủ theo bán kính bảo vệ.'},
-    binhcc: {status:'ok', note:'Số lượng và khoảng cách bình xách tay phù hợp TCVN 7435-1.'},
-    densucco: {status:'warn', note:'Một số vị trí đèn chỉ dẫn thoát nạn cách nhau quá 20 m.'},
+    densucco_binhcc: {status:'warn', note:'Số lượng và khoảng cách bình xách tay phù hợp TCVN 7435-1; một số vị trí đèn chỉ dẫn thoát nạn cách nhau quá 20 m.'},
     dienpccc: {status:'ok', note:'Có cấp nguồn ưu tiên riêng, dây dẫn ghi chú chống cháy 70 phút.'}
   };
   var STATUS_LABEL = {ok:'Đạt', warn:'Cần bổ sung', bad:'Thiếu sót'};
@@ -487,20 +486,6 @@
           '<li>Chưa có tính toán nồng độ thiết kế d₁, f₂ (Chữa cháy bằng khí).</li>' +
           '<li>Đèn chỉ dẫn thoát nạn bố trí cách nhau quá 20 m (Đèn sự cố).</li>' +
           '</ul>';
-      case 'thuyetminh':
-        return '<h4>Thuyết minh PCCC (bản thảo) — trích đoạn</h4>' +
-          '<p>1. Thông tin công trình: văn phòng hỗn hợp, 8 tầng nổi + 1 tầng hầm, ΣF ≈ 4.200 m².<br>' +
-          '2. Giải pháp báo cháy: hệ thống báo cháy tự động theo địa chỉ (chưa rõ loại trung tâm, cần bổ sung).<br>' +
-          '3. Giải pháp chữa cháy: họng nước trong nhà và sprinkler theo Bảng A.1…<br>' +
-          '<i>(bản thảo — cần kỹ sư hoàn thiện và rà lại trước khi ký)</i></p>';
-      case 'pc12':
-        return '<h4>Đơn đề nghị thẩm duyệt (PC12) — điền sẵn</h4>' +
-          '<div class="kv-grid">' +
-          '<div><b>Tên công trình</b>Văn phòng hỗn hợp ABC</div>' +
-          '<div><b>Chủ đầu tư</b>— (nhận diện từ kiến trúc)</div>' +
-          '<div><b>Địa điểm xây dựng</b>— (nhận diện từ kiến trúc)</div>' +
-          '<div><b>Quy mô</b>8 tầng nổi + 1 hầm, ΣF ≈ 4.200 m²</div>' +
-          '</div>';
       case 'khoiluong':
         return '<h4>Bảng tổng hợp khối lượng thiết bị — trích đoạn</h4>' +
           '<div class="tbl-wrap"><table><thead><tr><th>Thiết bị</th><th>Số lượng</th></tr></thead><tbody>' +
@@ -516,10 +501,6 @@
           '<div><b>Báo cháy</b>Đang thiết kế trung tâm báo cháy loại… (chưa rõ số zone) — cần bổ sung</div>' +
           '<div><b>Chữa cháy nước</b>Họng nước + sprinkler — đạt</div>' +
           '</div>';
-      case 'thugopy':
-        return '<h4>Thư góp ý gửi đơn vị thiết kế — trích đoạn</h4>' +
-          '<p>Kính gửi đơn vị thiết kế,<br>Qua rà soát bản vẽ PCCC, đề nghị bổ sung: (1) loại trung tâm báo cháy và số zone; ' +
-          '(2) tính toán nồng độ thiết kế d₁, f₂ cho hệ chữa cháy khí; (3) điều chỉnh khoảng cách đèn chỉ dẫn thoát nạn ≤ 20 m…</p>';
       default:
         return '';
     }
