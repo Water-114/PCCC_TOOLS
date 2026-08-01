@@ -311,6 +311,7 @@ ul.pos li{margin-bottom:2px}
 
 /* ===== Đăng nhập / quota / góp ý ===== */
 .real-badge{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;background:var(--red);color:#fff;padding:1px 6px;border-radius:3px;vertical-align:middle;margin-left:4px}
+.soon-badge{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;background:var(--line);color:var(--ink-soft);padding:1px 6px;border-radius:3px;vertical-align:middle;margin-left:4px}
 .auth-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:22px;font-size:13.5px;color:var(--ink-soft)}
 .auth-bar #authStatus{font-weight:600;color:var(--ink)}
 

@@ -2,6 +2,22 @@
   var grid = document.getElementById('aihoGrid');
   if(!grid) return;
 
+  /* Bảng "Chú ý" hiện 1 lần/phiên (tới khi tải lại trang) ngay khi bấm vào tab AI kiểm tra hồ sơ */
+  var aihoTab = document.querySelector('.tab[data-view="aiho"]');
+  var noticeModal = document.getElementById('aihoNoticeModal');
+  var noticeShown = false;
+  if(aihoTab && noticeModal){
+    function closeNoticeModal(){ noticeModal.hidden = true; }
+    aihoTab.addEventListener('click', function(){
+      if(noticeShown) return;
+      noticeShown = true;
+      noticeModal.hidden = false;
+    });
+    document.getElementById('aihoNoticeClose').addEventListener('click', closeNoticeModal);
+    document.getElementById('aihoNoticeOk').addEventListener('click', closeNoticeModal);
+    noticeModal.addEventListener('click', function(e){ if(e.target === noticeModal) closeNoticeModal(); });
+  }
+
   /* Đăng nhập/phiên làm việc dùng chung toàn trang qua window.PcccAuth (xem script ngay sau <nav>) */
   var A = window.PcccAuth;
   var BACKEND_BASE = A.BACKEND_BASE;

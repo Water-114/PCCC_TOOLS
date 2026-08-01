@@ -60,6 +60,21 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="aihoNoticeModal" hidden>
+  <div class="modal-card">
+    <button type="button" class="modal-close" id="aihoNoticeClose" aria-label="Đóng">✕</button>
+    <h3>Chú ý trước khi sử dụng</h3>
+    <ul style="margin:10px 0 16px;padding-left:20px;font-size:13.5px;line-height:1.7;color:var(--ink-soft)">
+      <li>Đề nghị <b>đăng ký tài khoản</b> trước khi sử dụng — đây là app có tính phí do phải mua API Claude thật.</li>
+      <li>Chức năng đang demo, trong giai đoạn hoàn thiện — giới hạn <b>5 lượt/tài khoản/ngày</b>, mỗi lượt không quá <b>70k token</b>.</li>
+      <li>Nên <b>tách bản vẽ theo từng hạng mục</b> PCCC, chạy từng mục một để có kết quả nhanh chóng hơn.</li>
+    </ul>
+    <div class="actions">
+      <button type="button" class="btn-main" id="aihoNoticeOk">Đã hiểu, tiếp tục</button>
+    </div>
+  </div>
+</div>
+
 <script src="js/auth.js"></script>
 <div class="subnav no-print" id="subnav-congcu" hidden>
   <div class="subnav-inner">
@@ -824,7 +839,7 @@
       <button type="button" class="drop-card" data-slot="kientruc" data-file="MB-kientruc-tret-lau1.pdf · 3.1 MB">
         <div class="drop-icon">KT</div>
         <div class="drop-body">
-          <h4>Kiến trúc</h4>
+          <h4>Kiến trúc <span class="soon-badge">Sắp có</span></h4>
           <p class="hint">Mặt bằng, mặt cắt, mặt đứng — xác định công năng, quy mô, số tầng</p>
           <span class="drop-meta">PDF, ảnh scan · tối đa 15MB · cần đăng nhập</span>
           <span class="drop-status">○ Chưa đính kèm</span>
@@ -856,7 +871,7 @@
       <button type="button" class="drop-card" data-slot="cckhi" data-file="CK-solkhi-phong-dien.pdf · 1.4 MB">
         <div class="drop-icon">CCK</div>
         <div class="drop-body">
-          <h4>Chữa cháy bằng khí</h4>
+          <h4>Chữa cháy bằng khí <span class="soon-badge">Sắp có</span></h4>
           <p class="hint">Sol-khí, CO₂, FM200/Novec, IG — thường cho phòng kỹ thuật/điện</p>
           <span class="drop-meta">PDF, ảnh scan · tối đa 15MB · cần đăng nhập</span>
           <span class="drop-status">○ Chưa đính kèm</span>
@@ -866,7 +881,7 @@
       <button type="button" class="drop-card" data-slot="capnuocngoai" data-file="CN-ngoai-nha-tru-nuoc.pdf · 1.2 MB">
         <div class="drop-icon">CNN</div>
         <div class="drop-body">
-          <h4>Cấp nước ngoài nhà</h4>
+          <h4>Cấp nước ngoài nhà <span class="soon-badge">Sắp có</span></h4>
           <p class="hint">Trụ nước chữa cháy ngoài nhà — chỉ cần khi công trình có yêu cầu riêng — đối chiếu MĐC B4</p>
           <span class="drop-meta">PDF, ảnh scan · tối đa 15MB · cần đăng nhập</span>
           <span class="drop-status">○ Chưa đính kèm</span>
@@ -876,7 +891,7 @@
       <button type="button" class="drop-card" data-slot="binhcc" data-file="BCC-binh-chua-chay-xach-tay.pdf · 0.9 MB">
         <div class="drop-icon">BCC</div>
         <div class="drop-body">
-          <h4>Bình chữa cháy</h4>
+          <h4>Bình chữa cháy <span class="soon-badge">Sắp có</span></h4>
           <p class="hint">Vị trí, chủng loại bình xách tay/xe đẩy — đối chiếu MĐC B8</p>
           <span class="drop-meta">PDF, ảnh scan · tối đa 15MB · cần đăng nhập</span>
           <span class="drop-status">○ Chưa đính kèm</span>
@@ -886,7 +901,7 @@
       <button type="button" class="drop-card" data-slot="densucco" data-file="DSC-den-su-co-chi-dan.pdf · 1.5 MB">
         <div class="drop-icon">ĐSC</div>
         <div class="drop-body">
-          <h4>Đèn sự cố / chỉ dẫn thoát nạn</h4>
+          <h4>Đèn sự cố / chỉ dẫn thoát nạn <span class="soon-badge">Sắp có</span></h4>
           <p class="hint">Đèn chiếu sáng sự cố, đèn chỉ dẫn thoát nạn — đối chiếu MĐC B9</p>
           <span class="drop-meta">PDF, ảnh scan · tối đa 15MB · cần đăng nhập</span>
           <span class="drop-status">○ Chưa đính kèm</span>
