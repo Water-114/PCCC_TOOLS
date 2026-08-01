@@ -1,13 +1,25 @@
-from datetime import datetime, timezone
-
 from flask import Blueprint, jsonify, request
+from sqlalchemy import func
+from sqlalchemy.orm import joinedload
 
 from ..auth import admin_required
 from ..config import Config
 from ..extensions import db
-from ..models import AIHO_API_NAME, Feedback, User, UsageLog, count_usage_today
+from ..models import AIHO_API_NAME, Feedback, User, UsageLog, _start_of_day_utc, count_usage_today
 
 bp = Blueprint("admin", __name__, url_prefix="/api/admin")
+
+# Chan trang admin lo mot luong khong gioi han (vd. bang users/feedback phinh
+# to theo thoi gian) - gioi han so dong tra ve moi trang, co the tang qua
+# ?per_page= nhung khong vuot muc tran nay.
+_MAX_PER_PAGE = 300
+_DEFAULT_PER_PAGE = 100
+
+
+def _pagination_params():
+    page = request.args.get("page", 1, type=int) or 1
+    per_page = request.args.get("per_page", _DEFAULT_PER_PAGE, type=int) or _DEFAULT_PER_PAGE
+    return max(1, page), max(1, min(per_page, _MAX_PER_PAGE))
 
 
 @bp.get("/stats")
@@ -15,8 +27,7 @@ bp = Blueprint("admin", __name__, url_prefix="/api/admin")
 def stats():
     total_users = User.query.count()
     total_calls = UsageLog.query.filter(UsageLog.status.in_(("success", "error"))).count()
-    now = datetime.now(timezone.utc)
-    start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    start_of_day = _start_of_day_utc()
     calls_today = UsageLog.query.filter(
         UsageLog.status.in_(("success", "error")), UsageLog.created_at >= start_of_day
     ).count()
@@ -34,10 +45,33 @@ def stats():
 @bp.get("/users")
 @admin_required
 def users():
-    rows = User.query.order_by(User.created_at.desc()).all()
+    page, per_page = _pagination_params()
+    pagination = User.query.order_by(User.created_at.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    rows = pagination.items
+
+    # 1 truy van tong hop cho ca trang (group by user_id) thay vi goi
+    # count_usage_today() rieng cho tung user — tranh N+1 khi so user tang.
+    user_ids = [u.id for u in rows]
+    usage_counts = {}
+    if user_ids:
+        start_of_day = _start_of_day_utc()
+        usage_counts = dict(
+            db.session.query(UsageLog.user_id, func.count(UsageLog.id))
+            .filter(
+                UsageLog.user_id.in_(user_ids),
+                UsageLog.api_name == AIHO_API_NAME,
+                UsageLog.status.in_(("success", "error", "pending")),
+                UsageLog.created_at >= start_of_day,
+            )
+            .group_by(UsageLog.user_id)
+            .all()
+        )
+
     data = []
     for u in rows:
-        used = count_usage_today(u.id, AIHO_API_NAME)
+        used = usage_counts.get(u.id, 0)
         limit = u.effective_quota()
         data.append({
             **u.to_public_dict(),
@@ -47,7 +81,13 @@ def users():
             "used_today": used,
             "remaining_today": max(0, limit - used),
         })
-    return jsonify({"users": data})
+    return jsonify({
+        "users": data,
+        "page": pagination.page,
+        "per_page": per_page,
+        "total": pagination.total,
+        "pages": pagination.pages,
+    })
 
 
 @bp.patch("/users/<int:user_id>/quota")
@@ -86,7 +126,14 @@ def set_user_quota(user_id):
 @bp.get("/feedback")
 @admin_required
 def feedback():
-    rows = Feedback.query.order_by(Feedback.created_at.desc()).all()
+    page, per_page = _pagination_params()
+    # joinedload(Feedback.user): lay email nguoi gui bang 1 JOIN duy nhat thay
+    # vi lazy-load rieng tung dong khi truy cap f.user.email ben duoi.
+    pagination = (
+        Feedback.query.options(joinedload(Feedback.user))
+        .order_by(Feedback.created_at.desc())
+        .paginate(page=page, per_page=per_page, error_out=False)
+    )
     data = [{
         "id": f.id,
         "feature": f.feature,
@@ -94,5 +141,11 @@ def feedback():
         "comment": f.comment,
         "user_email": f.user.email if f.user else None,
         "created_at": f.created_at.isoformat(),
-    } for f in rows]
-    return jsonify({"feedback": data})
+    } for f in pagination.items]
+    return jsonify({
+        "feedback": data,
+        "page": pagination.page,
+        "per_page": per_page,
+        "total": pagination.total,
+        "pages": pagination.pages,
+    })

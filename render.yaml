@@ -1,11 +1,14 @@
 services:
   - type: web
-    name: pccc-tuvan
+    name: PCCC-TROLYNGHIEPVU
     env: python
     plan: starter
     rootDir: backend
     buildCommand: "pip install -r requirements.txt"
-    startCommand: "flask db upgrade && gunicorn run:app --bind 0.0.0.0:$PORT --timeout 900"
+    # Migration KHONG chay tu dong luc web instance start (xem docs/04-migration-runbook.md) -
+    # chay "flask db upgrade" thu cong 1 lan qua Render Shell truoc khi trien khai release
+    # co doi schema, tranh nhieu instance cung chay migration dong thoi khi scale > 1 instance.
+    startCommand: "gunicorn run:app --bind 0.0.0.0:$PORT --timeout 900"
     envVars:
       - key: FLASK_APP
         value: run:app

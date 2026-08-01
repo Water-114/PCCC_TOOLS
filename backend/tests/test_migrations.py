@@ -32,3 +32,7 @@ def test_migrations_upgrade_cleanly_on_empty_database(tmp_path):
 
         user_columns = {col["name"] for col in inspector.get_columns("users")}
         assert "daily_quota" in user_columns
+
+        # Batch 2: composite index cho truy van quota (count_usage_today)
+        usage_log_indexes = {idx["name"] for idx in inspector.get_indexes("usage_log")}
+        assert "ix_usage_log_user_api_created" in usage_log_indexes

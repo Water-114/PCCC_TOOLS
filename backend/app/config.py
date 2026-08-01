@@ -17,6 +17,21 @@ def _normalize_db_url(url: str) -> str:
     return url
 
 
+def _build_engine_options(db_url: str) -> dict:
+    # pool_pre_ping: kiem tra connection con song truoc khi dung (an toan cho moi
+    # loai pool) - tranh loi "connection da chet" khi Postgres/Render tu dong
+    # ngat ket noi idle. pool_size/max_overflow chi hop le voi QueuePool (Postgres);
+    # SQLite dung SingletonThreadPool/NullPool nen khong nhan 2 tham so nay.
+    if db_url.startswith("postgresql"):
+        return {
+            "pool_pre_ping": True,
+            "pool_recycle": 280,
+            "pool_size": 5,
+            "max_overflow": 10,
+        }
+    return {"pool_pre_ping": True}
+
+
 class Config:
     AI_PROVIDER = os.getenv("AI_PROVIDER", "claude")
 
@@ -31,6 +46,7 @@ class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "doi-chuoi-nay-truoc-khi-dung-that-o-production")
     SQLALCHEMY_DATABASE_URI = _normalize_db_url(os.getenv("DATABASE_URL", f"sqlite:///{os.path.join(_BASE_DIR, 'app.db')}"))
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ENGINE_OPTIONS = _build_engine_options(SQLALCHEMY_DATABASE_URI)
 
     AIHO_DAILY_QUOTA = int(os.getenv("AIHO_DAILY_QUOTA", "5"))
 

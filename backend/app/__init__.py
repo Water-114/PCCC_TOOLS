@@ -4,6 +4,7 @@ import click
 from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 from flask_migrate import Migrate
+from sqlalchemy import text
 
 from .config import Config
 from .extensions import db, limiter
@@ -125,7 +126,15 @@ def create_app(config_overrides=None):
 
     @app.get("/api/health")
     def health():
-        return jsonify({"status": "ok"})
+        # Kiem tra ket noi database that (khong chi tra "ok" tinh) - de Render
+        # (hoac giam sat khac) phat hien duoc khi Postgres khong ket noi duoc,
+        # thay vi bao "khoe" trong khi request that se loi database.
+        try:
+            db.session.execute(text("SELECT 1"))
+        except Exception:
+            app.logger.exception("Health check: khong ket noi duoc database")
+            return jsonify({"status": "error", "database": "error"}), 503
+        return jsonify({"status": "ok", "database": "ok"})
 
     # Phục vụ luôn trang tĩnh (index.html/css/js) từ cùng service này khi deploy production
     # (vd. Render) — chỉ mở đúng 3 đường dẫn đã biết là an toàn, không dùng route bắt-hết-mọi-thứ

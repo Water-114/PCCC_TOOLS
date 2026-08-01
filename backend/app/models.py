@@ -45,6 +45,12 @@ class User(db.Model):
 
 class UsageLog(db.Model):
     __tablename__ = "usage_log"
+    __table_args__ = (
+        # count_usage_today() luon loc dong thoi ca 3 cot nay - composite index
+        # giup Postgres tra loi truy van quota nhanh khi usage_log co nhieu du
+        # lieu, thay vi chi co 2 index don le (user_id, created_at) nhu truoc.
+        db.Index("ix_usage_log_user_api_created", "user_id", "api_name", "created_at"),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
