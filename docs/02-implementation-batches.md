@@ -203,6 +203,16 @@ chuyển khoản ngân hàng thủ công — chưa tích hợp cổng thanh toá
 - Thông tin tài khoản ngân hàng/mã QR nhận tiền **chỉ cấu hình qua biến môi
   trường** lúc triển khai batch này — không đưa vào source code, docs hay
   git dưới bất kỳ hình thức nào (kể cả ví dụ/placeholder gần giống thật).
+- Góp ý đủ **5 Bộ hồ sơ đã hoàn thành** được cộng thêm **1 lượt hướng dẫn
+  cho 1 Bộ hồ sơ**. Câu chữ chính thức (dùng khi triển khai thật ở batch này):
+  - Lời mời góp ý: *"Góp ý cho 05 Bộ hồ sơ hoàn thành để nhận thêm 01 lượt
+    hướng dẫn cho 01 Bộ hồ sơ."*
+  - Khi đủ điều kiện: *"Anh/chị đã hoàn thành 05 góp ý. Hệ thống đã cộng
+    thêm 01 lượt hướng dẫn cho 01 Bộ hồ sơ vào tài khoản của anh/chị."*
+  **Chưa hiển thị 2 câu này** ở task UX "Góp ý Bộ hồ sơ" hiện tại (sau Batch 3)
+  — vì chưa có cơ chế đếm số góp ý đã hoàn thành và cộng lượt thật trên
+  server; chỉ ghi nhận câu chữ chính thức tại đây để triển khai đúng khi
+  Batch 5A thật sự được duyệt.
 
 **Công việc (khi được duyệt triển khai)**
 
@@ -234,6 +244,8 @@ chuyển khoản ngân hàng thủ công — chưa tích hợp cổng thanh toá
   bị chặn (403).
 - Test: xác nhận chuyển khoản 2 lần cho cùng 1 yêu cầu không cộng 2 lần
   (idempotent).
+- Test: đúng góp ý thứ 5 (Bộ hồ sơ đã hoàn thành) mới cộng +1 lượt hướng dẫn,
+  không cộng lặp lại cho góp ý thứ 6, 7... trước khi đủ chu kỳ 5 tiếp theo.
 - Review: không có thông tin ngân hàng/QR nào xuất hiện trong git diff/log/docs.
 - Review: giới hạn 5 file/7 form MĐC được validate ở backend, không chỉ ở
   frontend (client có thể bị bypass).

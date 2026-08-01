@@ -242,6 +242,8 @@
   var cta = document.getElementById('aihoCta');
   var ctaHint = document.getElementById('aihoCtaHint');
   var msg = document.getElementById('aihoMsg');
+  var feedbackCta = document.getElementById('aihoFeedbackCta');
+  var feedbackConfirm = document.getElementById('aihoFeedbackConfirm');
   var isProcessing = false;
   function updateCta(){
     if(isProcessing){
@@ -556,6 +558,8 @@
     }
 
     msg.classList.remove('show');
+    feedbackConfirm.hidden = true;
+    feedbackCta.disabled = true;
     resultsSection.hidden = true;
     processing.hidden = false;
     isProcessing = true;
@@ -607,7 +611,8 @@
         resultsSection.hidden = false;
         resultsSection.scrollIntoView({behavior: 'smooth', block: 'start'});
         updateCta();
-        setTimeout(openFeedbackModal, 800);
+        // Khong tu bat popup gop y - chi kich hoat nut, nguoi dung tu bam khi san sang.
+        feedbackCta.disabled = false;
       }, 300);
     }
 
@@ -672,15 +677,21 @@
   });
 
   /* ===================================================================
-     Modal Góp ý — tự bật sau khi phân tích xong, hoặc bấm nút ở footer
+     Modal Góp ý — góp ý chung cho cả Bộ hồ sơ (không phải riêng 1 kết quả).
+     Chỉ mở khi người dùng chủ động bấm nút "GÓP Ý" (không tự bật sau khi AI
+     chạy xong); nút đó chỉ bật sau khi có ít nhất 1 lượt chạy hoàn tất.
+     "Loại góp ý" bắt buộc chọn 1 (gate nút Gửi góp ý); sao đánh giá và nội
+     dung chi tiết vẫn tuỳ chọn.
      =================================================================== */
   var feedbackModal = document.getElementById('feedbackModal');
   var feedbackModalClose = document.getElementById('feedbackModalClose');
   var feedbackStars = document.getElementById('feedbackStars');
+  var feedbackType = document.getElementById('feedbackType');
   var feedbackComment = document.getElementById('feedbackComment');
   var feedbackSubmitBtn = document.getElementById('feedbackSubmitBtn');
   var feedbackSkipBtn = document.getElementById('feedbackSkipBtn');
   var selectedRating = 0;
+  var feedbackConfirmTimer = null;
 
   function updateStars(){
     Array.prototype.forEach.call(feedbackStars.querySelectorAll('button'), function(btn){
@@ -693,7 +704,9 @@
   function openFeedbackModal(){
     selectedRating = 0;
     updateStars();
+    feedbackType.value = '';
     feedbackComment.value = '';
+    feedbackSubmitBtn.disabled = true;
     feedbackModal.hidden = false;
   }
   function closeFeedbackModal(){ feedbackModal.hidden = true; }
@@ -705,28 +718,55 @@
     updateStars();
   });
 
+  feedbackType.addEventListener('change', function(){
+    feedbackSubmitBtn.disabled = !feedbackType.value;
+  });
+
   feedbackModalClose.addEventListener('click', closeFeedbackModal);
   feedbackSkipBtn.addEventListener('click', closeFeedbackModal);
   feedbackModal.addEventListener('click', function(e){ if(e.target === feedbackModal) closeFeedbackModal(); });
+
+  function showFeedbackConfirm(text){
+    clearTimeout(feedbackConfirmTimer);
+    feedbackConfirm.textContent = text;
+    feedbackConfirm.hidden = false;
+    feedbackConfirmTimer = setTimeout(function(){ feedbackConfirm.hidden = true; }, 5000);
+  }
 
   feedbackSubmitBtn.addEventListener('click', function(){
     var headers = {'Content-Type': 'application/json'};
     var token = getToken();
     if(token) headers['Authorization'] = 'Bearer ' + token;
+    var typeLabel = feedbackType.value;
+    var rawComment = feedbackComment.value.trim();
+    var comment = typeLabel ? ('[' + typeLabel + '] ' + rawComment).trim() : rawComment;
     feedbackSubmitBtn.disabled = true;
     fetch(BACKEND_BASE + '/api/feedback', {
       method: 'POST',
       headers: headers,
       body: JSON.stringify({
-        feature: 'aiho_baochay',
+        feature: 'aiho_bo_ho_so',
         rating: selectedRating || null,
-        comment: feedbackComment.value.trim() || null
+        comment: comment || null
       })
     })
-      .then(function(){ feedbackSubmitBtn.disabled = false; closeFeedbackModal(); })
-      .catch(function(){ feedbackSubmitBtn.disabled = false; closeFeedbackModal(); });
+      .then(function(res){
+        feedbackSubmitBtn.disabled = false;
+        closeFeedbackModal();
+        if(res.ok){
+          showFeedbackConfirm('Cảm ơn góp ý của anh/chị!');
+        } else {
+          msg.textContent = 'Không gửi được góp ý — vui lòng thử lại sau.';
+          msg.classList.add('show');
+        }
+      })
+      .catch(function(){
+        feedbackSubmitBtn.disabled = false;
+        closeFeedbackModal();
+        msg.textContent = 'Không kết nối được tới máy chủ — góp ý chưa được gửi.';
+        msg.classList.add('show');
+      });
   });
 
-  var feedbackBtn = document.getElementById('aihoFeedbackBtn');
-  feedbackBtn.addEventListener('click', openFeedbackModal);
+  feedbackCta.addEventListener('click', openFeedbackModal);
 })();

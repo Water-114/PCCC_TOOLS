@@ -6,12 +6,13 @@ from ..models import Feedback
 
 bp = Blueprint("feedback", __name__, url_prefix="/api/feedback")
 
-# Danh sách "feature" hợp lệ — khớp đúng giá trị frontend thực sự gửi hôm nay
-# (js/ai-doc-ho-so.js gửi cố định 'aiho_baochay' cho mọi lượt góp ý dù đã chạy
-# hạng mục nào — nhãn hơi lệch nhưng không phải vấn đề bảo mật, để dành sửa
-# nhãn khi đụng tới ai-doc-ho-so.js ở dịp khác). Chặn giá trị tự do bất kỳ mà
-# client có thể POST thẳng tới API để tránh phình dữ liệu rác/không phân loại được.
-ALLOWED_FEATURES = {"aiho_baochay", "aiho_dienpccc", "aiho_ccnuoc"}
+# Danh sách "feature" hợp lệ. "aiho_bo_ho_so" là góp ý chung cho cả một lượt
+# chạy Bộ hồ sơ (task UX "Góp ý Bộ hồ sơ", sau Batch 3) — thay cho nhãn cũ
+# 'aiho_baochay' từng bị gán cứng dù đã chạy hạng mục nào. Giữ lại các nhãn
+# cũ trong whitelist để không phá dữ liệu góp ý cũ đã lưu. Chặn giá trị tự do
+# bất kỳ mà client có thể POST thẳng tới API để tránh phình dữ liệu rác/không
+# phân loại được.
+ALLOWED_FEATURES = {"aiho_baochay", "aiho_dienpccc", "aiho_ccnuoc", "aiho_bo_ho_so"}
 MAX_COMMENT_LENGTH = 2000
 
 

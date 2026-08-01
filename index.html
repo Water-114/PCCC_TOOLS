@@ -968,6 +968,11 @@
   <div class="actions">
     <button type="button" class="btn-main" id="aihoCta" disabled>Bắt đầu phân tích →</button>
     <span class="cta-hint" id="aihoCtaHint">Đính ít nhất 1 bản vẽ và chọn 1 kết quả đầu ra để bật nút này</span>
+    <button type="button" class="feedback-cta" id="aihoFeedbackCta" disabled title="Chạy xong 1 Bộ hồ sơ để góp ý">
+      <span class="feedback-cta-title">GÓP Ý</span>
+      <span class="feedback-cta-sub">Góp ý về kết quả hỗ trợ của Bộ hồ sơ</span>
+    </button>
+    <span class="feedback-cta-confirm" id="aihoFeedbackConfirm" hidden>Cảm ơn góp ý của anh/chị!</span>
   </div>
 
   <div class="processing" id="aihoProcessing" hidden>
@@ -985,16 +990,9 @@
   <div class="disclaimer">
     <p>Kết quả từ công cụ chỉ mang tính hỗ trợ tham khảo trong quá trình rà soát hồ sơ. Kết luận, thẩm định và trách nhiệm chuyên môn cuối cùng thuộc về kỹ sư PCCC.</p>
     <b>Miễn trừ trách nhiệm:</b> Kết quả do AI tạo ra chỉ mang tính sơ bộ, hỗ trợ rà soát nhanh — không thay thế nhận định chuyên môn của kỹ sư PCCC có chứng chỉ hành nghề hay kết luận chính thức của cơ quan thẩm duyệt. Cần kiểm tra lại toàn bộ nội dung trước khi đưa vào hồ sơ chính thức.
-    <div class="footer-grid">
-      <div class="footer-block">
-        <h4>Căn cứ pháp lý áp dụng</h4>
-        <p>Đối chiếu theo QCVN 06:2022/BXD, QCVN 10:2025/BCA, NĐ 105/2025/NĐ-CP và mẫu đối chiếu MĐC B1–B14. Văn bản có thể được sửa đổi theo thời gian. Cập nhật lần cuối: 07/2026.</p>
-      </div>
-      <div class="footer-block">
-        <h4>Góp ý bản demo</h4>
-        <p>Đang trong giai đoạn thu thập phản hồi — góp ý về giao diện hoặc độ chính xác đối chiếu giúp hoàn thiện công cụ nhanh hơn.</p>
-        <button type="button" class="btn-ghost" id="aihoFeedbackBtn" style="margin-top:8px">Gửi góp ý</button>
-      </div>
+    <div class="footer-block">
+      <h4>Căn cứ pháp lý áp dụng</h4>
+      <p>Đối chiếu theo QCVN 06:2022/BXD, QCVN 10:2025/BCA, NĐ 105/2025/NĐ-CP và mẫu đối chiếu MĐC B1–B14. Văn bản có thể được sửa đổi theo thời gian. Cập nhật lần cuối: 07/2026.</p>
     </div>
   </div>
 
@@ -1003,8 +1001,8 @@
   <div class="modal-overlay" id="feedbackModal" hidden>
     <div class="modal-card">
       <button type="button" class="modal-close" id="feedbackModalClose" aria-label="Đóng">✕</button>
-      <h3>Góp ý về kết quả vừa xem</h3>
-      <p class="section-note" style="margin-top:0">Đánh giá của bạn giúp mình cải thiện tính năng AI đọc bản vẽ.</p>
+      <h3>Góp ý về kết quả hỗ trợ</h3>
+      <p class="section-note" style="margin-top:0">Kết quả này có hỗ trợ anh/chị trong quá trình rà soát Bộ hồ sơ không?</p>
       <div class="star-row" id="feedbackStars">
         <button type="button" data-star="1">☆</button>
         <button type="button" data-star="2">☆</button>
@@ -1012,10 +1010,18 @@
         <button type="button" data-star="4">☆</button>
         <button type="button" data-star="5">☆</button>
       </div>
+      <label for="feedbackType" style="display:block;margin-top:14px;font-size:13px;font-weight:600;color:var(--ink-soft)">Loại góp ý <span class="req">*</span></label>
+      <select id="feedbackType" style="width:100%;margin-top:6px;padding:9px 11px;border:1px solid var(--line);border-radius:4px;font-family:var(--sans);font-size:14.5px;background:#fff">
+        <option value="">Chọn nhận xét</option>
+        <option value="Kết quả hỗ trợ tốt">Kết quả hỗ trợ tốt</option>
+        <option value="Cần kiểm tra hoặc bổ sung nội dung">Cần kiểm tra hoặc bổ sung nội dung</option>
+        <option value="Có vấn đề khi sử dụng">Có vấn đề khi sử dụng</option>
+        <option value="Ý kiến khác">Ý kiến khác</option>
+      </select>
       <textarea id="feedbackComment" rows="3" placeholder="Nhận xét thêm (không bắt buộc)..." style="width:100%;margin-top:12px;padding:9px 11px;border:1px solid var(--line);border-radius:4px;font-family:var(--sans);font-size:14.5px;resize:vertical"></textarea>
       <div class="actions" style="margin-top:14px">
         <button type="button" class="btn-main" id="feedbackSubmitBtn">Gửi góp ý</button>
-        <button type="button" class="btn-ghost" id="feedbackSkipBtn">Bỏ qua</button>
+        <button type="button" class="btn-ghost" id="feedbackSkipBtn">Góp ý sau</button>
       </div>
     </div>
   </div>

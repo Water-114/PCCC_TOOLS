@@ -8,6 +8,13 @@ def test_feedback_accepts_known_feature(client):
     assert resp.status_code == 200
 
 
+def test_feedback_accepts_bo_ho_so_feature(client):
+    """Task UX 'Góp ý Bộ hồ sơ' (sau Batch 3): góp ý chung cho cả lượt chạy,
+    không gán cứng vào 1 hạng mục cụ thể như 'aiho_baochay' nữa."""
+    resp = client.post("/api/feedback", json={"feature": "aiho_bo_ho_so", "rating": 4})
+    assert resp.status_code == 200
+
+
 def test_feedback_rejects_comment_too_long(client):
     resp = client.post("/api/feedback", json={
         "feature": "aiho_baochay",
