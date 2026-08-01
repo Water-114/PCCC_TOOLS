@@ -472,7 +472,10 @@
         var loiFailed = collectFailedRealSlots();
         if(kienNghiSections.length || loiFailed.length){
           var loiParts = [];
-          if(kienNghiSections.length) loiParts.push(renderKienNghiReal(kienNghiSections));
+          if(kienNghiSections.length){
+            loiParts.push(renderKienNghiReal(kienNghiSections));
+            loiParts.push('<div id="aihoKienNghiDocxBox"><p>Đang tạo file kiến nghị thiết kế (.docx) tổng hợp…</p></div>');
+          }
           loiFailed.forEach(function(f){
             loiParts.push(buildFailedNoteHtml('Danh sách kiến nghị (theo văn phong PC07) — ' + f.label, f.note));
           });
@@ -527,6 +530,60 @@
     document.getElementById('aihoOutputPreviews').innerHTML = checked.map(function(input){
       return '<div class="preview-card">' + outputPreviewHtml(input.dataset.key) + '</div>';
     }).join('');
+  }
+
+  // Goi sau renderOutputPreviews() - neu case 'loi' vua duoc render va co it nhat
+  // 1 hang muc AI that co kien_nghi, gom lai va goi route moi (khong goi AI, chi
+  // dung docx) de hien nut tai giong renderMdcReal thay vi chi hien HTML tinh.
+  function maybeExportKienNghiDocx(){
+    var box = document.getElementById('aihoKienNghiDocxBox');
+    if(!box) return;
+    var hangMuc = [];
+    Object.keys(REAL_CATEGORIES).forEach(function(slot){
+      var d = realData[slot];
+      if(d && d.kien_nghi){
+        hangMuc.push({
+          ten_he_thong: REAL_CATEGORIES[slot].label,
+          so_hieu_ban_ve: d.so_hieu_ban_ve || 'Không xác định được số hiệu bản vẽ',
+          kien_nghi: d.kien_nghi
+        });
+      }
+    });
+    if(!hangMuc.length) return;
+
+    function showError(text){
+      box.innerHTML = '';
+      var errP = document.createElement('p');
+      errP.style.color = 'var(--red-deep)';
+      errP.textContent = text;
+      box.appendChild(errP);
+    }
+
+    fetch(BACKEND_BASE + '/api/aiho/export-kien-nghi', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken()},
+      body: JSON.stringify({hang_muc: hangMuc})
+    })
+      .then(function(res){ return res.json().then(function(data){ return {status: res.status, data: data}; }); })
+      .then(function(r){
+        if(r.status >= 400){
+          showError(r.data.error || 'Không tạo được file kiến nghị tổng hợp — vui lòng thử lại sau.');
+          return;
+        }
+        box.innerHTML = '';
+        var a = document.createElement('a');
+        a.className = 'btn-main';
+        a.style.display = 'inline-block';
+        a.style.textDecoration = 'none';
+        a.style.textAlign = 'center';
+        a.download = r.data.filename;
+        a.href = 'data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,' + r.data.base64;
+        a.textContent = 'Tải file kiến nghị thiết kế (.docx)';
+        box.appendChild(a);
+      })
+      .catch(function(){
+        showError('Không kết nối được tới máy chủ — chưa tạo được file kiến nghị tổng hợp.');
+      });
   }
 
   var processing = document.getElementById('aihoProcessing');
@@ -608,6 +665,7 @@
         setOutputPickerLocked(false);
         renderResultTable();
         renderOutputPreviews();
+        maybeExportKienNghiDocx();
         resultsSection.hidden = false;
         resultsSection.scrollIntoView({behavior: 'smooth', block: 'start'});
         updateCta();

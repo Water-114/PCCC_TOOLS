@@ -7,7 +7,7 @@ from ..extensions import db
 from ..models import AIHO_API_NAME, UsageLog, count_usage_today
 from ..providers.base import ProviderNotConfigured
 from ..providers.factory import get_provider
-from ..services import baochay_reader, ccnuoc_reader, dienpccc_reader, mdc_filler
+from ..services import baochay_reader, ccnuoc_reader, dienpccc_reader, kien_nghi_docx, mdc_filler
 from ..services.ai_reader_common import AIReaderError
 
 bp = Blueprint("aiho", __name__, url_prefix="/api/aiho")
@@ -190,3 +190,36 @@ def read_ccnuoc():
                 files.append(_build_mdc_file(loai, label, form_data.get("items", [])))
         return files
     return _handle_read_request(ccnuoc_reader.read_drawing, build_mdc_files)
+
+
+@bp.post("/export-kien-nghi")
+@login_required
+def export_kien_nghi():
+    """Gộp kiến nghị của các hạng mục ĐÃ đọc AI từ trước (dữ liệu gửi sẵn từ
+    frontend) thành 1 file .docx — KHÔNG gọi AI nên KHÔNG trừ quota."""
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"error": "Dữ liệu gửi lên phải là một object JSON."}), 400
+
+    hang_muc_list = payload.get("hang_muc")
+    if not isinstance(hang_muc_list, list) or not hang_muc_list:
+        return jsonify({"error": "Thiếu dữ liệu 'hang_muc' (danh sách hạng mục kiến nghị)."}), 400
+
+    for idx, hang_muc in enumerate(hang_muc_list):
+        if not isinstance(hang_muc, dict):
+            return jsonify({"error": f"Hạng mục thứ {idx + 1} không hợp lệ."}), 400
+        if not isinstance(hang_muc.get("ten_he_thong"), str) or not hang_muc["ten_he_thong"].strip():
+            return jsonify({"error": f"Hạng mục thứ {idx + 1} thiếu 'ten_he_thong'."}), 400
+        if not isinstance(hang_muc.get("kien_nghi"), dict):
+            return jsonify({"error": f"Hạng mục thứ {idx + 1} thiếu hoặc sai định dạng 'kien_nghi'."}), 400
+
+    try:
+        docx_bytes = kien_nghi_docx.build_kien_nghi_docx(hang_muc_list)
+    except Exception:
+        current_app.logger.exception("Khong tao duoc file kien nghi tong hop")
+        return jsonify({"error": "Không tạo được file kiến nghị — vui lòng thử lại sau."}), 500
+
+    return jsonify({
+        "filename": kien_nghi_docx.FILENAME,
+        "base64": base64.b64encode(docx_bytes).decode("ascii"),
+    })

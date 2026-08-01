@@ -5,6 +5,8 @@ cho mọi hạng mục rà soát MĐC (báo cháy, điện PCCC, ...).
 import base64
 import json
 
+from .ai_schema import SchemaValidationError
+
 
 class AIReaderError(Exception):
     pass
@@ -52,3 +54,30 @@ def read_drawing_json(file_bytes: bytes, media_type: str, provider, system_promp
             f"Tổng độ dài phản hồi: {len(raw)} ký tự. "
             f"Đoạn quanh vị trí lỗi: ...{snippet}..."
         )
+
+
+def read_and_validate_drawing_json(file_bytes: bytes, media_type: str, provider, system_prompt: str, validate_fn):
+    """Gọi read_drawing_json(), rồi validate kết quả qua validate_fn(dict) -> model
+    Pydantic (raise SchemaValidationError nếu sai). Nếu thất bại lần 1: retry ĐÚNG
+    1 LẦN, gọi lại AI với system_prompt được bổ sung thông báo lỗi cụ thể để AI tự
+    sửa. Nếu lần 2 vẫn sai: raise AIReaderError rõ ràng — KHÔNG trả kết quả nửa vời.
+    """
+    raw = read_drawing_json(file_bytes, media_type, provider, system_prompt)
+    try:
+        return validate_fn(raw)
+    except SchemaValidationError as first_err:
+        repair_prompt = (
+            system_prompt
+            + "\n\n--- SỬA LỖI ĐỊNH DẠNG (bắt buộc) ---\n"
+            + "Lần trả lời TRƯỚC của bạn KHÔNG đạt yêu cầu định dạng, lý do cụ thể:\n"
+            + str(first_err)
+            + "\nHãy đọc lại bản vẽ và trả lời LẠI TỪ ĐẦU, đúng nguyên cấu trúc JSON đã yêu cầu ở trên, sửa đúng lỗi trên. "
+              "Không lặp lại lỗi này, không thêm văn bản nào khác ngoài JSON."
+        )
+        raw2 = read_drawing_json(file_bytes, media_type, provider, repair_prompt)
+        try:
+            return validate_fn(raw2)
+        except SchemaValidationError as second_err:
+            raise AIReaderError(
+                f"AI trả kết quả không đúng định dạng ngay cả sau khi đã yêu cầu sửa lỗi 1 lần: {second_err}"
+            ) from second_err

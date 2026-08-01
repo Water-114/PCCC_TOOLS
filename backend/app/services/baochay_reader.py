@@ -8,7 +8,8 @@ bộ tiêu chí tương ứng — không suy đoán ngoài nội dung bản vẽ
 """
 
 from . import mdc_filler
-from .ai_reader_common import AIReaderError, read_drawing_json
+from .ai_reader_common import AIReaderError, read_and_validate_drawing_json
+from .ai_schema import BaoChayReaderResult, validate_reader_result
 
 
 def _fmt_rows(rows):
@@ -22,6 +23,8 @@ def _build_system_prompt():
     rows_thuong = mdc_filler.load_criteria_rows("thuong")
     rows_dia_chi = mdc_filler.load_criteria_rows("dia_chi")
     return f"""Bạn là kỹ sư PCCC rà soát bản vẽ hệ thống báo cháy tự động, đối chiếu với mẫu đối chiếu MĐC B1 (báo cháy loại thường) hoặc B2 (báo cháy loại địa chỉ).
+
+YÊU CẦU THÊM: Đọc SỐ HIỆU BẢN VẼ ghi trong khung tên (title block) của chính bản vẽ này (thường ở góc dưới bên phải, ô ghi "Số bản vẽ" / "Ký hiệu bản vẽ" / "Drawing No."). Nếu khung tên không có, không rõ, hoặc bản vẽ không thể hiện số hiệu: ghi ĐÚNG NGUYÊN VĂN "Không xác định được số hiệu bản vẽ" ở trường "so_hieu_ban_ve" — TUYỆT ĐỐI không suy đoán, không tự đặt số hiệu.
 
 BƯỚC 1: Xác định bản vẽ được cung cấp là hệ báo cháy LOẠI THƯỜNG (zone theo khu vực, không có địa chỉ từng đầu báo) hay LOẠI ĐỊA CHỈ (mỗi đầu báo/module có địa chỉ riêng, thường dùng cho nhà cao tầng). Nêu rõ dấu hiệu nhận biết trên bản vẽ (ví dụ: ghi chú "hệ địa chỉ", loop/vòng lặp, hoặc chỉ có zone).
 
@@ -53,6 +56,7 @@ Trả lời DUY NHẤT bằng JSON hợp lệ theo đúng cấu trúc sau, khôn
 {{
   "loai_he_thong": "thuong" hoặc "dia_chi",
   "ly_do_nhan_dien": "câu ngắn giải thích vì sao xác định loại này",
+  "so_hieu_ban_ve": "số hiệu bản vẽ đọc từ khung tên, hoặc \"Không xác định được số hiệu bản vẽ\"",
   "items": [
     {{"id": 2, "noi_dung_thiet_ke": "...", "ket_luan": "dat" | "chua_dat" | "chua_the_hien"}}
   ],
@@ -70,7 +74,20 @@ SYSTEM_PROMPT = _build_system_prompt()
 
 BaoChayReaderError = AIReaderError  # giữ tên cũ để không phải sửa chỗ khác đang import
 
+_IDS_THUONG = {r["id"] for r in mdc_filler.load_criteria_rows("thuong")}
+_IDS_DIA_CHI = {r["id"] for r in mdc_filler.load_criteria_rows("dia_chi")}
+
+
+def _validate(data: dict):
+    # loai_he_thong quyết định bộ id "đúng" nào áp dụng — chỉ biết được SAU khi có
+    # kết quả AI, nên chọn bộ id kỳ vọng dựa trên chính giá trị AI vừa trả về (nếu
+    # loai_he_thong sai enum, Pydantic tự raise lỗi ở bước validate_reader_result).
+    expected_ids = _IDS_DIA_CHI if data.get("loai_he_thong") == "dia_chi" else _IDS_THUONG
+    return validate_reader_result(data, expected_ids, BaoChayReaderResult)
+
 
 def read_drawing(file_bytes: bytes, media_type: str, provider) -> dict:
-    """Gửi bản vẽ (ảnh hoặc PDF) kèm tiêu chí tới AI provider, trả về dict đã parse JSON."""
-    return read_drawing_json(file_bytes, media_type, provider, SYSTEM_PROMPT)
+    """Gửi bản vẽ (ảnh hoặc PDF) kèm tiêu chí tới AI provider, validate qua Pydantic
+    (kèm retry-repair 1 lần nếu sai), trả về dict."""
+    model = read_and_validate_drawing_json(file_bytes, media_type, provider, SYSTEM_PROMPT, _validate)
+    return model.model_dump()

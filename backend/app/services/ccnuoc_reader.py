@@ -14,7 +14,8 @@ cả 3, rồi gộp kết quả lại. Nếu 1-2 mẫu lỗi vẫn trả về m�
 from concurrent.futures import ThreadPoolExecutor
 
 from . import mdc_filler
-from .ai_reader_common import AIReaderError, read_drawing_json
+from .ai_reader_common import AIReaderError, read_and_validate_drawing_json
+from .ai_schema import KHONG_XAC_DINH_SO_HIEU, ReaderResult, validate_reader_result
 
 FORMS = [
     {"loai": "tram_bom", "mdc_label": "MĐC B3", "ten_he_thong": "trạm bơm cấp nước chữa cháy"},
@@ -33,6 +34,8 @@ def _fmt_rows(rows):
 def _build_system_prompt(loai, mdc_label, ten_he_thong):
     rows = mdc_filler.load_criteria_rows(loai)
     return f"""Bạn là kỹ sư PCCC rà soát bản vẽ hệ thống {ten_he_thong}, đối chiếu với mẫu đối chiếu {mdc_label}.
+
+YÊU CẦU THÊM: Đọc SỐ HIỆU BẢN VẼ ghi trong khung tên (title block) của chính bản vẽ này (thường ở góc dưới bên phải, ô ghi "Số bản vẽ" / "Ký hiệu bản vẽ" / "Drawing No."). Nếu khung tên không có, không rõ, hoặc bản vẽ không thể hiện số hiệu: ghi ĐÚNG NGUYÊN VĂN "Không xác định được số hiệu bản vẽ" ở trường "so_hieu_ban_ve" — TUYỆT ĐỐI không suy đoán, không tự đặt số hiệu.
 
 BƯỚC 1: Với MỖI dòng tiêu chí dưới đây (mỗi dòng có sẵn "id" — khi trả lời PHẢI giữ nguyên đúng id đó, và phải trả lời ĐỦ cho TẤT CẢ id, không bỏ sót), đối chiếu với bản vẽ và trả về:
 - "noi_dung_thiet_ke": nội dung điền vào cột "Nội dung thiết kế" của mẫu MĐC gốc — ngắn gọn, đúng mạch đối chiếu (dùng gạch đầu dòng "-" nếu nhiều ý), nêu số liệu cụ thể NHÌN THẤY trên bản vẽ. Nếu bản vẽ không thể hiện đủ thông tin để kết luận: ghi đúng "Chưa thể hiện trên bản vẽ cung cấp".
@@ -58,6 +61,7 @@ NGUYÊN TẮC BẮT BUỘC:
 
 Trả lời DUY NHẤT bằng JSON hợp lệ theo đúng cấu trúc sau, không thêm văn bản nào khác ngoài JSON:
 {{
+  "so_hieu_ban_ve": "số hiệu bản vẽ đọc từ khung tên, hoặc \"Không xác định được số hiệu bản vẽ\"",
   "items": [
     {{"id": 2, "noi_dung_thiet_ke": "...", "ket_luan": "dat" | "chua_dat" | "chua_the_hien"}}
   ],
@@ -75,12 +79,23 @@ SYSTEM_PROMPTS = {f["loai"]: _build_system_prompt(f["loai"], f["mdc_label"], f["
 
 CcNuocReaderError = AIReaderError
 
+_EXPECTED_IDS = {f["loai"]: {r["id"] for r in mdc_filler.load_criteria_rows(f["loai"])} for f in FORMS}
+
+
+def _validate_for(loai):
+    def _validate(data: dict):
+        return validate_reader_result(data, _EXPECTED_IDS[loai], ReaderResult)
+    return _validate
+
 
 def read_drawing(file_bytes: bytes, media_type: str, provider) -> dict:
-    """Gọi AI 3 lần (B3/B5/B6) song song cho cùng 1 bản vẽ, gộp kết quả lại."""
+    """Gọi AI 3 lần (B3/B5/B6) song song cho cùng 1 bản vẽ, mỗi lần validate qua
+    Pydantic (kèm retry-repair riêng từng lần nếu sai), rồi gộp kết quả lại."""
 
     def _call(form):
-        return read_drawing_json(file_bytes, media_type, provider, SYSTEM_PROMPTS[form["loai"]])
+        return read_and_validate_drawing_json(
+            file_bytes, media_type, provider, SYSTEM_PROMPTS[form["loai"]], _validate_for(form["loai"])
+        )
 
     results = {}
     errors = {}
@@ -98,10 +113,11 @@ def read_drawing(file_bytes: bytes, media_type: str, provider) -> dict:
     combined_kien_nghi = {"I_chua_the_hien": [], "II_chua_thong_nhat": [], "III_chua_phu_hop": [], "IV_de_xuat_bo_sung": []}
     tong_ket_parts = []
     forms_out = {}
+    so_hieu_ban_ve = None
     for form in FORMS:
         loai = form["loai"]
         if loai in results:
-            data = results[loai]
+            data = results[loai].model_dump()
             forms_out[loai] = {
                 "label": form["ten_he_thong"],
                 "mdc_label": form["mdc_label"],
@@ -112,6 +128,11 @@ def read_drawing(file_bytes: bytes, media_type: str, provider) -> dict:
                 combined_kien_nghi[key].extend(kn.get(key) or [])
             if data.get("tong_ket"):
                 tong_ket_parts.append(form["ten_he_thong"].capitalize() + ": " + data["tong_ket"])
+            # Lấy so_hieu_ban_ve từ lần đọc ĐẦU TIÊN (theo thứ tự FORMS) có giá trị
+            # thật (khác placeholder "không xác định") — 3 lần gọi đều đọc cùng 1
+            # file nên số hiệu phải giống nhau, chỉ cần 1 nguồn đáng tin.
+            if so_hieu_ban_ve is None and data.get("so_hieu_ban_ve") and data["so_hieu_ban_ve"] != KHONG_XAC_DINH_SO_HIEU:
+                so_hieu_ban_ve = data["so_hieu_ban_ve"]
         else:
             forms_out[loai] = {
                 "label": form["ten_he_thong"],
@@ -124,4 +145,5 @@ def read_drawing(file_bytes: bytes, media_type: str, provider) -> dict:
         "forms": forms_out,
         "tong_ket": " ".join(tong_ket_parts),
         "kien_nghi": combined_kien_nghi,
+        "so_hieu_ban_ve": so_hieu_ban_ve or KHONG_XAC_DINH_SO_HIEU,
     }

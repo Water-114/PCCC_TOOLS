@@ -6,7 +6,8 @@ mdc_templates/. Khác báo cháy: không cần bước phân loại (chỉ có 1
 """
 
 from . import mdc_filler
-from .ai_reader_common import AIReaderError, read_drawing_json
+from .ai_reader_common import AIReaderError, read_and_validate_drawing_json
+from .ai_schema import ReaderResult, validate_reader_result
 
 
 def _fmt_rows(rows):
@@ -19,6 +20,8 @@ def _fmt_rows(rows):
 def _build_system_prompt():
     rows = mdc_filler.load_criteria_rows("dien_pccc")
     return f"""Bạn là kỹ sư PCCC rà soát bản vẽ hệ thống điện phục vụ PCCC (cấp nguồn ưu tiên, dây/cáp chống cháy, tủ điện PCCC), đối chiếu với mẫu đối chiếu MĐC B14.
+
+YÊU CẦU THÊM: Đọc SỐ HIỆU BẢN VẼ ghi trong khung tên (title block) của chính bản vẽ này (thường ở góc dưới bên phải, ô ghi "Số bản vẽ" / "Ký hiệu bản vẽ" / "Drawing No."). Nếu khung tên không có, không rõ, hoặc bản vẽ không thể hiện số hiệu: ghi ĐÚNG NGUYÊN VĂN "Không xác định được số hiệu bản vẽ" ở trường "so_hieu_ban_ve" — TUYỆT ĐỐI không suy đoán, không tự đặt số hiệu.
 
 BƯỚC 1: Với MỖI dòng tiêu chí dưới đây (mỗi dòng có sẵn "id" — khi trả lời PHẢI giữ nguyên đúng id đó, và phải trả lời ĐỦ cho TẤT CẢ id, không bỏ sót), đối chiếu với bản vẽ và trả về:
 - "noi_dung_thiet_ke": nội dung điền vào cột "Nội dung thiết kế" của mẫu MĐC gốc — ngắn gọn, đúng mạch đối chiếu (dùng gạch đầu dòng "-" nếu nhiều ý), nêu số liệu cụ thể NHÌN THẤY trên bản vẽ. Nếu bản vẽ không thể hiện đủ thông tin để kết luận: ghi đúng "Chưa thể hiện trên bản vẽ cung cấp".
@@ -43,6 +46,7 @@ NGUYÊN TẮC BẮT BUỘC:
 
 Trả lời DUY NHẤT bằng JSON hợp lệ theo đúng cấu trúc sau, không thêm văn bản nào khác ngoài JSON:
 {{
+  "so_hieu_ban_ve": "số hiệu bản vẽ đọc từ khung tên, hoặc \"Không xác định được số hiệu bản vẽ\"",
   "items": [
     {{"id": 2, "noi_dung_thiet_ke": "...", "ket_luan": "dat" | "chua_dat" | "chua_the_hien"}}
   ],
@@ -60,7 +64,15 @@ SYSTEM_PROMPT = _build_system_prompt()
 
 DienPcccReaderError = AIReaderError  # cùng loại lỗi dùng chung với baochay_reader
 
+_EXPECTED_IDS = {r["id"] for r in mdc_filler.load_criteria_rows("dien_pccc")}
+
+
+def _validate(data: dict):
+    return validate_reader_result(data, _EXPECTED_IDS, ReaderResult)
+
 
 def read_drawing(file_bytes: bytes, media_type: str, provider) -> dict:
-    """Gửi bản vẽ (ảnh hoặc PDF) kèm tiêu chí tới AI provider, trả về dict đã parse JSON."""
-    return read_drawing_json(file_bytes, media_type, provider, SYSTEM_PROMPT)
+    """Gửi bản vẽ (ảnh hoặc PDF) kèm tiêu chí tới AI provider, validate qua Pydantic
+    (kèm retry-repair 1 lần nếu sai), trả về dict."""
+    model = read_and_validate_drawing_json(file_bytes, media_type, provider, SYSTEM_PROMPT, _validate)
+    return model.model_dump()
