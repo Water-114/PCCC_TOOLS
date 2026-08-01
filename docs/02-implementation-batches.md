@@ -276,7 +276,7 @@ owner ở batch/thời điểm khác):**
 - Rủi ro cộng dồn timeout worst-case (retry mạng × retry-repair schema) nêu trên — đã giới hạn thực tế nhưng chưa airtight tuyệt đối ở trường hợp cực xấu lý thuyết.
 - Chưa gỡ package `google-generativeai` khỏi venv cục bộ (chỉ đổi `requirements.txt`) — không ảnh hưởng gì (không còn file nào import), chỉ là dọn dẹp không bắt buộc.
 
-## Batch 5A — Xác thực email, Bộ hồ sơ và chuyển khoản thủ công — **ĐANG TRIỂN KHAI (sub-bước 4/? đã xong)**
+## Batch 5A — Xác thực email, Bộ hồ sơ và chuyển khoản thủ công — **HOÀN THÀNH (5/5 sub-bước)**
 
 **Mục tiêu:** chuyển mô hình quota "N lượt/ngày" hiện tại sang mô hình
 "Bộ hồ sơ" trả trước (credit-based), có xác thực email và nạp thêm bằng
@@ -543,6 +543,61 @@ chưa có UI/HTML thật):**
 - **KHÔNG làm** (đúng phạm vi sub-bước 4): không đổi `backend/`; không đụng
   `frontend/` (MVP đóng băng); chưa làm feedback bonus (5 góp ý +1 lượt).
 
+**Tiến độ — Sub-bước 5 (feedback bonus — 5 góp ý hoàn thành +1 lượt hướng dẫn,
+sub-bước cuối cùng của Batch 5A):**
+
+- **Khảo sát trước khi code, đúng yêu cầu dừng lại nếu chưa rõ**: đọc
+  `routes/feedback.py` + `js/ai-doc-ho-so.js` xác nhận nút "GÓP Ý" bật sau
+  `finishUp()` ở CẢ nhánh AI thật lẫn nhánh demo thuần (không mở phiên nào),
+  và payload gửi lên `/api/feedback` không mang `session_id` nào — nghĩa là
+  góp ý hiện tại KHÔNG gắn cứng được với đúng 1 `HoSoSession` cụ thể. Đây là
+  điểm chưa đủ rõ để tự quyết — đã dừng lại hỏi qua 3 phương án; bạn chọn
+  **"Giới hạn theo số phiên thật đã dùng"**: số góp ý "hoàn thành" =
+  `min(tổng góp ý feature='aiho_bo_ho_so' của user, tổng HoSoSession
+  status='closed_used' của user)` — không cần thêm cột/migration, không cần
+  sửa frontend để gửi `session_id`.
+- **`backend/app/services/feedback_bonus.py`** (module mới, đúng pattern
+  "route mỏng, logic ở services" của `credits.py`/`ho_so_session.py`):
+  `maybe_grant_feedback_bonus(user_id)` — tính `eligible = min(total_feedback,
+  total_real_sessions)`, số mốc đáng lẽ đã đạt = `eligible // 5`, so với số
+  lần đã thực sự cấp thưởng (đếm trực tiếp từ `CreditLedger
+  reason=feedback_bonus` — nguồn sự thật duy nhất, không lưu "lần kiểm tra
+  trước" ở đâu khác) — cấp thêm 1 Bộ hồ sơ đúng khi số mốc đáng lẽ đạt vượt số
+  đã cấp. Cách tính lại từ đầu mỗi lần (thay vì so before/after) để không bỏ
+  sót mốc nếu `total_real_sessions` tăng lên giữa 2 lần góp ý mà không có sự
+  kiện nào xảy ra đúng lúc vượt mốc — lỗi tôi tự phát hiện ở bản nháp đầu
+  trước khi viết code, không phải bug đã xảy ra thật.
+- **`routes/feedback.py`**: sau khi lưu `Feedback`, gọi
+  `maybe_grant_feedback_bonus()` CHỈ khi đã đăng nhập (`user` khác None) VÀ
+  đúng `feature='aiho_bo_ho_so'` (nhãn cũ như `aiho_baochay` không tính — chỉ
+  nhãn này được frontend hiện tại gửi lên, xác nhận bằng grep). Response thêm
+  field `bonus_granted` (bool) để frontend biết hiện câu chữ nào.
+- **Câu chữ chính thức** (đã chốt sẵn từ trước, dùng nguyên văn):
+  - `index.html` — thêm dòng tĩnh trong `#feedbackModal`, ngay dưới câu hỏi
+    đánh giá: *"Góp ý cho 05 Bộ hồ sơ hoàn thành để nhận thêm 01 lượt hướng
+    dẫn cho 01 Bộ hồ sơ."* (luôn hiện, không điều kiện — lời mời chung).
+  - `js/ai-doc-ho-so.js` — `feedbackSubmitBtn` handler đọc `bonus_granted` từ
+    response JSON: nếu `true`, banner xác nhận (`showFeedbackConfirm`) hiện
+    đúng câu *"Anh/chị đã hoàn thành 05 góp ý. Hệ thống đã cộng thêm 01 lượt
+    hướng dẫn cho 01 Bộ hồ sơ vào tài khoản của anh/chị."* thay cho câu cảm ơn
+    mặc định, đồng thời gọi `A.refreshMe()` để số dư Bộ hồ sơ trên nav/section
+    cập nhật ngay không cần tải lại trang.
+- **17 test mới** (`test_feedback_bonus_service.py` — 9 test gọi thẳng
+  `maybe_grant_feedback_bonus()`: đúng mốc 5 mới cộng, không cộng lặp cho góp
+  ý thứ 6/7, đúng mốc 10 cộng lần 2, bị giới hạn bởi số phiên thật khi ít hơn
+  số góp ý và ngược lại, luồng demo thuần (0 phiên thật) không bao giờ đủ
+  điều kiện, nhãn `feature` khác không được tính; `test_feedback_bonus_routes.py`
+  — 4 test qua HTTP xác nhận response `bonus_granted` đúng ở từng góp ý 1-5,
+  không cộng lặp ở góp ý 6, góp ý ẩn danh không lỗi và không bao giờ cộng).
+  `pytest -q` xác nhận **615/615 test backend pass** (từ 603), không hồi quy.
+  `npm run lint` không phát sinh cảnh báo mới (các warning `no-unused-vars`
+  hiện có trong `utils.js`/`quan-tri.js`/`tuvan-so-bo.js` có từ trước, không
+  liên quan tới thay đổi sub-bước này).
+- **KHÔNG làm** (đúng phạm vi sub-bước 5, và đây là mảnh cuối của Batch 5A):
+  không thêm cột/migration mới; không sửa frontend để gửi `session_id` kèm
+  góp ý (theo đúng phương án đã chọn); không đổi luồng góp ý ẩn danh (vẫn nhận
+  bình thường, chỉ không bao giờ được tính vào thưởng).
+
 **Chính sách nghiệp vụ (owner quyết định, giữ nguyên khi triển khai)**
 
 - Tài khoản xác thực email lần đầu được đúng **2 Bộ hồ sơ** dùng thử.
@@ -574,10 +629,9 @@ chưa có UI/HTML thật):**
     hướng dẫn cho 01 Bộ hồ sơ."*
   - Khi đủ điều kiện: *"Anh/chị đã hoàn thành 05 góp ý. Hệ thống đã cộng
     thêm 01 lượt hướng dẫn cho 01 Bộ hồ sơ vào tài khoản của anh/chị."*
-  **Chưa hiển thị 2 câu này** ở task UX "Góp ý Bộ hồ sơ" hiện tại (sau Batch 3)
-  — vì chưa có cơ chế đếm số góp ý đã hoàn thành và cộng lượt thật trên
-  server; chỉ ghi nhận câu chữ chính thức tại đây để triển khai đúng khi
-  Batch 5A thật sự được duyệt.
+  **Đã triển khai đủ** ở sub-bước 5 (xem "Tiến độ — Sub-bước 5" phía trên) —
+  cơ chế đếm góp ý hoàn thành + cộng lượt thật trên server đã chạy, câu chữ
+  đã hiện đúng chỗ trong luồng góp ý.
 
 **Công việc (khi được duyệt triển khai)**
 
@@ -608,6 +662,9 @@ chưa có UI/HTML thật):**
   (UI trong tab Quản trị)**, nút khoá ngay lúc bấm tránh double-click.
 - [x] Trang xem số dư Bộ hồ sơ còn lại + lịch sử ledger — **sub-bước 3
   (route) + sub-bước 4 (UI trong tab AI kiểm tra hồ sơ)**.
+- [x] Feedback bonus: đủ 5 góp ý hoàn thành (giới hạn theo số phiên Bộ hồ sơ
+  thật đã dùng) cộng thêm 1 Bộ hồ sơ, hiện đúng 2 câu chữ chính thức ở luồng
+  góp ý — **sub-bước 5**.
 
 **Gate kiểm tra**
 
@@ -638,9 +695,12 @@ chưa có UI/HTML thật):**
   `test_admin_confirm_twice_does_not_grant_twice`. Cộng thêm (ngoài gate gốc,
   hợp lý cần khoá lại): từ chối 1 yêu cầu đã xác nhận / xác nhận 1 yêu cầu đã
   từ chối đều bị chặn rõ ràng (không tự đảo ngược ledger).
-- [ ] Test: đúng góp ý thứ 5 (Bộ hồ sơ đã hoàn thành) mới cộng +1 lượt hướng dẫn,
+- [x] Test: đúng góp ý thứ 5 (Bộ hồ sơ đã hoàn thành) mới cộng +1 lượt hướng dẫn,
   không cộng lặp lại cho góp ý thứ 6, 7... trước khi đủ chu kỳ 5 tiếp theo —
-  **chưa làm, sub-bước sau** (nằm ngoài phạm vi sub-bước 3 theo yêu cầu).
+  **sub-bước 5**: `test_bonus_granted_at_exactly_5`,
+  `test_no_double_grant_for_feedback_6_and_7`, `test_second_milestone_at_10`
+  (`test_feedback_bonus_service.py`) + xác nhận lại qua HTTP thật ở
+  `test_feedback_bonus_routes.py`.
 - [x] Review: không có thông tin ngân hàng/QR nào xuất hiện trong git diff/log/docs
   — **sub-bước 3**: đã grep toàn bộ diff theo tên các ngân hàng phổ biến,
   xác nhận sạch; `.env.example`/`config.py` chỉ khai tên 4 biến

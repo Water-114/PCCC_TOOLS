@@ -3,6 +3,7 @@ from flask import Blueprint, jsonify, request
 from ..auth import extract_token, verify_token
 from ..extensions import db, limiter
 from ..models import Feedback
+from ..services.feedback_bonus import FEEDBACK_BONUS_FEATURE, maybe_grant_feedback_bonus
 
 bp = Blueprint("feedback", __name__, url_prefix="/api/feedback")
 
@@ -44,4 +45,10 @@ def submit_feedback():
     db.session.add(fb)
     db.session.commit()
 
-    return jsonify({"ok": True})
+    # Thuong gop y (Batch 5A sub-buoc 5) chi ap dung cho gop y co dang nhap va
+    # dung dung "feature" cua luong Bo ho so — xem services/feedback_bonus.py.
+    bonus_granted = False
+    if user and feature == FEEDBACK_BONUS_FEATURE:
+        bonus_granted = maybe_grant_feedback_bonus(user.id)
+
+    return jsonify({"ok": True, "bonus_granted": bonus_granted})

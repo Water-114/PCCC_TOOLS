@@ -1070,7 +1070,16 @@
         feedbackSubmitBtn.disabled = false;
         closeFeedbackModal();
         if(res.ok){
-          showFeedbackConfirm('Cảm ơn góp ý của anh/chị!');
+          res.json().then(function(data){
+            if(data && data.bonus_granted){
+              showFeedbackConfirm('Anh/chị đã hoàn thành 05 góp ý. Hệ thống đã cộng thêm 01 lượt hướng dẫn cho 01 Bộ hồ sơ vào tài khoản của anh/chị.');
+              A.refreshMe();
+            } else {
+              showFeedbackConfirm('Cảm ơn góp ý của anh/chị!');
+            }
+          }).catch(function(){
+            showFeedbackConfirm('Cảm ơn góp ý của anh/chị!');
+          });
         } else {
           msg.textContent = 'Không gửi được góp ý — vui lòng thử lại sau.';
           msg.classList.add('show');
