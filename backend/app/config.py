@@ -50,6 +50,17 @@ class Config:
 
     AIHO_DAILY_QUOTA = int(os.getenv("AIHO_DAILY_QUOTA", "5"))
 
+    # Batch 5A: gui email xac thuc qua SMTP - hoan toan cau hinh qua bien moi
+    # truong, KHONG hardcode provider/thong tin dang nhap nao trong code. Neu
+    # SMTP_HOST rong (vd moi truong dev local chua thiet lap): services/mailer.py
+    # se KHONG gui that, chi log ra console - tranh chan dung luong dang
+    # ky/xac thuc chi vi thieu cau hinh SMTP luc dev/test.
+    SMTP_HOST = os.getenv("SMTP_HOST", "")
+    SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+    SMTP_USERNAME = os.getenv("SMTP_USERNAME", "")
+    SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+    SMTP_FROM_EMAIL = os.getenv("SMTP_FROM_EMAIL", "")
+
     # Gioi han kich thuoc toan bo request body o tang Flask/Werkzeug — chan som (413)
     # truoc khi buffer het vao RAM, thay vi chi dua vao kiem tra thu cong sau khi da
     # doc het file trong aiho.py (MAX_BYTES = 15MB/file). Co bien du cho multipart

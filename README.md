@@ -1,4 +1,4 @@
-# PCCC_TOOLS — Tư vấn PCCC (Demo MVP)
+# PCCC_TOOLS — Hướng dẫn PCCC (Demo MVP)
 
 APP HƯỚNG DẪN VẤN ĐÁP PCCC
 
@@ -8,7 +8,7 @@ Tài liệu triển khai theo kiến trúc đơn giản (Render Web Service + Po
 
 Dự án gồm 2 phần chạy song song:
 
-- **`index.html`** (thư mục gốc) — trang chính đang dùng thật, đầy đủ 5 mục: Hướng dẫn thiết kế/tư vấn sơ bộ, Công cụ tính toán, **AI kiểm tra hồ sơ** (đã gắn AI thật cho hạng mục "Báo cháy tự động", có đăng nhập + giới hạn lượt/ngày), Thư viện pháp luật, AI trợ lý.
+- **`index.html`** (thư mục gốc) — trang chính đang dùng thật, đầy đủ 5 mục: Hướng dẫn thiết kế và lập phiếu hướng dẫn sơ bộ, Công cụ tính toán, **AI kiểm tra hồ sơ** (đã gắn AI thật cho hạng mục "Báo cháy tự động", có đăng nhập + giới hạn lượt/ngày), Thư viện pháp luật, AI trợ lý.
 - **`admin.html`** (thư mục gốc) — trang quản trị riêng: đăng nhập bằng tài khoản `role=admin`, xem thống kê tổng số tài khoản/lượt gọi API/góp ý, danh sách user kèm lượt còn lại, bảng góp ý.
 - **`backend/`** — Flask API phục vụ cả 2 trang trên: tính nước chữa cháy, AI gateway (Claude/Gemini), đăng nhập/đăng ký, AI đọc bản vẽ báo cháy (có giới hạn quota), góp ý, thống kê quản trị. Có database SQLite (`backend/app.db`, không commit) qua SQLAlchemy + Flask-Migrate.
 - **`frontend/`** — React + Vite, một MVP tách riêng (2 tính năng: tính nước chữa cháy, diện thẩm định Phụ lục III) — **đã đóng băng**: không nhận tính năng mới, không deploy độc lập, chỉ giữ lại để tham khảo. `index.html` (root static UI) là giao diện production chính thức duy nhất.

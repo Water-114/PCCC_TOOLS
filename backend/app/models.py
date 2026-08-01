@@ -29,6 +29,13 @@ class User(db.Model):
     # Hạn mức lượt đọc bản vẽ/ngày riêng cho tài khoản này — null nghĩa là dùng
     # mức mặc định chung (Config.AIHO_DAILY_QUOTA), do admin đặt qua trang quản trị.
     daily_quota = db.Column(db.Integer, nullable=True)
+    # Batch 5A: null nghĩa là CHƯA từng xác thực email — kể cả tài khoản đã đăng
+    # ký từ trước Batch 5A (theo hệ thống lượt/ngày cũ). KHÔNG có migration
+    # backfill nào set cột này — tài khoản cũ phải tự xác thực lại y như người
+    # dùng mới để nhận 2 Bộ hồ sơ, đúng quyết định của owner. Chỉ được set 1 LẦN
+    # (xem services/email_verification.py) — lần xác thực lại sau đó (nếu có)
+    # không set lại/không cấp thêm Bộ hồ sơ.
+    email_verified_at = db.Column(db.DateTime(timezone=True), nullable=True)
 
     def set_password(self, raw_password: str) -> None:
         self.password_hash = generate_password_hash(raw_password)
@@ -91,3 +98,63 @@ class Feedback(db.Model):
     created_at = db.Column(db.DateTime(timezone=True), default=_utcnow, nullable=False)
 
     user = db.relationship("User")
+
+
+class EmailVerificationToken(db.Model):
+    """Token xác thực email một lần, có hạn sử dụng (Batch 5A). Chỉ lưu HASH của
+    token thật (sha256) — không lưu bản rõ vào DB, để lộ DB không đồng nghĩa lộ
+    được link xác thực còn hiệu lực của người khác."""
+
+    __tablename__ = "email_verification_token"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    token_hash = db.Column(db.String(64), nullable=False, unique=True, index=True)
+    expires_at = db.Column(db.DateTime(timezone=True), nullable=False)
+    used_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    created_at = db.Column(db.DateTime(timezone=True), default=_utcnow, nullable=False)
+
+    user = db.relationship("User")
+
+
+class CreditLedger(db.Model):
+    """Lịch sử đầy đủ các giao dịch "Bộ hồ sơ" (Batch 5A) — số dư hiện tại LUÔN
+    tính từ SUM(delta) (xem services/credits.credit_balance), không lưu số dư
+    rời rạc ở bảng khác để tránh 2 nguồn dữ liệu lệch nhau. `balance_after` lưu
+    kèm mỗi dòng chỉ để hiển thị lịch sử nhanh (không phải nguồn sự thật)."""
+
+    __tablename__ = "credit_ledger"
+    __table_args__ = (
+        db.Index("ix_credit_ledger_user_created", "user_id", "created_at"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    delta = db.Column(db.Integer, nullable=False)  # duong: cap/hoan/nap; am: tru luc dung
+    reason = db.Column(db.String(40), nullable=False)  # xem services/credits.py CREDIT_REASON_*
+    balance_after = db.Column(db.Integer, nullable=False)
+    note = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime(timezone=True), default=_utcnow, nullable=False)
+
+    user = db.relationship("User")
+
+
+class TopupRequest(db.Model):
+    """Yêu cầu nạp thêm Bộ hồ sơ bằng chuyển khoản thủ công (Batch 5A) — CHƯA có
+    route nào dùng tới bảng này ở sub-bước 1 (chỉ tạo schema trước theo đúng
+    phạm vi), sẽ dùng khi làm luồng "Nạp thêm Bộ hồ sơ" + trang admin xác nhận."""
+
+    __tablename__ = "topup_request"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    reference_code = db.Column(db.String(40), nullable=False, unique=True, index=True)
+    amount_vnd = db.Column(db.Integer, nullable=False, default=100000)
+    credits_to_grant = db.Column(db.Integer, nullable=False, default=5)
+    status = db.Column(db.String(20), nullable=False, default="pending")  # 'pending' | 'confirmed' | 'rejected'
+    created_at = db.Column(db.DateTime(timezone=True), default=_utcnow, nullable=False)
+    confirmed_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    confirmed_by_admin_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+
+    user = db.relationship("User", foreign_keys=[user_id])
+    confirmed_by_admin = db.relationship("User", foreign_keys=[confirmed_by_admin_id])

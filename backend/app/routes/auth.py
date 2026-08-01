@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from ..auth import create_token, login_required
 from ..extensions import db, limiter
 from ..models import AIHO_API_NAME, User, count_usage_today
+from ..services import email_verification, mailer
 
 bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
@@ -76,3 +77,53 @@ def login():
 @login_required
 def me():
     return jsonify({"user": _user_payload(g.current_user)})
+
+
+def _verification_email_content(token: str) -> tuple[str, str]:
+    verify_url = f"{current_app.config['FRONTEND_ORIGIN']}/?verify-email={token}"
+    subject = "Xác thực email — Tư vấn PCCC"
+    body = (
+        "Chào anh/chị,\n\n"
+        "Vui lòng bấm vào liên kết dưới đây để xác thực email và nhận 2 Bộ hồ sơ dùng thử:\n"
+        f"{verify_url}\n\n"
+        f"Liên kết có hiệu lực trong {email_verification.TOKEN_TTL_HOURS} giờ.\n"
+        "Nếu anh/chị không yêu cầu xác thực, vui lòng bỏ qua email này."
+    )
+    return subject, body
+
+
+@bp.post("/send-verification-email")
+@login_required
+@limiter.limit("5/hour")
+def send_verification_email():
+    user = g.current_user
+    if user.email_verified_at is not None:
+        return jsonify({"error": "Email này đã được xác thực rồi."}), 409
+
+    token = email_verification.create_email_verification_token(user.id)
+    subject, body = _verification_email_content(token)
+    mailer.send_email(user.email, subject, body)
+    return jsonify({"message": "Đã gửi email xác thực — vui lòng kiểm tra hộp thư."})
+
+
+@bp.post("/verify-email")
+@limiter.limit("10/hour")
+def verify_email():
+    payload = request.get_json(silent=True) or {}
+    token = (payload.get("token") or "").strip()
+    if not token:
+        return jsonify({"error": "Thiếu token xác thực."}), 400
+
+    try:
+        user, granted = email_verification.consume_email_verification_token(token)
+    except email_verification.InvalidVerificationToken as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    message = "Xác thực email thành công!"
+    if granted:
+        message += f" Đã cộng {email_verification.EMAIL_VERIFICATION_CREDITS} Bộ hồ sơ dùng thử."
+    return jsonify({
+        "message": message,
+        "credits_granted": email_verification.EMAIL_VERIFICATION_CREDITS if granted else 0,
+        "user": _user_payload(user),
+    })

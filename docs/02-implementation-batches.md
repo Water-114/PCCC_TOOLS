@@ -276,11 +276,65 @@ owner ở batch/thời điểm khác):**
 - Rủi ro cộng dồn timeout worst-case (retry mạng × retry-repair schema) nêu trên — đã giới hạn thực tế nhưng chưa airtight tuyệt đối ở trường hợp cực xấu lý thuyết.
 - Chưa gỡ package `google-generativeai` khỏi venv cục bộ (chỉ đổi `requirements.txt`) — không ảnh hưởng gì (không còn file nào import), chỉ là dọn dẹp không bắt buộc.
 
-## Batch 5A — Xác thực email, Bộ hồ sơ và chuyển khoản thủ công
+## Batch 5A — Xác thực email, Bộ hồ sơ và chuyển khoản thủ công — **ĐANG TRIỂN KHAI (sub-bước 1/? đã xong)**
 
 **Mục tiêu:** chuyển mô hình quota "N lượt/ngày" hiện tại sang mô hình
 "Bộ hồ sơ" trả trước (credit-based), có xác thực email và nạp thêm bằng
 chuyển khoản ngân hàng thủ công — chưa tích hợp cổng thanh toán tự động.
+
+**Tiến độ — Sub-bước 1 (schema + xác thực email cấp Bộ hồ sơ, KHÔNG đổi luồng
+quota AI đọc bản vẽ đang chạy thật):**
+
+- **Schema mới** (`backend/app/models.py`): `User.email_verified_at` (null =
+  chưa xác thực — kể cả tài khoản đăng ký trước Batch 5A, KHÔNG có migration
+  backfill nào set cột này), `CreditLedger` (ledger đầy đủ — số dư luôn tính từ
+  `SUM(delta)`, không có cột số dư rời rạc để tránh 2 nguồn lệch nhau;
+  `backend/app/services/credits.py` khai báo sẵn cả 5 loại giao dịch
+  `CREDIT_REASON_*` dù sub-bước này chỉ tạo ra được loại
+  `email_verification`), `EmailVerificationToken` (chỉ lưu sha256 hash của
+  token, không lưu bản rõ), `TopupRequest` (**tạo schema trước, chưa route nào
+  dùng tới** — đúng phạm vi sub-bước 1).
+- **Xác thực email** (`backend/app/services/email_verification.py` +
+  `backend/app/services/mailer.py` + route `POST /api/auth/send-verification-email`
+  (cần đăng nhập, 409 nếu đã xác thực) và `POST /api/auth/verify-email` (public
+  — token tự chứng minh danh tính, không cần đăng nhập)): token ngẫu nhiên
+  (`secrets.token_urlsafe`), hạn 24 giờ, dùng 1 lần (đánh dấu `used_at` ngay
+  khi tìm thấy hợp lệ, cùng transaction với việc cấp credit). Cấp đúng 2 Bộ hồ
+  sơ khi `email_verified_at` đang `None` lúc xác thực thành công; nếu đã có
+  giá trị từ trước thì KHÔNG cấp lại — chặn kép 2 lớp (route trả 409 khi bấm
+  gửi lại nếu đã xác thực, và bản thân hàm xác nhận cũng tự kiểm tra
+  `email_verified_at` trước khi cấp, không phụ thuộc riêng lớp route).
+  Gửi lại email xác thực sẽ huỷ token cũ CHƯA dùng của cùng tài khoản (lựa
+  chọn của tôi, chưa được bạn xác nhận riêng — nếu muốn giữ nhiều link cùng
+  sống song song thì báo tôi bỏ dòng huỷ này).
+- **Gửi email** (`backend/app/services/mailer.py`): SMTP thuần (`smtplib`),
+  cấu hình hoàn toàn qua biến môi trường mới (`SMTP_HOST`/`SMTP_PORT`/
+  `SMTP_USERNAME`/`SMTP_PASSWORD`/`SMTP_FROM_EMAIL`, đã thêm vào
+  `backend/.env.example` với giá trị RỖNG, không có ví dụ gần giống thật nào).
+  Nếu `SMTP_HOST` rỗng: KHÔNG gửi thật, chỉ log cảnh báo — để đăng ký/xác thực
+  vẫn chạy được lúc dev/test chưa có SMTP thật.
+- **Migration Alembic** `33a95593a87d_add_email_verification_credit_ledger_...py`
+  — đã chạy thử thật upgrade → downgrade → upgrade lại trên SQLite local (file
+  tạm, không đụng `backend/app.db` thật), xác nhận sạch cả 2 chiều; khoá lại
+  bằng test tự động `test_batch_5a_migration_downgrades_and_reupgrades_cleanly`.
+- **62 test mới** (8 email_verification service + 5 credits service + 3 mailer
+  + 9 route xác thực + 1 migration round-trip mới, cộng các test hiện có được
+  giữ nguyên) — `pytest -q` xác nhận **534/534 test backend pass**, không hồi
+  quy. `npm run lint` không đổi (không sửa file JS nào ở sub-bước này).
+- **Lỗi thật phát hiện và sửa trong lúc làm:** so sánh `expires_at` (đọc từ DB)
+  với thời điểm hiện tại bị `TypeError: can't compare offset-naive and
+  offset-aware datetimes` trên SQLite — SQLite không giữ được `tzinfo` qua
+  `DateTime(timezone=True)` dù lúc ghi luôn là giờ UTC có tzinfo (Postgres
+  production giữ đúng, chỉ SQLite dev/test bị mất) — đã thêm hàm chuẩn hoá
+  `_as_aware_utc()` coi datetime "naive" đọc lại là UTC trước khi so sánh; có
+  test riêng khoá lại hành vi hết hạn để không tái diễn.
+- **KHÔNG đổi** (đúng phạm vi sub-bước 1, theo yêu cầu): luồng quota AI đọc
+  bản vẽ vẫn 100% theo "lượt/ngày" cũ đang chạy thật; chưa có trang nạp tiền;
+  chưa có trang admin xác nhận; chưa đổi giới hạn 5 file/7 form MĐC; chưa đổi
+  thông báo UI "Chú ý trước khi sử dụng"; `register()` KHÔNG tự động gửi email
+  xác thực (người dùng phải tự gọi `send-verification-email` — quyết định của
+  tôi để tránh đổi hành vi `register()` hiện có, có thể đổi lại nếu bạn muốn
+  tự động gửi ngay lúc đăng ký).
 
 **Chính sách nghiệp vụ (owner quyết định, giữ nguyên khi triển khai)**
 
@@ -320,39 +374,50 @@ chuyển khoản ngân hàng thủ công — chưa tích hợp cổng thanh toá
 
 **Công việc (khi được duyệt triển khai)**
 
-- Thiết kế schema mới: bảng credit/ledger cho "Bộ hồ sơ" (số dư, lịch sử
+- [x] Thiết kế schema mới: bảng credit/ledger cho "Bộ hồ sơ" (số dư, lịch sử
   cấp/trừ/hoàn/cộng), bảng yêu cầu nạp tiền (mã chuyển khoản, trạng thái
-  chờ/đã xác nhận/từ chối, thời điểm admin xác nhận).
-- Xác thực email: sinh token một lần, gửi email, endpoint xác nhận, tự động
-  cấp 2 Bộ hồ sơ khi xác thực thành công lần đầu.
-- Đổi luồng quota AI đọc bản vẽ: kiểm tra/trừ theo "Bộ hồ sơ còn lại" thay
+  chờ/đã xác nhận/từ chối, thời điểm admin xác nhận) — **sub-bước 1**, xem
+  chi tiết ở "Tiến độ" phía trên. Bảng yêu cầu nạp tiền mới có schema, CHƯA
+  có route dùng tới.
+- [x] Xác thực email: sinh token một lần, gửi email, endpoint xác nhận, tự động
+  cấp 2 Bộ hồ sơ khi xác thực thành công lần đầu — **sub-bước 1**.
+- [ ] Đổi luồng quota AI đọc bản vẽ: kiểm tra/trừ theo "Bộ hồ sơ còn lại" thay
   vì đếm lượt/ngày; giữ nguyên cơ chế giữ-chỗ nguyên tử đã có ở Batch 1 (áp
-  dụng cho đơn vị "Bộ hồ sơ" thay vì "lượt gọi API").
-- Giới hạn 1 Bộ hồ sơ: tối đa 5 file bản vẽ/tối đa 7 form MĐC — validate ở
-  cả frontend và backend.
-- Trang/luồng "Nạp thêm Bộ hồ sơ": tạo yêu cầu nạp với mã riêng, hiển thị
+  dụng cho đơn vị "Bộ hồ sơ" thay vì "lượt gọi API") — **chưa làm, sub-bước
+  sau** (sub-bước 1 chủ động giữ nguyên "lượt/ngày" cũ đang chạy thật).
+- [ ] Giới hạn 1 Bộ hồ sơ: tối đa 5 file bản vẽ/tối đa 7 form MĐC — validate ở
+  cả frontend và backend — **chưa làm, sub-bước sau**.
+- [ ] Trang/luồng "Nạp thêm Bộ hồ sơ": tạo yêu cầu nạp với mã riêng, hiển thị
   thông tin chuyển khoản (đọc từ biến môi trường), nút "Tôi đã chuyển khoản"
-  chỉ đổi trạng thái sang chờ.
-- Trang admin: danh sách yêu cầu nạp đang chờ, nút xác nhận thủ công (cộng
-  5 Bộ hồ sơ + ghi ledger), nút từ chối.
-- Trang người dùng: xem số dư Bộ hồ sơ còn lại + lịch sử ledger.
+  chỉ đổi trạng thái sang chờ — **chưa làm, sub-bước sau**.
+- [ ] Trang admin: danh sách yêu cầu nạp đang chờ, nút xác nhận thủ công (cộng
+  5 Bộ hồ sơ + ghi ledger), nút từ chối — **chưa làm, sub-bước sau**.
+- [ ] Trang người dùng: xem số dư Bộ hồ sơ còn lại + lịch sử ledger — **chưa
+  làm, sub-bước sau**.
 
 **Gate kiểm tra**
 
-- Test: xác thực email cấp đúng 2 Bộ hồ sơ, không cấp lại lần 2 nếu xác
-  thực lại.
-- Test: dùng hết Bộ hồ sơ → chặn đúng, không cho âm số dư.
-- Test: hoàn lượt đúng khi lỗi kỹ thuật, không hoàn khi lỗi do người dùng
-  (vd. file sai định dạng).
-- Test: chỉ admin mới gọi được endpoint xác nhận chuyển khoản; user thường
-  bị chặn (403).
-- Test: xác nhận chuyển khoản 2 lần cho cùng 1 yêu cầu không cộng 2 lần
-  (idempotent).
-- Test: đúng góp ý thứ 5 (Bộ hồ sơ đã hoàn thành) mới cộng +1 lượt hướng dẫn,
-  không cộng lặp lại cho góp ý thứ 6, 7... trước khi đủ chu kỳ 5 tiếp theo.
-- Review: không có thông tin ngân hàng/QR nào xuất hiện trong git diff/log/docs.
-- Review: giới hạn 5 file/7 form MĐC được validate ở backend, không chỉ ở
-  frontend (client có thể bị bypass).
+- [x] Test: xác thực email cấp đúng 2 Bộ hồ sơ, không cấp lại lần 2 nếu xác
+  thực lại — **sub-bước 1**: `test_email_verification_service.py` +
+  `test_auth_email_verification_routes.py` (17 test), cộng test riêng cho
+  token hết hạn/token dùng 1 lần/tài khoản cũ chưa xác thực (không nằm trong
+  danh sách gate gốc nhưng thuộc yêu cầu cụ thể của sub-bước 1).
+- [ ] Test: dùng hết Bộ hồ sơ → chặn đúng, không cho âm số dư — **chưa làm,
+  cần luồng quota AI đọc bản vẽ đổi sang Bộ hồ sơ trước (sub-bước sau)**.
+- [ ] Test: hoàn lượt đúng khi lỗi kỹ thuật, không hoàn khi lỗi do người dùng
+  (vd. file sai định dạng) — **chưa làm, sub-bước sau**.
+- [ ] Test: chỉ admin mới gọi được endpoint xác nhận chuyển khoản; user thường
+  bị chặn (403) — **chưa làm, chưa có route xác nhận chuyển khoản (sub-bước sau)**.
+- [ ] Test: xác nhận chuyển khoản 2 lần cho cùng 1 yêu cầu không cộng 2 lần
+  (idempotent) — **chưa làm, sub-bước sau**.
+- [ ] Test: đúng góp ý thứ 5 (Bộ hồ sơ đã hoàn thành) mới cộng +1 lượt hướng dẫn,
+  không cộng lặp lại cho góp ý thứ 6, 7... trước khi đủ chu kỳ 5 tiếp theo —
+  **chưa làm, sub-bước sau**.
+- [x] Review: không có thông tin ngân hàng/QR nào xuất hiện trong git diff/log/docs
+  — sub-bước 1 chỉ thêm biến môi trường SMTP (không phải ngân hàng), khai báo
+  tên biến với giá trị rỗng trong `.env.example`, không có giá trị ví dụ nào.
+- [ ] Review: giới hạn 5 file/7 form MĐC được validate ở backend, không chỉ ở
+  frontend (client có thể bị bypass) — **chưa làm, sub-bước sau**.
 
 ## Batch 5 — UAT và release readiness
 
