@@ -85,9 +85,26 @@ Bốn gate còn lại là điều kiện bắt buộc trước khi coi Batch 2 l
 readiness" thật sự, không chỉ là "code readiness". Không tự ý đánh dấu pass
 các gate này nếu chưa thực sự chạy trên `pccc-trolynghiepvu-db`.
 
-## Batch 3 — Canonical API và rule engine
+## Batch 3 — Canonical API và rule engine — **HOÀN THÀNH**
 
 **Mục tiêu:** một nguồn sự thật cho kết luận rule-based, có truy vết pháp lý.
+
+**Tổng kết (cả 4 cụm đã port, ở chế độ "đối chiếu song song"):**
+
+| Cụm | Service | Route | Golden test | Validation/route test |
+|---|---|---|---:|---:|
+| 1. Thẩm định | `tham_dinh.py` | `/api/tham-dinh/evaluate` | 61 | 7 |
+| 2. Hệ thống bắt buộc | `he_thong_bat_buoc.py` | `/api/he-thong-bat-buoc/evaluate` | 145 | 20 |
+| 3. Nước chữa cháy | `nuoc_chua_chay.py` | `/api/nuoc-chua-chay/evaluate` | 64 tra bảng + 6 end-to-end = 70 | 16 |
+| 4. Phương tiện | `phuong_tien.py` | `/api/phuong-tien/evaluate` | 52 | 19 |
+| **Tổng Batch 3** | | | **328** | **62** |
+
+**Tổng cộng 390 test riêng cho Batch 3** (328 golden/end-to-end + 62 validation route), nằm trong tổng 430 test của toàn bộ backend — `pytest -q` xác nhận **430/430 pass**, không hồi quy.
+
+**Xác nhận "đối chiếu song song" còn nguyên vẹn:**
+- `grep` toàn bộ `js/*.js` và `index.html` cho 4 endpoint mới (`api/tham-dinh`, `api/he-thong-bat-buoc`, `api/nuoc-chua-chay`, `api/phuong-tien`) → **0 kết quả** — production chưa gọi bất kỳ route nào trong số này.
+- Toàn bộ 12 hàm rule gốc trong `js/tuvan-so-bo.js` (`evalThamDinh`, `evalBaoChay`, `evalSprinkler`, `evalHongNuoc`, `evalNgoaiNha`, `evalNuoc`, `evalPhaDo`, `evalMatNa`, `evalCoGioi`, `evalLoa`, `evalBinh`, `evalDen`) **vẫn còn nguyên**, chưa xoá hàm nào.
+- Duy nhất 1 thay đổi hành vi JS production trong cả batch: sửa lỗi mapping `hXepM`→`hXepM2` ở cụm 3 (theo yêu cầu owner, chỉ đổi nguồn dữ liệu đầu vào, không đổi công thức/ngưỡng).
 
 **Quyết định của owner (thay cho gate "kỹ sư PCCC duyệt" ban đầu):** đây là
 công cụ trợ lý/hỗ trợ tham khảo, **không có quyền thẩm định, phê duyệt hoặc
@@ -183,24 +200,36 @@ tính tham khảo — không phải điều kiện chặn merge.
 - Loại bỏ logic JS trùng lặp: **hoãn lại cho mọi cụm**, chỉ làm sau khi owner
   xác nhận chuyển frontend sang gọi API.
 
-**Gate kiểm tra**
+**Gate kiểm tra (đúng phạm vi Batch 3 đã thực hiện — "đối chiếu song song",
+không bao gồm chuyển frontend)**
 
-- [x] Golden test cho công năng và biên ngưỡng đã chuyển:
-      61 test cụm thẩm định (`backend/tests/test_tham_dinh_golden.py`) +
-      145 test cụm hệ thống bắt buộc
-      (`backend/tests/test_he_thong_bat_buoc_golden.py`) +
-      64 test tra bảng + 6 test end-to-end cụm nước chữa cháy (bao gồm 4 test
-      regression cho lỗi mapping hXepM/hXepM2 đã sửa)
-      (`backend/tests/test_nuoc_chua_chay_golden.py`,
-      `backend/tests/test_nuoc_chua_chay_evaluate.py`) +
-      52 test cụm phương tiện (`backend/tests/test_phuong_tien_golden.py`),
-      tất cả pass.
+- [x] Golden test cho công năng và biên ngưỡng đã chuyển: **328 golden/
+      end-to-end test** (61 cụm thẩm định + 145 cụm hệ thống bắt buộc + 64
+      tra bảng và 6 end-to-end cụm nước chữa cháy, gồm 4 test regression cho
+      lỗi mapping hXepM/hXepM2 đã sửa + 52 cụm phương tiện), cộng **62 test
+      validation route** (7+20+16+19) — tổng **390 test riêng cho Batch 3**,
+      tất cả pass trong 430/430 test toàn backend.
 - [x] Cảnh báo trách nhiệm chuyên môn thống nhất — hiển thị ở khu vực kết quả
       thẩm định (`js/tuvan-so-bo.js`, phần disclaimer cuối phiếu) và kết quả
       AI đọc bản vẽ (`index.html`, disclaimer tĩnh ngay sau `#aihoResults`).
-- [ ] Browser test xác nhận phiếu in/xuất giữ nguyên kết quả trên bộ dữ liệu
-      chuẩn — chưa cần thiết ở giai đoạn "đối chiếu song song" (frontend
-      chưa đổi hành vi hiển thị); áp dụng khi thật sự chuyển sang gọi API.
+- [x] Xác nhận "đối chiếu song song": production chưa gọi endpoint nào
+      trong 4 endpoint mới (`grep` toàn bộ `js/*.js`/`index.html` → 0 kết
+      quả); toàn bộ 12 hàm rule gốc trong `js/tuvan-so-bo.js` vẫn còn nguyên,
+      chưa xoá hàm nào.
+- [ ] *(N/A cho Batch 3 như đã thực hiện)* Browser test xác nhận phiếu
+      in/xuất giữ nguyên kết quả trên bộ dữ liệu chuẩn — gate này chỉ áp
+      dụng khi có quyết định **chuyển frontend sang gọi API** (chưa xảy ra,
+      chưa được lên lịch cho batch nào) — không phải điều kiện để coi
+      Batch 3 là hoàn thành theo phạm vi "đối chiếu song song" đã thống nhất
+      với owner trong suốt batch này.
+
+**Việc CHƯA làm (chủ động ngoài phạm vi Batch 3, cần quyết định riêng của
+owner ở batch/thời điểm khác):**
+- Chuyển `js/tuvan-so-bo.js` sang gọi 4 API mới thay vì tự tính client-side.
+- Xoá logic JS trùng lặp (chỉ làm được sau khi đã chuyển frontend và có
+  browser test xác nhận kết quả không đổi).
+- Bổ sung "ngày hiệu lực" cụ thể cho từng `rule_set_version` (hiện chỉ có
+  tên văn bản, không phải điều kiện bắt buộc theo quyết định owner).
 
 ## Batch 4 — AI reliability và tính đúng đắn đầu ra
 
