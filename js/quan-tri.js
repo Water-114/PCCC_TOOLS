@@ -162,12 +162,117 @@
     });
   }
 
+  // Batch 5A sub-buoc 4: danh sach yeu cau nap Bo ho so dang cho xac nhan
+  // (GET /api/admin/topup-requests mac dinh chi loc 'cho_xac_nhan', dung
+  // nguyen default nay - dung y "danh sach dang cho" theo yeu cau).
+  function renderTopupRequests(items){
+    var table = document.getElementById('adminTopupTable');
+    table.innerHTML = '';
+    if(!items.length){
+      var trEmpty = document.createElement('tr');
+      var tdEmpty = document.createElement('td');
+      tdEmpty.style.color = 'var(--ink-soft)';
+      tdEmpty.textContent = 'Không có yêu cầu nào đang chờ.';
+      trEmpty.appendChild(tdEmpty);
+      table.appendChild(trEmpty);
+      return;
+    }
+    table.appendChild(headerRow(['Mã giao dịch', 'Người dùng', 'Số tiền', 'Tạo lúc', 'Xử lý']));
+
+    items.forEach(function(r){
+      var tr = document.createElement('tr');
+
+      var tdCode = document.createElement('td');
+      tdCode.textContent = r.reference_code;
+      tdCode.style.fontFamily = 'var(--mono)';
+      tr.appendChild(tdCode);
+
+      var tdEmail = document.createElement('td');
+      tdEmail.textContent = r.user_email || '—';
+      tr.appendChild(tdEmail);
+
+      var tdAmount = document.createElement('td');
+      tdAmount.textContent = r.amount_vnd.toLocaleString('vi-VN') + 'đ → +' + r.credits_to_grant + ' Bộ hồ sơ';
+      tr.appendChild(tdAmount);
+
+      var tdCreated = document.createElement('td');
+      tdCreated.textContent = fmtDate(r.created_at);
+      tr.appendChild(tdCreated);
+
+      var tdActions = document.createElement('td');
+      var confirmBtn = document.createElement('button');
+      confirmBtn.type = 'button';
+      confirmBtn.className = 'btn-main';
+      confirmBtn.style.padding = '6px 14px';
+      confirmBtn.style.fontSize = '13px';
+      confirmBtn.textContent = 'Xác nhận';
+      confirmBtn.dataset.id = r.id;
+      confirmBtn.dataset.action = 'confirm';
+      tdActions.appendChild(confirmBtn);
+
+      var rejectBtn = document.createElement('button');
+      rejectBtn.type = 'button';
+      rejectBtn.className = 'btn-ghost';
+      rejectBtn.style.padding = '6px 14px';
+      rejectBtn.style.fontSize = '13px';
+      rejectBtn.style.marginLeft = '8px';
+      rejectBtn.textContent = 'Từ chối';
+      rejectBtn.dataset.id = r.id;
+      rejectBtn.dataset.action = 'reject';
+      tdActions.appendChild(rejectBtn);
+
+      var errEl = document.createElement('span');
+      errEl.className = 'quota-err';
+      errEl.hidden = true;
+      tdActions.appendChild(errEl);
+
+      tr.appendChild(tdActions);
+      table.appendChild(tr);
+    });
+    wireTopupControls();
+  }
+
+  function wireTopupControls(){
+    Array.prototype.forEach.call(document.querySelectorAll('#adminTopupTable button[data-action]'), function(btn){
+      btn.addEventListener('click', function(){
+        var id = btn.dataset.id;
+        var action = btn.dataset.action;
+        var row = btn.closest('tr');
+        var errEl = row.querySelector('.quota-err');
+        // Khoa ca 2 nut NGAY LUC bam - tranh double-click goi lai truoc khi
+        // danh sach kip tai lai (backend da idempotent, nhung UI van nen khoa
+        // ro rang thay vi dua vao do).
+        Array.prototype.forEach.call(row.querySelectorAll('button[data-action]'), function(b){ b.disabled = true; });
+
+        fetch(A.BACKEND_BASE + '/api/admin/topup-requests/' + id + '/' + action, {
+          method: 'POST',
+          headers: A.authHeaders()
+        }).then(function(r){ return r.json().then(function(data){ return {ok: r.ok, data: data}; }); })
+          .then(function(res){
+            if(!res.ok){
+              errEl.textContent = res.data.error || 'Không xử lý được yêu cầu.';
+              errEl.hidden = false;
+              Array.prototype.forEach.call(row.querySelectorAll('button[data-action]'), function(b){ b.disabled = false; });
+              return;
+            }
+            loadDashboard();
+          })
+          .catch(function(){
+            errEl.textContent = 'Không kết nối được tới máy chủ.';
+            errEl.hidden = false;
+            Array.prototype.forEach.call(row.querySelectorAll('button[data-action]'), function(b){ b.disabled = false; });
+          });
+      });
+    });
+  }
+
   function loadDashboard(){
     var headers = A.authHeaders();
     Promise.all([
       fetch(A.BACKEND_BASE + '/api/admin/stats', {headers: headers}),
       fetch(A.BACKEND_BASE + '/api/admin/users', {headers: headers}),
-      fetch(A.BACKEND_BASE + '/api/admin/feedback', {headers: headers})
+      fetch(A.BACKEND_BASE + '/api/admin/feedback', {headers: headers}),
+      fetch(A.BACKEND_BASE + '/api/admin/topup-requests', {headers: headers})
     ]).then(function(responses){
       if(responses.some(function(r){ return r.status === 401 || r.status === 403; })) return null;
       return Promise.all(responses.map(function(r){ return r.json(); }));
@@ -179,6 +284,7 @@
       document.getElementById('adminStatFeedback').textContent = data[0].total_feedback;
       renderUsers(data[1].users);
       renderFeedback(data[2].feedback);
+      renderTopupRequests(data[3].topup_requests);
     }).catch(function(){});
   }
 

@@ -26,6 +26,219 @@
   function updateBoHoSoDisplay(boHoSo){ A.setUserBoHoSo(boHoSo); }
   A.onChange(function(user){ currentUser = user; updateCta(); });
 
+  /* ===================================================================
+     Bộ hồ sơ: số dư + nạp thêm (Batch 5A sub-bước 4) — dùng route đã có ở
+     sub-bước 3 (POST /api/topup/request, POST /api/topup/<id>/confirm-transfer,
+     GET /api/topup/ledger). 2 bước đúng theo state machine backend: tạo yêu
+     cầu (cho_chuyen_khoan) rồi mới bấm "Tôi đã chuyển khoản" (cho_xac_nhan).
+     =================================================================== */
+  var topupSection = document.getElementById('topupSection');
+  var topupBalanceEl = document.getElementById('topupBalance');
+  var topupCreateBtn = document.getElementById('topupCreateBtn');
+  var topupHistoryToggle = document.getElementById('topupHistoryToggle');
+  var topupFlowCard = document.getElementById('topupFlowCard');
+  var topupHistoryWrap = document.getElementById('topupHistoryWrap');
+  var topupHistoryTable = document.getElementById('topupHistoryTable');
+  var topupMsg = document.getElementById('topupMsg');
+
+  var LEDGER_REASON_LABELS = {
+    email_verification: 'Xác thực email',
+    usage_deduction: 'Dùng Bộ hồ sơ',
+    refund_technical_error: 'Hoàn (lỗi kỹ thuật)',
+    topup_confirmed: 'Nạp tiền được xác nhận',
+    feedback_bonus: 'Thưởng góp ý'
+  };
+
+  function fmtTopupDate(iso){
+    try { return new Date(iso).toLocaleString('vi-VN'); } catch(e){ return iso; }
+  }
+
+  function showTopupMsg(text, isError){
+    topupMsg.textContent = text;
+    topupMsg.classList.toggle('show', !!text);
+    topupMsg.style.color = isError ? '' : 'var(--green)';
+  }
+
+  function updateBoHoSoBalanceDisplay(){
+    if(!topupSection) return;
+    topupSection.hidden = !currentUser;
+    if(!currentUser) return;
+    topupBalanceEl.textContent = currentUser.bo_ho_so ? currentUser.bo_ho_so.con_lai : '—';
+  }
+  A.onChange(updateBoHoSoBalanceDisplay);
+  updateBoHoSoBalanceDisplay();
+
+  function renderTopupFlowPending(referenceCode){
+    topupFlowCard.innerHTML = '';
+    topupFlowCard.hidden = false;
+    var h4 = document.createElement('h4');
+    h4.textContent = 'Yêu cầu nạp — mã giao dịch ' + referenceCode;
+    topupFlowCard.appendChild(h4);
+    var p = document.createElement('p');
+    p.style.marginTop = '8px';
+    p.style.color = 'var(--amber)';
+    p.textContent = 'Đã ghi nhận — đang chờ admin đối chiếu và xác nhận chuyển khoản.';
+    topupFlowCard.appendChild(p);
+  }
+
+  function renderTopupFlowCreated(data){
+    topupFlowCard.innerHTML = '';
+    topupFlowCard.hidden = false;
+
+    var h4 = document.createElement('h4');
+    h4.textContent = 'Yêu cầu nạp — mã giao dịch ' + data.reference_code;
+    topupFlowCard.appendChild(h4);
+
+    var p1 = document.createElement('p');
+    p1.style.marginTop = '8px';
+    p1.textContent = 'Chuyển khoản đúng ' + data.amount_vnd.toLocaleString('vi-VN') + 'đ, ghi rõ nội dung chuyển khoản là mã giao dịch ở trên, để được cộng ' + data.credits_to_grant + ' Bộ hồ sơ sau khi admin xác nhận.';
+    topupFlowCard.appendChild(p1);
+
+    var kv = document.createElement('div');
+    kv.className = 'kv-grid';
+    kv.style.marginTop = '10px';
+    [
+      ['Số tài khoản', data.bank.account_number],
+      ['Tên chủ tài khoản', data.bank.account_name],
+      ['Ngân hàng', data.bank.bank_name]
+    ].forEach(function(pair){
+      var div = document.createElement('div');
+      var b = document.createElement('b');
+      b.textContent = pair[0];
+      div.appendChild(b);
+      div.appendChild(document.createTextNode(pair[1]));
+      kv.appendChild(div);
+    });
+    topupFlowCard.appendChild(kv);
+
+    if(data.bank.qr_url){
+      var img = document.createElement('img');
+      img.src = data.bank.qr_url;
+      img.alt = 'Mã QR chuyển khoản';
+      img.style.maxWidth = '180px';
+      img.style.marginTop = '12px';
+      img.style.display = 'block';
+      topupFlowCard.appendChild(img);
+    }
+
+    var confirmBtn = document.createElement('button');
+    confirmBtn.type = 'button';
+    confirmBtn.className = 'btn-main';
+    confirmBtn.style.marginTop = '14px';
+    confirmBtn.textContent = 'Tôi đã chuyển khoản';
+    confirmBtn.addEventListener('click', function(){
+      confirmBtn.disabled = true;
+      fetch(BACKEND_BASE + '/api/topup/' + data.id + '/confirm-transfer', {
+        method: 'POST',
+        headers: {'Authorization': 'Bearer ' + getToken()}
+      })
+        .then(function(res){ return res.json().then(function(d){ return {status: res.status, data: d}; }); })
+        .then(function(r){
+          if(r.status >= 400){
+            confirmBtn.disabled = false;
+            showTopupMsg(r.data.error || 'Không gửi được xác nhận — vui lòng thử lại.', true);
+            return;
+          }
+          renderTopupFlowPending(data.reference_code);
+          showTopupMsg('Đã gửi yêu cầu — chờ admin xác nhận.', false);
+        })
+        .catch(function(){
+          confirmBtn.disabled = false;
+          showTopupMsg('Không kết nối được tới máy chủ — vui lòng thử lại.', true);
+        });
+    });
+    topupFlowCard.appendChild(confirmBtn);
+  }
+
+  topupCreateBtn.addEventListener('click', function(){
+    if(!currentUser){ window.openAuthModal(); return; }
+    topupCreateBtn.disabled = true;
+    showTopupMsg('', false);
+    fetch(BACKEND_BASE + '/api/topup/request', {
+      method: 'POST',
+      headers: {'Authorization': 'Bearer ' + getToken()}
+    })
+      .then(function(res){ return res.json().then(function(d){ return {status: res.status, data: d}; }); })
+      .then(function(r){
+        topupCreateBtn.disabled = false;
+        if(r.status >= 400){
+          showTopupMsg(r.data.error || 'Không tạo được yêu cầu nạp — vui lòng thử lại.', true);
+          return;
+        }
+        renderTopupFlowCreated(r.data);
+      })
+      .catch(function(){
+        topupCreateBtn.disabled = false;
+        showTopupMsg('Không kết nối được tới máy chủ — vui lòng thử lại.', true);
+      });
+  });
+
+  function renderTopupHistory(entries){
+    topupHistoryTable.innerHTML = '';
+    if(!entries.length){
+      var trEmpty = document.createElement('tr');
+      var tdEmpty = document.createElement('td');
+      tdEmpty.style.color = 'var(--ink-soft)';
+      tdEmpty.textContent = 'Chưa có giao dịch nào.';
+      trEmpty.appendChild(tdEmpty);
+      topupHistoryTable.appendChild(trEmpty);
+      return;
+    }
+    var headerTr = document.createElement('tr');
+    ['Thời gian', 'Loại', 'Thay đổi', 'Số dư sau', 'Ghi chú'].forEach(function(label){
+      var th = document.createElement('th');
+      th.textContent = label;
+      headerTr.appendChild(th);
+    });
+    topupHistoryTable.appendChild(headerTr);
+
+    entries.forEach(function(e){
+      var tr = document.createElement('tr');
+
+      var tdTime = document.createElement('td');
+      tdTime.textContent = fmtTopupDate(e.created_at);
+      tr.appendChild(tdTime);
+
+      var tdReason = document.createElement('td');
+      tdReason.textContent = LEDGER_REASON_LABELS[e.reason] || e.reason;
+      tr.appendChild(tdReason);
+
+      var tdDelta = document.createElement('td');
+      tdDelta.textContent = (e.delta > 0 ? '+' : '') + e.delta;
+      tdDelta.style.fontFamily = 'var(--mono)';
+      tdDelta.style.color = e.delta > 0 ? 'var(--green)' : 'var(--red-deep)';
+      tr.appendChild(tdDelta);
+
+      var tdBalance = document.createElement('td');
+      tdBalance.textContent = e.balance_after;
+      tr.appendChild(tdBalance);
+
+      var tdNote = document.createElement('td');
+      tdNote.textContent = e.note || '—';
+      tr.appendChild(tdNote);
+
+      topupHistoryTable.appendChild(tr);
+    });
+  }
+
+  topupHistoryToggle.addEventListener('click', function(){
+    if(!currentUser){ window.openAuthModal(); return; }
+    var willShow = topupHistoryWrap.hidden;
+    if(willShow){
+      fetch(BACKEND_BASE + '/api/topup/ledger', {headers: {'Authorization': 'Bearer ' + getToken()}})
+        .then(function(res){ return res.json(); })
+        .then(function(data){
+          renderTopupHistory(data.ledger || []);
+          if(data.bo_ho_so_con_lai !== undefined) updateBoHoSoDisplay({con_lai: data.bo_ho_so_con_lai});
+        })
+        .catch(function(){
+          showTopupMsg('Không tải được lịch sử — vui lòng thử lại.', true);
+        });
+    }
+    topupHistoryWrap.hidden = !willShow;
+    topupHistoryToggle.textContent = willShow ? 'Ẩn lịch sử' : 'Xem lịch sử';
+  });
+
   var MAX_FILE_MB = 15;
   var MAX_FILE_BYTES = MAX_FILE_MB * 1024 * 1024;
 

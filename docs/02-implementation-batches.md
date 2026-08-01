@@ -276,7 +276,7 @@ owner ở batch/thời điểm khác):**
 - Rủi ro cộng dồn timeout worst-case (retry mạng × retry-repair schema) nêu trên — đã giới hạn thực tế nhưng chưa airtight tuyệt đối ở trường hợp cực xấu lý thuyết.
 - Chưa gỡ package `google-generativeai` khỏi venv cục bộ (chỉ đổi `requirements.txt`) — không ảnh hưởng gì (không còn file nào import), chỉ là dọn dẹp không bắt buộc.
 
-## Batch 5A — Xác thực email, Bộ hồ sơ và chuyển khoản thủ công — **ĐANG TRIỂN KHAI (sub-bước 3/? đã xong)**
+## Batch 5A — Xác thực email, Bộ hồ sơ và chuyển khoản thủ công — **ĐANG TRIỂN KHAI (sub-bước 4/? đã xong)**
 
 **Mục tiêu:** chuyển mô hình quota "N lượt/ngày" hiện tại sang mô hình
 "Bộ hồ sơ" trả trước (credit-based), có xác thực email và nạp thêm bằng
@@ -489,6 +489,60 @@ chưa có UI/HTML thật):**
   khi sử dụng"; chưa làm feedback bonus (5 góp ý hoàn thành +1 lượt hướng
   dẫn) — 3 việc này đều nằm ngoài phạm vi sub-bước này theo đúng yêu cầu.
 
+**Tiến độ — Sub-bước 4 (UI thật cho luồng "Bộ hồ sơ" — chỉ sửa root
+`index.html`/`js/*.js`, KHÔNG đụng `frontend/` vì đó là MVP đóng băng):**
+
+- **Khu vực "Bộ hồ sơ" trong tab "AI kiểm tra hồ sơ"** (`index.html` — section
+  mới `#topupSection`, đặt ngay đầu tab, trước "BƯỚC 1"): số dư hiện tại, nút
+  "Nạp thêm Bộ hồ sơ", nút "Xem lịch sử". Logic trong `js/ai-doc-ho-so.js`
+  (cùng file đã có sẵn `getToken`/`BACKEND_BASE`/`currentUser`, không tạo file
+  JS mới để tránh khai báo trùng các biến dùng chung này).
+- **Đúng 2 bước theo state machine backend** — nút "Tôi đã chuyển khoản" CHỈ
+  xuất hiện SAU khi `POST /api/topup/request` đã tạo yêu cầu thành công (hiện
+  cùng lúc với mã giao dịch + thông tin ngân hàng lấy nguyên văn từ response,
+  KHÔNG hardcode giá trị nào trong code): tạo yêu cầu (`cho_chuyen_khoan`) →
+  bấm nút riêng gọi `POST /api/topup/<id>/confirm-transfer` (`cho_xac_nhan`)
+  → card cập nhật thành "Đã ghi nhận — đang chờ admin đối chiếu...".
+- **Lịch sử ledger**: nút "Xem lịch sử" gọi `GET /api/topup/ledger`, hiện
+  bảng (thời gian/loại/thay đổi/số dư sau/ghi chú, `reason` dịch sang tiếng
+  Việt qua 1 bảng ánh xạ cố định), luôn tải lại mới mỗi lần mở (không cache)
+  để không hiện dữ liệu cũ sau khi admin vừa xác nhận ở nơi khác.
+- **Trang admin** (`index.html` — section mới trong `#adminDashboard`,
+  `js/quan-tri.js`): bảng `GET /api/admin/topup-requests` (dùng nguyên default
+  `cho_xac_nhan` — đúng "danh sách đang chờ"), nút Xác nhận/Từ chối mỗi dòng.
+  Bấm nút nào **khoá cả 2 nút trong dòng đó ngay lập tức** trước khi gọi API
+  (tránh double-click gọi lại — backend đã idempotent nhưng UI vẫn khoá rõ
+  ràng theo đúng yêu cầu), rồi tải lại toàn bộ dashboard sau khi xong (dòng
+  biến mất khỏi danh sách vì không còn khớp filter mặc định).
+- **Cập nhật nội dung "Chú ý trước khi sử dụng"** đúng chính sách thật: 2 Bộ
+  hồ sơ miễn phí khi xác thực email, nạp 100.000đ được thêm 5 Bộ hồ sơ (xác
+  nhận thủ công). Nhân tiện sửa thêm 2 chỗ chữ cũ khác cũng nhắc tới hạn mức
+  "lượt/ngày" đã lỗi thời (mô tả đầu trang tab AIHO, và câu giới thiệu trong
+  modal đăng nhập) — không nằm trong 1 câu yêu cầu cụ thể nhưng cùng loại
+  chữ sai chính sách, để lại sẽ mâu thuẫn với nội dung vừa sửa.
+- **Đã tự bấm thử luồng thật trên trình duyệt** (không chỉ báo cáo bằng chữ)
+  — dựng Flask thật trên 1 SQLite tạm riêng (KHÔNG đụng `backend/app.db`
+  thật), cấu hình biến môi trường ngân hàng bằng giá trị test rõ ràng giả
+  (`...-TEST`/`TEST DEMO`, chỉ tồn tại trong biến môi trường phiên chạy thử,
+  không ghi vào bất kỳ file nào), dùng Playwright (cài tạm qua
+  `npm install --no-save`, gỡ lại sau khi xong — không đổi `package.json`)
+  điều khiển Chromium thật đi hết luồng: đăng ký user mới → số dư 0 → tạo yêu
+  cầu nạp (hiện đúng mã giao dịch + thông tin ngân hàng test) → bấm "Tôi đã
+  chuyển khoản" → đăng nhập admin → thấy đúng yêu cầu trong danh sách chờ →
+  bấm Xác nhận → dòng biến mất khỏi danh sách chờ → đăng nhập lại user gốc →
+  số dư hiện đúng **5** → xem lịch sử thấy đúng dòng "Nạp tiền được xác nhận
+  +5". Không có lỗi console trong suốt quá trình. Đã dọn sạch: tắt server
+  test, xoá DB tạm, gỡ Playwright — không có gì sót lại ngoài đúng các file
+  `index.html`/`js/ai-doc-ho-so.js`/`js/quan-tri.js` đã sửa.
+- **1 hạn chế nhỏ đã biết, không phải lỗi**: card "đang chờ admin xác nhận"
+  ở phía user không tự làm mới khi admin xác nhận ở tab/máy khác trong lúc
+  đang mở — chỉ cập nhật đúng khi có hành động mới (bấm lại "Xem lịch sử",
+  chuyển tab rồi quay lại). Số dư ở đầu trang (nav) và bảng lịch sử vẫn luôn
+  đúng/mới nhất vì lấy trực tiếp từ `/api/auth/me`/`/api/topup/ledger` — chỉ
+  riêng cái card đó giữ nguyên nội dung lúc hiện ra, không polling.
+- **KHÔNG làm** (đúng phạm vi sub-bước 4): không đổi `backend/`; không đụng
+  `frontend/` (MVP đóng băng); chưa làm feedback bonus (5 góp ý +1 lượt).
+
 **Chính sách nghiệp vụ (owner quyết định, giữ nguyên khi triển khai)**
 
 - Tài khoản xác thực email lần đầu được đúng **2 Bộ hồ sơ** dùng thử.
@@ -542,16 +596,18 @@ chưa có UI/HTML thật):**
   backend (chặn thật, không thể bypass) — **sub-bước 2**. Chưa có validate
   riêng ở frontend (xem giải thích ở gate kiểm tra bên dưới — UI hiện tại
   không thể chạm ngưỡng này nên chưa cần chặn sớm phía client).
-- [x] Luồng "Nạp thêm Bộ hồ sơ" (**backend only**, chưa có UI — sub-bước 3):
-  tạo yêu cầu nạp với mã riêng (trạng thái nháp `cho_chuyen_khoan`), hiển thị
-  thông tin chuyển khoản (đọc từ biến môi trường), route riêng cho nút "Tôi đã
-  chuyển khoản" (`confirm_transfer`, chuyển sang `cho_xac_nhan`, lúc này mới
-  vào hàng đợi admin) — đúng 2 bước như policy gốc.
-- [x] Route admin: danh sách yêu cầu nạp đang chờ, xác nhận thủ công (cộng 5
-  Bộ hồ sơ + ghi ledger), từ chối — **sub-bước 3** (`routes/admin.py`). Trang
-  admin (UI) chưa làm, chỉ có route.
-- [x] Route xem số dư Bộ hồ sơ còn lại + lịch sử ledger — **sub-bước 3**
-  (`GET /api/topup/ledger`). Trang người dùng (UI) chưa làm, chỉ có route.
+- [x] Luồng "Nạp thêm Bộ hồ sơ", đủ cả backend (sub-bước 3) lẫn UI thật
+  (sub-bước 4): tạo yêu cầu nạp với mã riêng (trạng thái nháp
+  `cho_chuyen_khoan`), hiển thị thông tin chuyển khoản (đọc từ biến môi
+  trường, không hardcode), nút riêng "Tôi đã chuyển khoản" (`confirm_transfer`,
+  chuyển sang `cho_xac_nhan`, lúc này mới vào hàng đợi admin) — đúng 2 bước
+  như policy gốc, đã tự bấm thử trên trình duyệt thật (xem "Tiến độ — Sub-bước
+  4").
+- [x] Route + trang admin: danh sách yêu cầu nạp đang chờ, xác nhận thủ công
+  (cộng 5 Bộ hồ sơ + ghi ledger), từ chối — **sub-bước 3 (route) + sub-bước 4
+  (UI trong tab Quản trị)**, nút khoá ngay lúc bấm tránh double-click.
+- [x] Trang xem số dư Bộ hồ sơ còn lại + lịch sử ledger — **sub-bước 3
+  (route) + sub-bước 4 (UI trong tab AI kiểm tra hồ sơ)**.
 
 **Gate kiểm tra**
 

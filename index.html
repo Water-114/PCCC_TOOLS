@@ -38,7 +38,7 @@
   <div class="modal-card">
     <button type="button" class="modal-close" id="authModalClose" aria-label="Đóng">✕</button>
     <h3 id="authModalTitle">Đăng nhập</h3>
-    <p class="section-note" style="margin-top:0">Cần đăng nhập để dùng tính năng AI đọc bản vẽ (giới hạn 5 lượt/ngày mỗi tài khoản) hoặc xem trang quản trị.</p>
+    <p class="section-note" style="margin-top:0">Cần đăng nhập để dùng tính năng AI đọc bản vẽ (2 Bộ hồ sơ miễn phí khi xác thực email, nạp thêm khi cần) hoặc xem trang quản trị.</p>
     <form id="authForm">
       <label style="display:block;margin-bottom:10px">
         <span style="font-size:13px;font-weight:600;display:block;margin-bottom:4px">Email</span>
@@ -65,8 +65,8 @@
     <button type="button" class="modal-close" id="aihoNoticeClose" aria-label="Đóng">✕</button>
     <h3>Chú ý trước khi sử dụng</h3>
     <ul style="margin:10px 0 16px;padding-left:20px;font-size:13.5px;line-height:1.7;color:var(--ink-soft)">
-      <li>Đề nghị <b>đăng ký tài khoản</b> trước khi sử dụng — đây là app có tính phí do phải mua API Claude thật.</li>
-      <li>Chức năng đang demo, trong giai đoạn hoàn thiện — giới hạn <b>5 lượt/tài khoản/ngày</b>, mỗi lượt không quá <b>70k token</b>.</li>
+      <li>Đề nghị <b>đăng ký tài khoản và xác thực email</b> trước khi sử dụng — đây là app có tính phí do phải mua API Claude thật.</li>
+      <li>Miễn phí <b>2 Bộ hồ sơ</b> đầu tiên cho mỗi tài khoản (cấp khi xác thực email) — 1 Bộ hồ sơ dùng cho 1 lượt kiểm tra hồ sơ (tối đa 5 file bản vẽ, 7 form MĐC của cùng công trình). Hết Bộ hồ sơ, nạp <b>100.000đ</b> để có thêm <b>5 Bộ hồ sơ</b> (xác nhận thủ công qua chuyển khoản — xem mục "Bộ hồ sơ" bên dưới).</li>
       <li>Nên <b>tách bản vẽ theo từng hạng mục</b> PCCC, chạy từng mục một để có kết quả nhanh chóng hơn.</li>
     </ul>
     <div class="actions">
@@ -826,9 +826,33 @@
   <header class="gas-head">
     <div class="eyebrow2" style="color:var(--amber)">AI kiểm tra hồ sơ PCCC — xem trước giao diện</div>
     <h2>AI rà soát & kiểm tra hồ sơ thiết kế PCCC</h2>
-    <p>Đính bản vẽ theo từng hạng mục để AI xác định đúng mẫu đối chiếu, sau đó chọn kết quả cần xuất. Cần <b>đăng nhập</b> trước khi đính bản vẽ ở bất kỳ hạng mục nào. Riêng 3 ô <b>"Báo cháy tự động"</b>, <b>"Chữa cháy bằng nước"</b> và <b>"Điện PCCC"</b> đã gọi AI thật (dùng chung 1 hạn mức lượt/ngày) — các hạng mục còn lại vẫn đang minh hoạ, chưa đọc bản vẽ thật.</p>
+    <p>Đính bản vẽ theo từng hạng mục để AI xác định đúng mẫu đối chiếu, sau đó chọn kết quả cần xuất. Cần <b>đăng nhập</b> trước khi đính bản vẽ ở bất kỳ hạng mục nào. Riêng 3 ô <b>"Báo cháy tự động"</b>, <b>"Chữa cháy bằng nước"</b> và <b>"Điện PCCC"</b> đã gọi AI thật (trừ theo <b>Bộ hồ sơ</b> — xem mục bên dưới) — các hạng mục còn lại vẫn đang minh hoạ, chưa đọc bản vẽ thật.</p>
     <div class="gas-tags"><span>MĐC B1–B14</span><span>QCVN 10:2025/BCA</span><span>NĐ 105/2025</span></div>
   </header>
+
+  <section class="buoc" id="topupSection" hidden>
+    <div class="buoc-tag"><span class="num">BỘ HỒ SƠ</span><h3>Số dư & nạp thêm</h3></div>
+    <p class="section-note">Mỗi lượt phân tích 1 công trình (tối đa 5 file bản vẽ, 7 form MĐC) trừ đúng 1 Bộ hồ sơ. Tài khoản mới xác thực email được cấp 2 Bộ hồ sơ dùng thử; nạp 100.000đ được cộng thêm 5 Bộ hồ sơ sau khi admin xác nhận đã nhận được chuyển khoản.</p>
+
+    <div class="card" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px">
+      <div>
+        <div style="font-size:13px;color:var(--ink-soft);font-weight:600">Số dư hiện tại</div>
+        <div style="font-family:var(--mono);font-size:28px;font-weight:700;color:var(--ink)"><span id="topupBalance">—</span> Bộ hồ sơ</div>
+      </div>
+      <div class="actions" style="margin:0">
+        <button type="button" class="btn-main" id="topupCreateBtn">Nạp thêm Bộ hồ sơ</button>
+        <button type="button" class="btn-ghost" id="topupHistoryToggle">Xem lịch sử</button>
+      </div>
+    </div>
+
+    <div class="card" id="topupFlowCard" hidden style="margin-top:14px"></div>
+
+    <div class="tbl-wrap" id="topupHistoryWrap" hidden style="margin-top:14px">
+      <table id="topupHistoryTable"></table>
+    </div>
+
+    <div class="gas-msg" id="topupMsg" role="status"></div>
+  </section>
 
   <section class="buoc">
     <div class="buoc-tag"><span class="num">BƯỚC 1</span><h3>Đính kèm bản vẽ theo hạng mục</h3><span class="progress-badge" id="aihoProgress">0/8 hạng mục đã đính kèm</span></div>
@@ -1089,6 +1113,12 @@
       <div class="card admin-stat"><div class="num" id="adminStatCallsToday">—</div><div class="lbl">Lượt gọi hôm nay</div></div>
       <div class="card admin-stat"><div class="num" id="adminStatFeedback">—</div><div class="lbl">Tổng góp ý đã nhận</div></div>
     </div>
+
+    <section class="buoc">
+      <div class="buoc-tag"><span class="num">NẠP TIỀN</span><h3>Yêu cầu nạp Bộ hồ sơ đang chờ xác nhận</h3></div>
+      <p class="section-note">Chỉ hiện yêu cầu người dùng đã bấm "Tôi đã chuyển khoản" (trạng thái chờ xác nhận). Đối chiếu đúng mã giao dịch với sao kê ngân hàng thật trước khi xác nhận.</p>
+      <div class="tbl-wrap"><table id="adminTopupTable"></table></div>
+    </section>
 
     <section class="buoc">
       <div class="buoc-tag"><span class="num">DANH SÁCH</span><h3>Tài khoản</h3></div>
