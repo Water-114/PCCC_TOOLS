@@ -278,6 +278,10 @@ def read_quymo():
             a2_sprinkler=result.get("bang_a2_sprinkler"),
             a4_sprinkler=result.get("bang_a4_sprinkler"),
         )
+        # Ghi lai vao result["items"] (cung hinh dang {id, noi_dung_thiet_ke,
+        # ket_luan} nhu baochay/dienpccc) - de frontend dung CHUNG itemsForMdcFile()
+        # tinh dung so "da dien N muc doi chieu" cho the Quy mo, khong can sua rieng.
+        result["items"] = items
         return [_build_mdc_file("quy_mo", "Quy mô công trình", items)]
 
     def on_success(session, result):

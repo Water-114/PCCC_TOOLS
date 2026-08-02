@@ -982,6 +982,69 @@ sót của sub-bước 4, không phải sub-bước 5):**
   không thể xảy ra; sẽ thêm validate frontend thật khi có hạng mục mới khiến
   ngưỡng này chạm được trong luồng UI bình thường.
 
+**Batch 5A mở rộng — Hạng mục "Quy mô" (Form A / MĐC Kiến trúc) — HOÀN THÀNH
+(backend + frontend, đã kiểm thử qua trình duyệt thật + 1 lượt AI thật):**
+
+Thêm hạng mục thứ 5 vào "AI kiểm tra hồ sơ": AI đọc bản vẽ kiến trúc (mặt
+bằng/mặt cắt/mặt đứng) để trích xuất **quy mô công trình** (công năng, số
+tầng, diện tích, khối tích, chiều cao PCCC...) — dữ liệu này (nếu có) được 4
+hạng mục còn lại (báo cháy, điện PCCC, nước, đèn/bình) **tái dùng làm ngữ
+cảnh bổ sung, hoàn toàn tuỳ chọn** (đính kèm hạng mục là tự nguyện theo đúng
+đính chính của owner — thiếu Quy mô, 4 hạng mục kia vẫn tự đọc/suy luận từ
+bản vẽ riêng như trước, không có gì thay đổi).
+
+- **Rule engine tái dùng, không viết mới**: hầu hết các dòng "Đối tượng
+  trang bị" của Form A (64 dòng, 40 dòng cần điền) được điền bằng CODE THUẦN
+  qua các hàm `evaluate_*()` đã có sẵn từ Batch 3
+  (`tham_dinh.py`/`he_thong_bat_buoc.py`/`phuong_tien.py`), KHÔNG dùng AI —
+  thêm 2 hàm nhỏ mới (`evaluate_gian_phong_bao_chay/sprinkler()`, tách từ
+  `_eval_a3()` có sẵn) và 1 hàm mới (`evaluate_bien_tam_thap()`, tách từ ghi
+  chú có sẵn trong `evaluate_den()`) — không đổi ngưỡng nào. AI chỉ đọc bản
+  vẽ cho 2 tiêu chí không có rule sẵn (Bảng A.2/A.4 QCVN 10:2025/BCA) và
+  trích xuất field quy mô có cấu trúc.
+- **`quy_mo_store.py`** (mới): `get_quy_mo()`/`save_quy_mo()` (lưu theo
+  `HoSoSessionQuyMo`, bảng mới 1-1 với `HoSoSession`), `build_form_a_items()`
+  (điền cả 40 dòng — khảo sát lại TRỰC TIẾP từ file mẫu thật trước khi viết,
+  không suy đoán từ ghi nhớ cũ; đã tự sửa 2 chỗ sai khi đối chiếu lại: dòng
+  dẫn chiếu B12 đúng là dòng 50 không phải 53, và nhóm "Không thiết kế" — do
+  B8-B11 (chữa cháy khí/bọt/bột tự động) chưa có AI thật — mở rộng đúng ra 5
+  dòng thay vì 2 theo cùng 1 lý do owner đã duyệt), `format_quy_mo_context()`
+  (đoạn ngữ cảnh nối vào system prompt của 4 reader kia TẠI THỜI ĐIỂM GỌI,
+  chỉ khi có dữ liệu).
+- **2 route mới**: `POST /api/aiho/read-quymo` (AI, trừ Bộ hồ sơ như 4 hạng
+  mục kia) và `POST /api/aiho/quymo-manual` (nhập tay, **KHÔNG trừ quota**,
+  vẫn xuất được Form A .docx — dùng chung `build_form_a_items()` với route
+  AI để đảm bảo đồng nhất nội dung mục 1 dù chọn cách nào).
+- **Tích hợp tuỳ chọn vào 4 reader hiện có**: `read_drawing(..., quy_mo=None)`
+  — `quy_mo=None` giữ nguyên 100% hành vi/prompt cũ (đã test xác nhận prompt
+  giống hệt byte-for-byte); có dữ liệu thì chỉ nối thêm 1 đoạn tham khảo,
+  reader vẫn phải tự đọc bản vẽ như cũ. Riêng `densucco_reader.py` có thêm
+  "Mức 2" — khi quy mô đủ dữ liệu để gọi thẳng `evaluate_mat_na()`/
+  `evaluate_bien_tam_thap()`/`evaluate_loa()` ra kết luận chắc chắn, ghi đè
+  fallback "chưa đủ thông tin quy mô" gốc của 3 nhóm tiêu chí phụ thuộc quy mô
+  (mặt nạ lọc độc, biển báo tầm thấp, loa thông báo) — có guard tránh false
+  "không thuộc diện" khi field liên quan bị thiếu (không suy đoán từ số 0 mặc
+  định).
+- **Frontend** (`index.html`, `css/styles.css`, `js/ai-doc-ho-so.js`): thẻ
+  "Quy mô" đổi badge "Sắp có" → "AI thật", đính file hoạt động y hệt 4 thẻ
+  kia. Thêm nút text "Không có bản vẽ riêng? Nhập tay thông số" xổ ra form
+  NGAY TRONG thẻ (không modal) — công năng dùng lại `OCCS`/`EXTRA_FIELDS` của
+  `js/tuvan-so-bo.js` (không định nghĩa lại), field phụ hiện/ẩn động theo
+  công năng chọn. Nút "Lưu thông số" và nút "Bắt đầu phân tích" chính dùng
+  CHUNG 1 phiên Bộ hồ sơ (`ensureSessionOpen()`, idempotent ở backend) — nhập
+  tay trước rồi đính file sau (hoặc ngược lại) vẫn cùng 1 phiên, không mở/trừ
+  2 lần.
+- **Kiểm chứng**: 47 test backend mới (`pytest -q`: **701/701 pass**, không
+  hồi quy), `npx oxlint` sạch (đúng 1 warning không liên quan có từ trước).
+  Kiểm thử qua trình duyệt thật (Playwright, server Flask + DB SQLite tạm
+  riêng, KHÔNG đụng `app.db` thật): đăng ký/đăng nhập → nhập tay thông số quy
+  mô (chọn "Nhà trẻ", field phụ "Số trẻ" hiện đúng) → Lưu → xác nhận dữ liệu
+  lưu đúng trong DB → đính 1 ảnh bản vẽ giả lập có chữ (thuyết minh quy mô
+  khách sạn 9 tầng + 1 hầm) → gọi AI THẬT (Gemini, dùng key đã cấu hình sẵn
+  trong `.env`) → AI đọc đúng công năng/số tầng/diện tích từ ảnh → sinh đúng
+  file MĐC "Quy mô công trình" (40 mục: 20 Đạt, 20 KN) → tải file thành công.
+  0 lỗi console trong toàn bộ luồng.
+
 ## Batch 5 — UAT và release readiness — **ĐANG TRIỂN KHAI (4/5 việc xong hoặc đã quyết định, còn thiếu monitoring/alerting) — DEPLOY PRODUCTION ĐÃ ĐƯỢC PHÊ DUYỆT 2026-08-02**
 
 **Mục tiêu:** đưa production (một PostgreSQL production duy nhất —

@@ -261,6 +261,29 @@ ul.pos li{margin-bottom:2px}
 .drop-file button{font-family:var(--sans);font-size:12px;font-weight:700;color:var(--ink-soft);background:none;border:none;cursor:pointer;padding:0 2px;flex-shrink:0}
 .drop-file button:hover{color:var(--red)}
 
+/* Thẻ "Quy mô" — nút nhỏ + form nhập tay xổ ra NGAY TRONG thẻ (không phải bên
+   trong .drop-card, vì .drop-card là <button> — input/select/button lồng bên
+   trong <button> khác là HTML không hợp lệ, dễ vỡ DOM). Bọc chung 1 khối để
+   giữ đúng 1 ô lưới như các thẻ khác. */
+/* align-items:start (thay vi stretch mac dinh cua grid) - de khi form nhap
+   tay Quy mo xo ra lam 1 o cao hon, cac the khac CUNG hang khong bi keo
+   gian theo (chi the Quy mo cao len, cac the con lai giu nguyen chieu cao). */
+#aihoGrid{align-items:start}
+.drop-card-wrap{display:flex;flex-direction:column}
+.quymo-manual-toggle{
+  align-self:flex-start;margin-top:9px;background:none;border:none;padding:0;
+  font-family:var(--sans);font-size:12px;font-weight:600;color:var(--blue);
+  text-decoration:underline;text-underline-offset:2px;cursor:pointer;
+}
+.quymo-manual-toggle:hover{color:var(--red)}
+.quymo-manual-form{margin-top:10px;padding:14px;border:1px solid var(--line);border-radius:6px;background:var(--card)}
+.quymo-manual-form .grid{grid-template-columns:repeat(2,1fr);gap:10px 12px}
+@media(max-width:640px){.quymo-manual-form .grid{grid-template-columns:1fr}}
+.quymo-manual-form .field label{font-size:12.5px}
+.quymo-manual-form input,.quymo-manual-form select{font-size:13.5px;padding:7px 9px}
+.quymo-manual-actions{display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap}
+.quymo-manual-msg{font-size:12.5px}
+
 .output-picker{position:relative;max-width:560px}
 .output-trigger{
   width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;

@@ -869,15 +869,20 @@
     <div class="note">Chia nhỏ PDF bản vẽ ra theo từng hạng mục, mỗi file tối đa <b>15MB</b> — có thể dùng <a href="https://smallpdf.com/vi/split-pdf" target="_blank" rel="noopener noreferrer">công cụ tách file PDF miễn phí tại đây</a>. File lớn hơn 15MB cần nén lại trước khi đính kèm — có thể dùng <a href="https://smallpdf.com/vi/compress-pdf#r=compress" target="_blank" rel="noopener noreferrer">công cụ nén file PDF miễn phí tại đây</a>.</div>
 
     <div class="grid" id="aihoGrid" style="grid-template-columns:repeat(2,1fr)">
-      <button type="button" class="drop-card" data-slot="kientruc" data-file="MB-kientruc-tret-lau1.pdf · 3.1 MB">
-        <div class="drop-icon">KT</div>
-        <div class="drop-body">
-          <h4>Quy mô <span class="soon-badge">Sắp có</span></h4>
-          <p class="hint">Mặt bằng, mặt cắt, mặt đứng — xác định công năng, quy mô, số tầng</p>
-          <span class="drop-meta">PDF, ảnh scan · tối đa 15MB · cần đăng nhập</span>
-          <span class="drop-status">○ Chưa đính kèm</span>
-        </div>
-      </button>
+      <div class="drop-card-wrap">
+        <button type="button" class="drop-card" data-slot="kientruc" id="kientrucCard">
+          <div class="drop-icon">KT</div>
+          <div class="drop-body">
+            <h4>Quy mô <span class="real-badge">AI thật</span></h4>
+            <p class="hint">Mặt bằng, mặt cắt, mặt đứng — xác định công năng, quy mô, số tầng</p>
+            <span class="drop-meta">PDF, ảnh scan · tối đa 15MB · cần đăng nhập</span>
+            <span class="drop-status" id="kientrucStatus">○ Chưa đính kèm</span>
+          </div>
+          <input type="file" id="kientrucFileInput" accept="application/pdf,image/png,image/jpeg,image/webp" hidden>
+        </button>
+        <button type="button" class="quymo-manual-toggle" id="kientrucManualToggle">Không có bản vẽ riêng? Nhập tay thông số</button>
+        <div class="quymo-manual-form" id="kientrucManualForm" hidden></div>
+      </div>
 
       <button type="button" class="drop-card" data-slot="baochay" id="baochayCard">
         <div class="drop-icon">BC</div>

@@ -263,6 +263,27 @@
      Mỗi hạng mục chỉ cần thêm 1 mục vào đây + route backend tương ứng.
      =================================================================== */
   var REAL_CATEGORIES = {
+    kientruc: {
+      endpoint: '/api/aiho/read-quymo',
+      label: 'Quy mô công trình',
+      estimatedSeconds: 50, // 1 lan goi AI, tieu chi it hon bao chay/dien PCCC (chi 6 muc + 4 cau A.2/A.4)
+      summarize: function(data){
+        var qm = data.quy_mo || {};
+        // OCCS la bien global khai bao o js/tuvan-so-bo.js (nap sau file nay,
+        // nhung nam trong CUNG 1 khong gian ten script cua trang - ham nay chi
+        // chay khi trang da nap xong het, sau khi nguoi dung tuong tac).
+        var occDef = (typeof OCCS !== 'undefined' ? OCCS : []).filter(function(o){ return o.id === qm.occ; })[0];
+        var occLabel = (occDef && occDef.label) || qm.occ || 'chưa xác định';
+        var parts = ['Xác định công năng: ' + occLabel + '.'];
+        if(qm.floors != null){
+          parts.push(qm.floors + ' tầng nổi' + (qm.basements ? ' + ' + qm.basements + ' tầng hầm' : '') + '.');
+        }
+        if(qm.totalArea != null){
+          parts.push('ΣF ≈ ' + Number(qm.totalArea).toLocaleString('vi-VN') + ' m².');
+        }
+        return {status: 'ok', note: parts.join(' ')};
+      }
+    },
     baochay: {
       endpoint: '/api/aiho/read-baochay',
       label: 'Báo cháy tự động',
@@ -322,6 +343,32 @@
   var realResults = {}; // slot -> {status, note} (dùng cho dòng tóm tắt trong bảng kết quả)
   var realData = {};    // slot -> JSON đầy đủ AI trả về (gồm items/kien_nghi/mdc_docx_*)
 
+  /* Phiên Bộ hồ sơ đang mở (session_id) — dùng CHUNG giữa 2 luồng: nút "Bắt
+     đầu phân tích" chính (BƯỚC 1→2) VÀ nút "Lưu thông số" nhập tay Quy mô
+     (có thể xảy ra TRƯỚC khi bấm phân tích). ensureSessionOpen() tái sử dụng
+     phiên đã mở thay vì mở lần 2 (idempotent ở backend, nhưng tránh gọi thừa
+     và giữ 2 luồng luôn cùng 1 phiên — để dữ liệu quy mô nhập tay trước đó
+     được các hạng mục khác trong CÙNG lượt phân tích tái dùng). */
+  var activeSessionId = null;
+
+  function ensureSessionOpen(){
+    if(activeSessionId){
+      return Promise.resolve({status: 200, data: {session_id: activeSessionId}});
+    }
+    return fetch(BACKEND_BASE + '/api/aiho/session/open', {
+      method: 'POST',
+      headers: {'Authorization': 'Bearer ' + getToken()}
+    })
+      .then(function(res){ return res.json().then(function(data){ return {status: res.status, data: data}; }); })
+      .then(function(r){
+        if(r.status < 400){
+          activeSessionId = r.data.session_id;
+        }
+        if(r.data && r.data.bo_ho_so_con_lai !== undefined) updateBoHoSoDisplay({con_lai: r.data.bo_ho_so_con_lai});
+        return r;
+      });
+  }
+
   function setupRealFileCard(slot){
     var card = document.getElementById(slot + 'Card');
     var fileInput = document.getElementById(slot + 'FileInput');
@@ -375,6 +422,223 @@
     });
   }
   Object.keys(REAL_CATEGORIES).forEach(setupRealFileCard);
+
+  /* ===================================================================
+     Quy mô — nhập tay thông số (thay cho đính bản vẽ riêng), xổ ra NGAY
+     TRONG thẻ "Quy mô". Gọi POST /api/aiho/quymo-manual — route này KHÔNG
+     trừ Bộ hồ sơ nhưng VẪN cần 1 phiên đang mở (session_id) để lưu đúng
+     phiên — dùng chung ensureSessionOpen() với nút "Bắt đầu phân tích"
+     chính (idempotent ở backend, không mở/trừ 2 lần).
+     Field lấy từ OCCS/EXTRA_FIELDS (js/tuvan-so-bo.js, đã nạp cùng trang) để
+     đúng nhãn/enum với công cụ "Hướng dẫn sơ bộ" — không định nghĩa lại.
+     =================================================================== */
+  var QUYMO_BASE_FIELDS = [
+    {key: 'floors', label: 'Số tầng nổi', ph: 'VD: 8'},
+    {key: 'basements', label: 'Số tầng hầm', ph: 'VD: 1'},
+    {key: 'semiBasements', label: 'Số tầng bán hầm', ph: 'VD: 0'},
+    {key: 'areaFloor', label: 'Diện tích 1 tầng điển hình (m²)', ph: 'VD: 500'},
+    {key: 'totalArea', label: 'Tổng diện tích sàn ΣF (m²)', ph: 'VD: 4200'},
+    {key: 'volume', label: 'Khối tích V (m³)', ph: 'VD: 15000'},
+    {key: 'hFire', label: 'Chiều cao phục vụ PCCC (m)', ph: 'VD: 22'}
+  ];
+
+  var quymoManualToggle = document.getElementById('kientrucManualToggle');
+  var quymoManualForm = document.getElementById('kientrucManualForm');
+
+  function buildQuymoManualForm(){
+    var occs = (typeof OCCS !== 'undefined') ? OCCS : [];
+    var extraDefs = (typeof EXTRA_FIELDS !== 'undefined') ? EXTRA_FIELDS : {};
+
+    quymoManualForm.innerHTML = '';
+
+    var introP = document.createElement('p');
+    introP.className = 'hint';
+    introP.style.marginBottom = '10px';
+    introP.textContent = 'Điền thông số bạn biết — không bắt buộc điền hết. Dữ liệu này giúp các hạng mục khác (báo cháy, điện PCCC, nước, đèn/bình) trong CÙNG Bộ hồ sơ đối chiếu chính xác hơn.';
+    quymoManualForm.appendChild(introP);
+
+    var occField = document.createElement('div');
+    occField.className = 'field';
+    var occLabel = document.createElement('label');
+    occLabel.textContent = 'Công năng chính';
+    occField.appendChild(occLabel);
+    var occSelect = document.createElement('select');
+    var optDefault = document.createElement('option');
+    optDefault.value = '';
+    optDefault.textContent = '— Chọn công năng —';
+    occSelect.appendChild(optDefault);
+    occs.forEach(function(o){
+      var opt = document.createElement('option');
+      opt.value = o.id;
+      opt.textContent = o.label;
+      occSelect.appendChild(opt);
+    });
+    occField.appendChild(occSelect);
+    quymoManualForm.appendChild(occField);
+
+    var baseGrid = document.createElement('div');
+    baseGrid.className = 'grid';
+    baseGrid.style.marginTop = '10px';
+    var baseInputs = {};
+    QUYMO_BASE_FIELDS.forEach(function(f){
+      var field = document.createElement('div');
+      field.className = 'field';
+      var label = document.createElement('label');
+      label.textContent = f.label;
+      field.appendChild(label);
+      var input = document.createElement('input');
+      input.type = 'number';
+      input.min = '0';
+      input.step = 'any';
+      input.placeholder = f.ph;
+      field.appendChild(input);
+      baseGrid.appendChild(field);
+      baseInputs[f.key] = input;
+    });
+    quymoManualForm.appendChild(baseGrid);
+
+    var extraWrap = document.createElement('div');
+    extraWrap.className = 'grid';
+    extraWrap.style.marginTop = '10px';
+    quymoManualForm.appendChild(extraWrap);
+
+    var extraInputs = {};
+    function renderExtraFields(){
+      extraWrap.innerHTML = '';
+      extraInputs = {};
+      var occDef = occs.filter(function(o){ return o.id === occSelect.value; })[0];
+      var extraKeys = (occDef && occDef.extra) || [];
+      extraKeys.forEach(function(key){
+        var def = extraDefs[key];
+        if(!def) return;
+        var field = document.createElement('div');
+        field.className = 'field';
+        var label = document.createElement('label');
+        label.textContent = def.label;
+        field.appendChild(label);
+        var el;
+        if(def.select){
+          el = document.createElement('select');
+          def.select.forEach(function(pair){
+            var opt = document.createElement('option');
+            opt.value = pair[0];
+            opt.textContent = pair[1];
+            el.appendChild(opt);
+          });
+        } else {
+          el = document.createElement('input');
+          el.type = 'number';
+          el.min = '0';
+          el.step = 'any';
+          el.placeholder = def.ph || '';
+        }
+        field.appendChild(el);
+        extraWrap.appendChild(field);
+        extraInputs[key] = el;
+      });
+    }
+    occSelect.addEventListener('change', renderExtraFields);
+    renderExtraFields();
+
+    var actions = document.createElement('div');
+    actions.className = 'quymo-manual-actions';
+
+    var saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.className = 'btn-main';
+    saveBtn.textContent = 'Lưu thông số';
+    actions.appendChild(saveBtn);
+
+    var feedbackMsg = document.createElement('span');
+    feedbackMsg.className = 'quymo-manual-msg';
+    actions.appendChild(feedbackMsg);
+
+    quymoManualForm.appendChild(actions);
+
+    var downloadWrap = document.createElement('div');
+    downloadWrap.style.marginTop = '10px';
+    quymoManualForm.appendChild(downloadWrap);
+
+    saveBtn.addEventListener('click', function(){
+      if(!currentUser){ window.openAuthModal(); return; }
+      var occVal = occSelect.value;
+      if(!occVal){
+        feedbackMsg.textContent = 'Vui lòng chọn công năng chính.';
+        feedbackMsg.style.color = 'var(--red-deep)';
+        return;
+      }
+      var quyMo = {occ: occVal};
+      QUYMO_BASE_FIELDS.forEach(function(f){
+        var v = baseInputs[f.key].value;
+        if(v !== '') quyMo[f.key] = Number(v);
+      });
+      Object.keys(extraInputs).forEach(function(key){
+        var el = extraInputs[key];
+        if(el.value === '') return;
+        quyMo[key] = extraDefs[key].select ? el.value : Number(el.value);
+      });
+
+      saveBtn.disabled = true;
+      feedbackMsg.textContent = 'Đang lưu…';
+      feedbackMsg.style.color = '';
+      downloadWrap.innerHTML = '';
+
+      ensureSessionOpen().then(function(r){
+        if(r.status >= 400){
+          saveBtn.disabled = false;
+          feedbackMsg.textContent = r.data.error || 'Không mở được phiên Bộ hồ sơ — vui lòng thử lại.';
+          feedbackMsg.style.color = 'var(--red-deep)';
+          return;
+        }
+        return fetch(BACKEND_BASE + '/api/aiho/quymo-manual', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken()},
+          body: JSON.stringify({session_id: r.data.session_id, quy_mo: quyMo})
+        })
+          .then(function(res){ return res.json().then(function(data){ return {status: res.status, data: data}; }); })
+          .then(function(r2){
+            saveBtn.disabled = false;
+            if(r2.status >= 400){
+              feedbackMsg.textContent = r2.data.error || 'Không lưu được thông số — vui lòng thử lại.';
+              feedbackMsg.style.color = 'var(--red-deep)';
+              return;
+            }
+            feedbackMsg.textContent = '✓ Đã lưu — các hạng mục khác trong Bộ hồ sơ này sẽ dùng thông số này để đối chiếu chính xác hơn.';
+            feedbackMsg.style.color = 'var(--green)';
+
+            var f = (r2.data.mdc_docx_files || [])[0];
+            if(f && f.base64){
+              var a = document.createElement('a');
+              a.className = 'btn-ghost';
+              a.style.display = 'inline-block';
+              a.style.textDecoration = 'none';
+              a.download = f.filename;
+              a.href = 'data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,' + f.base64;
+              a.textContent = 'Tải file Form A (.docx)';
+              downloadWrap.appendChild(a);
+            }
+            updateCta();
+          });
+      }).catch(function(){
+        saveBtn.disabled = false;
+        feedbackMsg.textContent = 'Không kết nối được tới máy chủ — vui lòng thử lại.';
+        feedbackMsg.style.color = 'var(--red-deep)';
+      });
+    });
+  }
+
+  if(quymoManualToggle && quymoManualForm){
+    quymoManualToggle.addEventListener('click', function(){
+      if(!currentUser){ window.openAuthModal(); return; }
+      var willOpen = quymoManualForm.hidden;
+      if(willOpen && !quymoManualForm.dataset.built){
+        buildQuymoManualForm();
+        quymoManualForm.dataset.built = '1';
+      }
+      quymoManualForm.hidden = !willOpen;
+      quymoManualToggle.textContent = willOpen ? 'Ẩn form nhập tay' : 'Không có bản vẽ riêng? Nhập tay thông số';
+    });
+  }
 
   grid.addEventListener('click', function(e){
     var card = e.target.closest('.drop-card');
@@ -480,7 +744,11 @@
       ctaHint.textContent = 'Đang phân tích — vui lòng chờ xong lượt này…';
       return;
     }
-    var hasFile = !!grid.querySelector('.drop-card.filled');
+    // activeSessionId co the da mo tu truoc (vd chi nhap tay Quy mo, chua dinh
+    // file nao) - van cho bam "Bắt đầu phân tích" de dong phien do gon gang
+    // (hoan lai Bo ho so vi khong dung AI that nao), khong de nguoi dung ket
+    // ket voi 1 phien da mo ma khong co cach nao dong qua giao dien.
+    var hasFile = !!grid.querySelector('.drop-card.filled') || !!activeSessionId;
     var hasOutput = !!panel.querySelector('input:checked');
     cta.disabled = !(hasFile && hasOutput);
     if(cta.disabled){
@@ -497,7 +765,6 @@
      ưu tiên tuyệt đối REAL_CATEGORIES trước, các key trùng tên ở đây (nếu có) sẽ
      không bao giờ được đọc tới, nên không khai báo demo cho baochay/ccnuoc/dienpccc. */
   var SLOT_MOCK = {
-    kientruc: {status:'ok', note:'Xác định công năng: văn phòng hỗn hợp, 8 tầng nổi + 1 tầng hầm, ΣF ≈ 4.200 m².'},
     cckhi: {status:'bad', note:'Chưa thấy tính toán nồng độ thiết kế d₁, f₂ cho phòng điện — cần bổ sung.'},
     capnuocngoai: {status:'ok', note:'Trụ nước ngoài nhà bố trí đủ theo bán kính bảo vệ.'}
   };
@@ -885,6 +1152,7 @@
         .then(function(res){ return res.json().then(function(data){ return {status: res.status, data: data}; }); })
         .then(function(r){
           if(r.data && r.data.bo_ho_so_con_lai !== undefined) updateBoHoSoDisplay({con_lai: r.data.bo_ho_so_con_lai});
+          if(activeSessionId === sessionId) activeSessionId = null;
         })
         .catch(function(){ /* dong phien la best-effort - khong chan hien ket qua neu loi mang luc dong */ });
     }
@@ -979,16 +1247,17 @@
     setOutputPickerLocked(true);
 
     var hasRealSlot = Object.keys(REAL_CATEGORIES).some(function(slot){ return !!realFiles[slot]; });
-    if(!hasRealSlot){
+    // Khong co file that nao dinh KEM, VA cung khong co phien nao dang mo tu
+    // truoc (vd chua tung "Luu thong so" Quy mo) -> chi mo phong demo, khong
+    // dung gi toi backend. Neu DA co activeSessionId (chi nhap tay Quy mo,
+    // chua dinh file), van phai di qua ensureSessionOpen()/runAnalysis() de
+    // dong phien do dung cach (xem ghi chu o hasFile trong updateCta()).
+    if(!hasRealSlot && !activeSessionId){
       runAnalysis(null);
       return;
     }
 
-    fetch(BACKEND_BASE + '/api/aiho/session/open', {
-      method: 'POST',
-      headers: {'Authorization': 'Bearer ' + getToken()}
-    })
-      .then(function(res){ return res.json().then(function(data){ return {status: res.status, data: data}; }); })
+    ensureSessionOpen()
       .then(function(r){
         if(r.status === 401){
           A.logout();
@@ -997,11 +1266,9 @@
           return;
         }
         if(r.status >= 400){
-          if(r.data.bo_ho_so_con_lai !== undefined) updateBoHoSoDisplay({con_lai: r.data.bo_ho_so_con_lai});
           abortProcessing(r.data.error || 'Không mở được phiên Bộ hồ sơ — vui lòng thử lại sau.');
           return;
         }
-        if(r.data.bo_ho_so_con_lai !== undefined) updateBoHoSoDisplay({con_lai: r.data.bo_ho_so_con_lai});
         runAnalysis(r.data.session_id);
       })
       .catch(function(){
