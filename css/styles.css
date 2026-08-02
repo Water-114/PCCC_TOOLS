@@ -284,6 +284,22 @@ ul.pos li{margin-bottom:2px}
 .quymo-manual-actions{display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap}
 .quymo-manual-msg{font-size:12.5px}
 
+/* Nut "HUONG DAN" cho trang AI kiem tra ho so - chu do dam, in hoa, khong icon */
+.aiho-guide-toggle{
+  display:inline-block;margin-top:8px;background:none;border:none;padding:0;
+  font-family:var(--sans);font-size:13px;font-weight:800;letter-spacing:.05em;
+  text-transform:uppercase;color:var(--red);text-decoration:underline;
+  text-underline-offset:3px;cursor:pointer;
+}
+.aiho-guide-toggle:hover{color:var(--red-deep)}
+.aiho-guide-panel{
+  margin-top:12px;padding:16px 18px;border:1px solid var(--line);border-radius:6px;
+  background:var(--card);max-width:640px;
+}
+.aiho-guide-panel p{margin:0 0 8px;font-size:14px;line-height:1.6;color:var(--ink)}
+.aiho-guide-panel ol{margin:0 0 12px 20px;font-size:14px;line-height:1.6;color:var(--ink)}
+.aiho-guide-panel li{margin-bottom:6px}
+
 .output-picker{position:relative;max-width:560px}
 .output-trigger{
   width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;

@@ -18,6 +18,19 @@
     noticeModal.addEventListener('click', function(e){ if(e.target === noticeModal) closeNoticeModal(); });
   }
 
+  /* Nut "HUONG DAN" - khoi xo ra ngay duoi tieu de, khong phu thuoc dang nhap */
+  var guideToggle = document.getElementById('aihoGuideToggle');
+  var guidePanel = document.getElementById('aihoGuidePanel');
+  if(guideToggle && guidePanel){
+    guideToggle.addEventListener('click', function(){
+      guidePanel.hidden = !guidePanel.hidden;
+    });
+    var guideCloseBtn = document.getElementById('aihoGuideClose');
+    if(guideCloseBtn){
+      guideCloseBtn.addEventListener('click', function(){ guidePanel.hidden = true; });
+    }
+  }
+
   /* Đăng nhập/phiên làm việc dùng chung toàn trang qua window.PcccAuth (xem script ngay sau <nav>) */
   var A = window.PcccAuth;
   var BACKEND_BASE = A.BACKEND_BASE;
