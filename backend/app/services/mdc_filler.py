@@ -53,14 +53,24 @@ def _extract_rows(path):
     for idx, row in enumerate(table.rows):
         if idx == 0:
             continue  # dòng tiêu đề bảng
+        doi_chieu = row.cells[COL_DOI_CHIEU].text.strip()
         quy_dinh = row.cells[COL_QUY_DINH].text.strip()
+        khoan_dieu = row.cells[COL_KHOAN_DIEU].text.strip()
         if not quy_dinh:
             continue  # dòng "mục" tiêu đề gộp nhóm — không phải dòng tiêu chí thật
+        if doi_chieu == quy_dinh == khoan_dieu:
+            # Dong tieu de bi merge NGUYEN CA HANG (ca 6 cot) thay vi chi merge
+            # dung 1 cot nhan de - phat hien qua thuc te (B12 dong TT=1
+            # "Binh chua chay xach tay" bi merge het, khien cot quy_dinh khong
+            # rong nhu ky vong). Dau hieu: ca 3 cot deu giong het nhau tung chu -
+            # khong the la 1 tieu chi that (quy_dinh/khoan_dieu luon khac
+            # doi_chieu trong moi dong tieu chi hop le).
+            continue
         rows.append({
             "id": idx,
-            "doi_chieu": row.cells[COL_DOI_CHIEU].text.strip(),
+            "doi_chieu": doi_chieu,
             "quy_dinh": quy_dinh,
-            "khoan_dieu": row.cells[COL_KHOAN_DIEU].text.strip(),
+            "khoan_dieu": khoan_dieu,
         })
     return rows
 
