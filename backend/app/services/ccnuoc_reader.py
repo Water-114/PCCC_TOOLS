@@ -9,13 +9,21 @@ cháy bằng nước" gộp 3 mẫu đối chiếu riêng biệt CÙNG áp dụn
 Gọi AI 3 lần (mỗi lần 1 mẫu, cùng 1 file bản vẽ) chạy song song bằng
 ThreadPoolExecutor để tổng thời gian chờ ≈ mẫu chậm nhất thay vì cộng dồn
 cả 3, rồi gộp kết quả lại. Nếu 1-2 mẫu lỗi vẫn trả về mẫu còn thành công.
+
+Chỉ đạo nghiệp vụ của owner (không phải suy đoán): B6 chỉ áp dụng cho công
+trình THẬT SỰ thiết kế hệ sprinkler/drencher — nếu bản vẽ không có bất kỳ dấu
+hiệu nào (sơ đồ/ghi chú/bảng tính) cho thấy hệ này được thiết kế, KHÔNG xuất
+form B6 nữa (trước đây luôn xuất đủ cả 3 form bất kể có hay không). AI tự xác
+định qua field mới "co_thiet_ke_tu_dong" (xem ChuaChayTuDongReaderResult,
+ai_schema.py) TRƯỚC khi đối chiếu — nếu false thì loại B6 khỏi forms_out và
+không sinh kiến nghị cho B6; nếu true thì đối chiếu bình thường như B3/B5.
 """
 
 from concurrent.futures import ThreadPoolExecutor
 
 from . import mdc_filler
 from .ai_reader_common import AIReaderError, read_and_validate_drawing_json, system_prompt_version
-from .ai_schema import KHONG_XAC_DINH_SO_HIEU, ReaderResult, validate_reader_result
+from .ai_schema import ChuaChayTuDongReaderResult, KHONG_XAC_DINH_SO_HIEU, ReaderResult, validate_reader_result
 
 FORMS = [
     {"loai": "tram_bom", "mdc_label": "MĐC B3", "ten_he_thong": "trạm bơm cấp nước chữa cháy"},
@@ -31,12 +39,21 @@ def _fmt_rows(rows):
     )
 
 
+_TU_DONG_SCOPE_BLOCK = """
+YÊU CẦU RIÊNG CHO MẪU NÀY (B6 — chữa cháy tự động bằng nước/bọt): TRƯỚC KHI đối chiếu từng tiêu chí, xác định công trình trên bản vẽ CÓ THIẾT KẾ hệ thống chữa cháy tự động bằng nước/bọt (sprinkler/drencher) hay không — căn cứ sơ đồ nguyên lý, ghi chú, bảng tính lưu lượng/số đầu phun hoặc bất kỳ chi tiết nào thể hiện hệ sprinkler/drencher trên chính bản vẽ này.
+- Nếu KHÔNG có bất kỳ dấu hiệu nào (không sơ đồ, không ghi chú, không bảng tính liên quan tới hệ tự động): đặt "co_thiet_ke_tu_dong": false, "tong_ket": "Công trình không thiết kế hệ thống chữa cháy tự động bằng nước/bọt (sprinkler/drencher).", và với MỌI id trong danh sách tiêu chí bên dưới: "ket_luan": "dat", "noi_dung_thiet_ke": "Công trình không thiết kế hệ thống chữa cháy tự động bằng nước/bọt (sprinkler/drencher)." — để cả 4 nhóm kiến nghị đều rỗng (không tạo kiến nghị "Bổ sung" cho hệ không được thiết kế).
+- Nếu CÓ dấu hiệu hệ sprinkler/drencher được thiết kế (dù chưa đầy đủ chi tiết): đặt "co_thiet_ke_tu_dong": true, rồi đối chiếu BÌNH THƯỜNG theo đúng Bước 1/Bước 2 bên dưới cho từng tiêu chí — tiêu chí nào bản vẽ chưa đủ thông tin vẫn ghi "chua_the_hien" như bình thường, KHÔNG tự đặt "dat" chỉ vì đã xác định có hệ tự động.
+"""
+
+
 def _build_system_prompt(loai, mdc_label, ten_he_thong):
     rows = mdc_filler.load_criteria_rows(loai)
+    extra_scope_block = _TU_DONG_SCOPE_BLOCK if loai == "chua_chay_tu_dong" else ""
+    extra_field_line = '\n  "co_thiet_ke_tu_dong": true | false,' if loai == "chua_chay_tu_dong" else ""
     return f"""Bạn là kỹ sư PCCC rà soát bản vẽ hệ thống {ten_he_thong}, đối chiếu với mẫu đối chiếu {mdc_label}.
 
 YÊU CẦU THÊM: Đọc SỐ HIỆU BẢN VẼ ghi trong khung tên (title block) của chính bản vẽ này (thường ở góc dưới bên phải, ô ghi "Số bản vẽ" / "Ký hiệu bản vẽ" / "Drawing No."). Nếu khung tên không có, không rõ, hoặc bản vẽ không thể hiện số hiệu: ghi ĐÚNG NGUYÊN VĂN "Không xác định được số hiệu bản vẽ" ở trường "so_hieu_ban_ve" — TUYỆT ĐỐI không suy đoán, không tự đặt số hiệu.
-
+{extra_scope_block}
 BƯỚC 1: Với MỖI dòng tiêu chí dưới đây (mỗi dòng có sẵn "id" — khi trả lời PHẢI giữ nguyên đúng id đó, và phải trả lời ĐỦ cho TẤT CẢ id, không bỏ sót), đối chiếu với bản vẽ và trả về:
 - "noi_dung_thiet_ke": nội dung điền vào cột "Nội dung thiết kế" của mẫu MĐC gốc — ngắn gọn, đúng mạch đối chiếu (dùng gạch đầu dòng "-" nếu nhiều ý), nêu số liệu cụ thể NHÌN THẤY trên bản vẽ. Nếu bản vẽ không thể hiện đủ thông tin để kết luận: ghi đúng "Chưa thể hiện trên bản vẽ cung cấp".
 - "ket_luan": "dat" nếu nội dung trên bản vẽ đáp ứng đúng quy định; "chua_dat" nếu đã thể hiện nhưng vi phạm giá trị/quy định; "chua_the_hien" nếu bản vẽ không đủ thông tin để kết luận.
@@ -61,7 +78,7 @@ NGUYÊN TẮC BẮT BUỘC:
 
 Trả lời DUY NHẤT bằng JSON hợp lệ theo đúng cấu trúc sau, không thêm văn bản nào khác ngoài JSON:
 {{
-  "so_hieu_ban_ve": "số hiệu bản vẽ đọc từ khung tên, hoặc \"Không xác định được số hiệu bản vẽ\"",
+  "so_hieu_ban_ve": "số hiệu bản vẽ đọc từ khung tên, hoặc \"Không xác định được số hiệu bản vẽ\"",{extra_field_line}
   "items": [
     {{"id": 2, "noi_dung_thiet_ke": "...", "ket_luan": "dat" | "chua_dat" | "chua_the_hien"}}
   ],
@@ -82,10 +99,16 @@ CcNuocReaderError = AIReaderError
 
 _EXPECTED_IDS = {f["loai"]: {r["id"] for r in mdc_filler.load_criteria_rows(f["loai"])} for f in FORMS}
 
+_MODEL_FOR = {
+    "tram_bom": ReaderResult,
+    "hong_nuoc": ReaderResult,
+    "chua_chay_tu_dong": ChuaChayTuDongReaderResult,
+}
+
 
 def _validate_for(loai):
     def _validate(data: dict):
-        return validate_reader_result(data, _EXPECTED_IDS[loai], ReaderResult)
+        return validate_reader_result(data, _EXPECTED_IDS[loai], _MODEL_FOR[loai])
     return _validate
 
 
@@ -119,6 +142,18 @@ def read_drawing(file_bytes: bytes, media_type: str, provider) -> dict:
         loai = form["loai"]
         if loai in results:
             data = results[loai].model_dump()
+            # Chi dao nghiep vu cua owner: B6 chi xuat khi cong trinh THAT SU
+            # thiet ke he sprinkler/drencher - AI tu xac dinh qua field
+            # "co_thiet_ke_tu_dong" (xem _TU_DONG_SCOPE_BLOCK). Neu false: loai
+            # han B6 khoi forms_out (khong sinh MDC B6, khong cong kien nghi),
+            # chi giu lai cau tong_ket de nguoi dung biet ly do.
+            if loai == "chua_chay_tu_dong" and data.get("co_thiet_ke_tu_dong") is False:
+                if data.get("tong_ket"):
+                    tong_ket_parts.append(form["ten_he_thong"].capitalize() + ": " + data["tong_ket"])
+                if so_hieu_ban_ve is None and data.get("so_hieu_ban_ve") and data["so_hieu_ban_ve"] != KHONG_XAC_DINH_SO_HIEU:
+                    so_hieu_ban_ve = data["so_hieu_ban_ve"]
+                continue
+
             forms_out[loai] = {
                 "label": form["ten_he_thong"],
                 "mdc_label": form["mdc_label"],

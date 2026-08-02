@@ -7,6 +7,7 @@ import pytest
 from app.services.ai_schema import (
     MAX_NOI_DUNG_LEN,
     KHONG_XAC_DINH_SO_HIEU,
+    ChuaChayTuDongReaderResult,
     ReaderResult,
     SchemaValidationError,
     validate_reader_result,
@@ -93,3 +94,26 @@ def test_kien_nghi_missing_group_defaults_to_empty_list():
     del data["kien_nghi"]["IV_de_xuat_bo_sung"]
     model = validate_reader_result(data, expected_ids={1, 2})
     assert model.kien_nghi.IV_de_xuat_bo_sung == []
+
+
+# ---------------------------------------------------------------------------
+# ChuaChayTuDongReaderResult (B6, ccnuoc_reader.py) — chi dao nghiep vu cua
+# owner: AI phai tu xac dinh cong trinh co thiet ke he sprinkler/drencher hay
+# khong truoc khi doi chieu. Field bat buoc, KHONG co default.
+# ---------------------------------------------------------------------------
+def test_chua_chay_tu_dong_requires_co_thiet_ke_field():
+    data = _valid_data()  # khong co "co_thiet_ke_tu_dong"
+    with pytest.raises(SchemaValidationError):
+        validate_reader_result(data, expected_ids={1, 2}, model_cls=ChuaChayTuDongReaderResult)
+
+
+def test_chua_chay_tu_dong_accepts_true():
+    data = _valid_data(co_thiet_ke_tu_dong=True)
+    model = validate_reader_result(data, expected_ids={1, 2}, model_cls=ChuaChayTuDongReaderResult)
+    assert model.co_thiet_ke_tu_dong is True
+
+
+def test_chua_chay_tu_dong_accepts_false():
+    data = _valid_data(co_thiet_ke_tu_dong=False)
+    model = validate_reader_result(data, expected_ids={1, 2}, model_cls=ChuaChayTuDongReaderResult)
+    assert model.co_thiet_ke_tu_dong is False

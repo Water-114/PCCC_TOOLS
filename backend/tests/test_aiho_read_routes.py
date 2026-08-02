@@ -59,6 +59,23 @@ def _dienpccc_payload():
     })
 
 
+def _ccnuoc_payload_for(loai, so_hieu="N-01"):
+    """loai: 'tram_bom' (B3) | 'hong_nuoc' (B5) | 'chua_chay_tu_dong' (B6).
+    B6 phai co them 'co_thiet_ke_tu_dong' (field moi, bat buoc, khong default) -
+    mac dinh True o day (kich ban "co thiet ke sprinkler, du thong tin") vi day
+    la payload dung cho cac test hien co, gia lap AI tra loi day du/thanh cong."""
+    rows = mdc_filler.load_criteria_rows(loai)
+    payload = {
+        "items": [{"id": r["id"], "noi_dung_thiet_ke": "ok", "ket_luan": "dat"} for r in rows],
+        "tong_ket": "ok",
+        "kien_nghi": EMPTY_KIEN_NGHI,
+        "so_hieu_ban_ve": so_hieu,
+    }
+    if loai == "chua_chay_tu_dong":
+        payload["co_thiet_ke_tu_dong"] = True
+    return json.dumps(payload)
+
+
 class FakeProvider:
     def __init__(self, name="fake", model="fake-model", fn=None, exc=None):
         self.name = name
@@ -242,13 +259,7 @@ def test_form_cap_exceeded_returns_400(client):
 
     def fake_generate(system_prompt):
         loai = "tram_bom" if "B3" in system_prompt else ("hong_nuoc" if "B5" in system_prompt else "chua_chay_tu_dong")
-        rows = mdc_filler.load_criteria_rows(loai)
-        return json.dumps({
-            "items": [{"id": r["id"], "noi_dung_thiet_ke": "ok", "ket_luan": "dat"} for r in rows],
-            "tong_ket": "ok",
-            "kien_nghi": EMPTY_KIEN_NGHI,
-            "so_hieu_ban_ve": "N-01",
-        })
+        return _ccnuoc_payload_for(loai)
 
     provider = FakeProvider(fn=fake_generate)
     with patch("app.routes.aiho.get_provider", return_value=provider):
@@ -293,13 +304,7 @@ def test_ccnuoc_partial_result_when_one_form_fails(client):
         if "B5" in system_prompt:
             raise ConnectionError("mat ket noi luc doc mau B5")
         loai = "tram_bom" if "B3" in system_prompt else "chua_chay_tu_dong"
-        rows = mdc_filler.load_criteria_rows(loai)
-        return json.dumps({
-            "items": [{"id": r["id"], "noi_dung_thiet_ke": "ok", "ket_luan": "dat"} for r in rows],
-            "tong_ket": "ok",
-            "kien_nghi": EMPTY_KIEN_NGHI,
-            "so_hieu_ban_ve": "N-01",
-        })
+        return _ccnuoc_payload_for(loai)
 
     provider = FakeProvider(fn=fake_generate)
     with patch("app.routes.aiho.get_provider", return_value=provider):
@@ -322,13 +327,7 @@ def test_ccnuoc_partial_result_mdc_files_flag_failed_form(client):
         if "B5" in system_prompt:
             raise ConnectionError("mat ket noi")
         loai = "tram_bom" if "B3" in system_prompt else "chua_chay_tu_dong"
-        rows = mdc_filler.load_criteria_rows(loai)
-        return json.dumps({
-            "items": [{"id": r["id"], "noi_dung_thiet_ke": "ok", "ket_luan": "dat"} for r in rows],
-            "tong_ket": "ok",
-            "kien_nghi": EMPTY_KIEN_NGHI,
-            "so_hieu_ban_ve": "N-01",
-        })
+        return _ccnuoc_payload_for(loai)
 
     provider = FakeProvider(fn=fake_generate)
     with patch("app.routes.aiho.get_provider", return_value=provider):
@@ -340,6 +339,99 @@ def test_ccnuoc_partial_result_mdc_files_flag_failed_form(client):
     assert "error" in by_loai["hong_nuoc"]
     assert "base64" in by_loai["tram_bom"]
     assert "base64" in by_loai["chua_chay_tu_dong"]
+
+
+# ---------------------------------------------------------------------------
+# Chi dao nghiep vu cua owner: B6 chi xuat khi AI xac dinh cong trinh THAT SU
+# thiet ke he sprinkler/drencher (co_thiet_ke_tu_dong). Neu khong: chi con
+# B3+B5, khong sinh MDC B6, khong cong kien nghi tu B6.
+# ---------------------------------------------------------------------------
+def _b6_not_designed_payload():
+    rows = mdc_filler.load_criteria_rows("chua_chay_tu_dong")
+    return json.dumps({
+        "co_thiet_ke_tu_dong": False,
+        "items": [
+            {"id": r["id"], "noi_dung_thiet_ke": "Công trình không thiết kế hệ thống chữa cháy tự động bằng nước/bọt (sprinkler/drencher).", "ket_luan": "dat"}
+            for r in rows
+        ],
+        "tong_ket": "Công trình không thiết kế hệ thống chữa cháy tự động bằng nước/bọt (sprinkler/drencher).",
+        "kien_nghi": EMPTY_KIEN_NGHI,
+        "so_hieu_ban_ve": "ND-01",
+    })
+
+
+def test_ccnuoc_b6_not_designed_excludes_b6_from_forms_and_kien_nghi(client):
+    token, _ = _register_login_and_grant(client, email="aihoread14@pccc.local")
+    session_id = _open_session(client, token)
+
+    def fake_generate(system_prompt):
+        if "B6" in system_prompt:
+            return _b6_not_designed_payload()
+        loai = "tram_bom" if "B3" in system_prompt else "hong_nuoc"
+        return _ccnuoc_payload_for(loai)
+
+    provider = FakeProvider(fn=fake_generate)
+    with patch("app.routes.aiho.get_provider", return_value=provider):
+        resp = _upload(client, token, session_id, path="/api/aiho/read-ccnuoc", extra_form={"outputs": "mdc"})
+
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert set(data["forms"].keys()) == {"tram_bom", "hong_nuoc"}  # KHONG con "chua_chay_tu_dong"
+    assert "Công trình không thiết kế hệ thống chữa cháy tự động" in data["tong_ket"]
+    for group in data["kien_nghi"].values():
+        assert group == []  # khong co kien nghi nao tu B6 (hay tu B3/B5 vi ca 2 deu "dat")
+
+    mdc_loai = {f["loai"] for f in data["mdc_docx_files"]}
+    assert mdc_loai == {"tram_bom", "hong_nuoc"}  # khong sinh MDC B6
+
+
+def test_ccnuoc_b6_designed_still_includes_b6_as_before(client):
+    """Regression: neu AI xac dinh co thiet ke sprinkler, hanh vi giu nguyen
+    nhu truoc (van xuat du 3 form)."""
+    token, _ = _register_login_and_grant(client, email="aihoread15@pccc.local")
+    session_id = _open_session(client, token)
+
+    def fake_generate(system_prompt):
+        loai = "tram_bom" if "B3" in system_prompt else ("hong_nuoc" if "B5" in system_prompt else "chua_chay_tu_dong")
+        return _ccnuoc_payload_for(loai)
+
+    provider = FakeProvider(fn=fake_generate)
+    with patch("app.routes.aiho.get_provider", return_value=provider):
+        resp = _upload(client, token, session_id, path="/api/aiho/read-ccnuoc")
+
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert set(data["forms"].keys()) == {"tram_bom", "hong_nuoc", "chua_chay_tu_dong"}
+
+
+def test_ccnuoc_b6_missing_co_thiet_ke_field_triggers_retry_repair_then_fails(client):
+    """AI khong tra field co_thiet_ke_tu_dong bat buoc -> SchemaValidationError
+    -> retry-repair 1 lan -> van thieu -> AIReaderError cho rieng B6 (B3/B5 van
+    thanh cong, dung dung co che "partial result" da co)."""
+    token, _ = _register_login_and_grant(client, email="aihoread16@pccc.local")
+    session_id = _open_session(client, token)
+
+    def fake_generate(system_prompt):
+        if "B6" in system_prompt:
+            rows = mdc_filler.load_criteria_rows("chua_chay_tu_dong")
+            return json.dumps({  # thieu "co_thiet_ke_tu_dong" - field bat buoc
+                "items": [{"id": r["id"], "noi_dung_thiet_ke": "ok", "ket_luan": "dat"} for r in rows],
+                "tong_ket": "ok",
+                "kien_nghi": EMPTY_KIEN_NGHI,
+                "so_hieu_ban_ve": "N-01",
+            })
+        loai = "tram_bom" if "B3" in system_prompt else "hong_nuoc"
+        return _ccnuoc_payload_for(loai)
+
+    provider = FakeProvider(fn=fake_generate)
+    with patch("app.routes.aiho.get_provider", return_value=provider):
+        resp = _upload(client, token, session_id, path="/api/aiho/read-ccnuoc")
+
+    assert resp.status_code == 200  # van tra 200 - loi B6 duoc coi la partial result
+    data = resp.get_json()
+    forms = data["forms"]
+    assert "items" in forms["tram_bom"] and "items" in forms["hong_nuoc"]
+    assert "error" in forms["chua_chay_tu_dong"]  # loi validate schema (thieu field bat buoc), khac voi truong hop "khong thiet ke"
 
 
 # ---------------------------------------------------------------------------
@@ -440,6 +532,89 @@ def test_densucco_form_cap_exceeded_returns_400(client):
     assert "7 form" in resp.get_json()["error"]
 
 
+# ---------------------------------------------------------------------------
+# Mo phong AI TUAN THU dung 2 huong dan dac biet moi (khong the test AI that
+# tuan thu prompt hay khong - chi xac nhan CODE xu ly dung khi AI tra loi theo
+# dung dinh dang da huong dan trong prompt).
+# ---------------------------------------------------------------------------
+def test_densucco_binh_bot_treo_absent_does_not_generate_bo_sung_kien_nghi(client):
+    """Mo phong AI tuan thu huong dan: id=14,15 (binh bot treo) vang mat tren
+    ban ve -> AI tra ve 'dat' (khong phai 'chua_the_hien') - dam bao code
+    khong tu sinh kien nghi 'Bo sung' cho 2 id nay (vi ket_luan=dat khong bao
+    gio sinh kien nghi, theo dung Buoc 2 cua prompt)."""
+    token, _ = _register_login_and_grant(client, email="aihoread17@pccc.local")
+    session_id = _open_session(client, token)
+
+    def fake_generate(system_prompt):
+        if "B12" in system_prompt:
+            rows = mdc_filler.load_criteria_rows("binh_chua_chay")
+            items = []
+            for r in rows:
+                if r["id"] in (14, 15):
+                    items.append({"id": r["id"], "noi_dung_thiet_ke": "Không có thiết kế bình bột chữa cháy tự động loại treo", "ket_luan": "dat"})
+                else:
+                    items.append({"id": r["id"], "noi_dung_thiet_ke": "ok", "ket_luan": "dat"})
+            return json.dumps({
+                "items": items, "tong_ket": "ok", "kien_nghi": EMPTY_KIEN_NGHI, "so_hieu_ban_ve": "BB-01",
+            })
+        rows = mdc_filler.load_criteria_rows("den_su_co")
+        return json.dumps({
+            "items": [{"id": r["id"], "noi_dung_thiet_ke": "ok", "ket_luan": "dat"} for r in rows],
+            "tong_ket": "ok", "kien_nghi": EMPTY_KIEN_NGHI, "so_hieu_ban_ve": "BB-01",
+        })
+
+    provider = FakeProvider(fn=fake_generate)
+    with patch("app.routes.aiho.get_provider", return_value=provider):
+        resp = _upload(client, token, session_id, path="/api/aiho/read-densucco")
+
+    assert resp.status_code == 200
+    data = resp.get_json()
+    binh_items = {i["id"]: i for i in data["forms"]["binh_chua_chay"]["items"]}
+    assert binh_items[14]["ket_luan"] == "dat"
+    assert binh_items[14]["noi_dung_thiet_ke"] == "Không có thiết kế bình bột chữa cháy tự động loại treo"
+    for group in data["kien_nghi"].values():
+        assert group == []  # khong co kien nghi "Bo sung" nao duoc sinh ra
+
+
+def test_densucco_insufficient_scope_info_kien_nghi_flows_to_nhom_iv(client):
+    """Mo phong AI tuan thu huong dan: id=28,29 (mat na loc doc) thieu thong
+    tin quy mo -> AI tra 'chua_the_hien' + kien nghi xep vao nhom IV (theo
+    dung huong dan moi) - xac nhan code KHONG ep kien nghi ve nhom I, chuyen
+    dung nguyen vao response cuoi cung."""
+    token, _ = _register_login_and_grant(client, email="aihoread18@pccc.local")
+    session_id = _open_session(client, token)
+    nhom_iv_cau = "Đối chiếu bổ sung hồ sơ quy mô công trình để xác định mặt nạ lọc độc và mặt nạ phòng độc cách ly có thuộc diện bắt buộc trang bị hay không (Căn cứ Phụ lục F QCVN 10:2025/BCA)."
+
+    def fake_generate(system_prompt):
+        if "B12" in system_prompt:
+            rows = mdc_filler.load_criteria_rows("binh_chua_chay")
+            items = []
+            for r in rows:
+                if r["id"] in (28, 29):
+                    items.append({"id": r["id"], "noi_dung_thiet_ke": "Chưa đủ thông tin quy mô công trình (số tầng/khối tích/công năng) trên bản vẽ để xác định có thuộc diện trang bị hay không — cần đối chiếu thêm với hồ sơ quy mô công trình", "ket_luan": "chua_the_hien"})
+                else:
+                    items.append({"id": r["id"], "noi_dung_thiet_ke": "ok", "ket_luan": "dat"})
+            return json.dumps({
+                "items": items, "tong_ket": "ok",
+                "kien_nghi": {"I_chua_the_hien": [], "II_chua_thong_nhat": [], "III_chua_phu_hop": [], "IV_de_xuat_bo_sung": [nhom_iv_cau]},
+                "so_hieu_ban_ve": "MN-01",
+            })
+        rows = mdc_filler.load_criteria_rows("den_su_co")
+        return json.dumps({
+            "items": [{"id": r["id"], "noi_dung_thiet_ke": "ok", "ket_luan": "dat"} for r in rows],
+            "tong_ket": "ok", "kien_nghi": EMPTY_KIEN_NGHI, "so_hieu_ban_ve": "MN-01",
+        })
+
+    provider = FakeProvider(fn=fake_generate)
+    with patch("app.routes.aiho.get_provider", return_value=provider):
+        resp = _upload(client, token, session_id, path="/api/aiho/read-densucco")
+
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert nhom_iv_cau in data["kien_nghi"]["IV_de_xuat_bo_sung"]
+    assert data["kien_nghi"]["I_chua_the_hien"] == []
+
+
 def test_all_4_real_categories_in_one_session_hits_exactly_file_and_form_cap(client):
     """Ca 4 hang muc AI that (baochay 1f/1m + dienpccc 1f/1m + ccnuoc 1f/3m +
     densucco 1f/2m) trong CUNG 1 phien = dung 4 file, 7 form - dung khit tran
@@ -462,13 +637,7 @@ def test_all_4_real_categories_in_one_session_hits_exactly_file_and_form_cap(cli
             return _dienpccc_payload()
         if "B3" in system_prompt or "B5" in system_prompt or "B6" in system_prompt:
             loai = "tram_bom" if "B3" in system_prompt else ("hong_nuoc" if "B5" in system_prompt else "chua_chay_tu_dong")
-            rows = mdc_filler.load_criteria_rows(loai)
-            return json.dumps({
-                "items": [{"id": r["id"], "noi_dung_thiet_ke": "ok", "ket_luan": "dat"} for r in rows],
-                "tong_ket": "ok",
-                "kien_nghi": EMPTY_KIEN_NGHI,
-                "so_hieu_ban_ve": "ALL-01",
-            })
+            return _ccnuoc_payload_for(loai, so_hieu="ALL-01")
         return _fake_densucco_generate(system_prompt)
 
     provider = FakeProvider(fn=fake_generate)

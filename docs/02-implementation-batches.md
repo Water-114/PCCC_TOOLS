@@ -345,6 +345,87 @@ owner ở batch/thời điểm khác):**
   chạy AI thật đầu tiên. Đây là quyết định có chủ đích để không tự ý tốn phí
   AI khi chưa được yêu cầu, không phải thiếu sót kỹ thuật.
 
+**Tiếp tục mở rộng — logic "xác định thuộc diện" theo chỉ đạo nghiệp vụ TRỰC
+TIẾP của owner (không phải suy đoán của tôi — ghi rõ nguồn từng điểm):**
+
+- **ccnuoc_reader.py (B3/B5/B6 — chữa cháy bằng nước)**: trước đây LUÔN xuất
+  đủ cả 3 form B3+B5+B6 bất kể bản vẽ có thiết kế hệ chữa cháy tự động
+  (sprinkler/drencher) hay không. Theo chỉ đạo của owner: thêm field bắt buộc
+  `co_thiet_ke_tu_dong` (Pydantic, `ai_schema.ChuaChayTuDongReaderResult`,
+  KHÔNG có default — bắt buộc AI trả lời rõ ràng) CHỈ cho mẫu B6. AI đọc bản
+  vẽ trước; nếu KHÔNG có sơ đồ/ghi chú/bảng tính nào liên quan tới hệ tự động:
+  `co_thiet_ke_tu_dong=false`, `tong_ket` ghi đúng câu owner chốt "Công trình
+  không thiết kế hệ thống chữa cháy tự động bằng nước/bọt (sprinkler/
+  drencher).", và B6 bị **loại hẳn khỏi `forms_out`** (không sinh MĐC B6,
+  không cộng kiến nghị nào từ B6) — CHỈ xuất B3+B5. Nếu CÓ dấu hiệu hệ tự động
+  (dù chưa đầy đủ): `co_thiet_ke_tu_dong=true`, đối chiếu B6 bình thường như
+  cũ. **Không đổi** `forms_per_call=3` (vẫn giữ chỗ 3 form ngay từ lúc mở
+  phiên, trước khi AI kịp xác định có/không thiết kế — theo đúng nguyên tắc
+  "giữ chỗ nguyên tử trước khi gọi AI" đã có từ Batch 5A, không rollback được
+  giữa chừng) — nghĩa là quota vẫn tính đủ 3 form dù kết quả cuối chỉ hiện 2,
+  giống cách báochay luôn giữ chỗ 1 form dù chỉ áp đúng 1 trong 2 mẫu B1/B2.
+- **densucco_reader.py (B12/B13) — 5 nhóm tiêu chí đặc biệt**, tất cả lấy
+  ĐÚNG ngưỡng số đã code sẵn trong `backend/app/services/phuong_tien.py`
+  (không tự bịa số khác — xem docstring đầu file `densucco_reader.py` liệt kê
+  đủ cả 5 nhóm + hàm nguồn):
+  1. B12 id 4,7,8,9,10,11 (phân loại mức nguy hiểm + tính số bình) — **không
+     đổi logic đối chiếu**, chỉ thêm yêu cầu `noi_dung_thiet_ke` phải nêu rõ
+     đã căn cứ ghi chú/thuyết minh/tên dự án nào trên bản vẽ để xác định công
+     năng → mức nguy hiểm (minh bạch nguồn, không phải đổi ngưỡng `BINH_TBL`).
+  2. B12 id 14,15 (bình bột chữa cháy tự động kích hoạt loại treo) — hạng mục
+     TUỲ CHỌN; nếu bản vẽ không thể hiện: `ket_luan="dat"` (không phải
+     `"chua_the_hien"`), `noi_dung_thiet_ke="Không có thiết kế bình bột chữa
+     cháy tự động loại treo"` — không sinh kiến nghị "Bổ sung" vì việc không
+     thiết kế có thể là lựa chọn hợp lệ.
+  3. B12 id 28,29 (mặt nạ lọc độc/mặt nạ phòng độc cách ly) — thuộc diện theo
+     ĐÚNG `evaluate_mat_na()` (Phụ lục F QCVN 10:2025/BCA): khách sạn/cơ sở
+     lưu trú ≥3 tầng, hoặc karaoke/vũ trường (không phụ thuộc quy mô).
+  4. B13 id 15,19 (biển báo an toàn tầm thấp) — thuộc diện theo ĐÚNG
+     `evaluate_den()` (TCVN 13456:2022 Điều 5.2.3): khách sạn ≥7 tầng, HOẶC
+     khối tích ≥5.000 m³ có hành lang thoát nạn dài hơn 10 m.
+  5. B13 id 24,25,26 (hệ thống loa thông báo và hướng dẫn thoát nạn) — thuộc
+     diện theo ĐÚNG `evaluate_loa()` (Phụ lục G Bảng G.1 QCVN 10:2025/BCA):
+     TT1 (>10 tầng hoặc ≥2 tầng hầm, công trình công cộng/hỗn hợp), TT2
+     (karaoke/nhà hát/bệnh viện ≥50 người/tầng), TT3 (nhà để xe kín ΣF≥18.000
+     m²), TT4 (nhà sản xuất ΣF≥18.000 m² VÀ ≥300 người/tầng đồng thời), TT6
+     (nhà ga — luôn thuộc diện).
+  Nhóm 3/4/5 dùng chung khuôn xử lý 3 nhánh (owner duyệt): (a) bản vẽ tự thể
+  hiện đủ quy mô + xác định KHÔNG thuộc diện → `"dat"`, nêu lý do; (b) tự thể
+  hiện đủ quy mô + thuộc diện → đối chiếu bình thường; (c) KHÔNG đủ thông tin
+  quy mô (số tầng/khối tích/công năng) → `"chua_the_hien"`,
+  `noi_dung_thiet_ke` đúng câu owner chốt "Chưa đủ thông tin quy mô công
+  trình (số tầng/khối tích/công năng) trên bản vẽ để xác định có thuộc diện
+  trang bị hay không — cần đối chiếu thêm với hồ sơ quy mô công trình", và
+  kiến nghị tương ứng xếp vào **NHÓM IV** (đề xuất bổ sung hồ sơ) thay vì
+  nhóm I mặc định (vì đây là thiếu hồ sơ quy mô công trình ngoài bản vẽ, không
+  phải thiếu chi tiết TRÊN chính bản vẽ này).
+- **Chỉ sửa prompt/schema — không đổi cấu trúc `read_drawing()` của
+  densucco_reader.py** (merge logic giữ nguyên, không cần field boolean cấp
+  form như B6 vì cả 5 nhóm đều xử lý ở cấp TỪNG ID, không phải cấp cả mẫu).
+- **18 test mới**: `test_ai_schema.py` (3 test cho `ChuaChayTuDongReaderResult`
+  — field bắt buộc, nhận `true`/`false`); `test_aiho_read_routes.py` (5 test
+  B6: không thiết kế → loại khỏi forms+kiến nghị rỗng, có thiết kế → giữ
+  nguyên như cũ (regression), thiếu field bắt buộc → lỗi validate/partial
+  result đúng cơ chế có sẵn; 2 test mô phỏng AI tuân thủ hướng dẫn mới cho
+  densucco — bình bột treo vắng mặt không sinh "Bổ sung", kiến nghị thiếu quy
+  mô chảy đúng vào nhóm IV); `test_densucco_reader_prompt_content.py` (mới,
+  7 test khoá nội dung + đúng ngưỡng số của cả 5 khối hướng dẫn đặc biệt
+  trong system prompt, đối chiếu trực tiếp với `BINH_TBL`/`TT1_CONGCONG` thật
+  trong `phuong_tien.py` — không phải số tự chép tay). Đã cập nhật 4
+  `fake_generate` có sẵn (thêm `co_thiet_ke_tu_dong: true` cho mock B6) qua 1
+  helper dùng chung `_ccnuoc_payload_for()`, tránh lặp code. `pytest -q` xác
+  nhận **640/640 test backend pass** (từ 622), không hồi quy.
+- **Lưu ý quan trọng — giới hạn của test tự động**: KHÔNG thể test được "AI
+  có thật sự tuân thủ đúng hướng dẫn prompt mới hay không" bằng pytest (cần
+  gọi AI thật, tốn phí, ngoài phạm vi test tự động theo đúng quy tắc dự án).
+  18 test trên chỉ khoá 2 việc: (1) nội dung prompt sinh ra đúng ngưỡng/văn
+  phong đã duyệt, (2) code xử lý ĐÚNG khi AI trả lời theo đúng định dạng đã
+  hướng dẫn (mô phỏng). Cần 1 lần gọi AI thật (có phí) để xác nhận AI thực sự
+  làm đúng theo hướng dẫn mới — chưa làm, chờ owner quyết định.
+- **CHƯA commit** — đang chờ owner duyệt văn phong câu kiến nghị/kết luận cụ
+  thể (đặc biệt B13 loa thông báo và B12 mặt nạ lọc độc) trước khi commit,
+  theo đúng yêu cầu.
+
 ## Batch 5A — Xác thực email, Bộ hồ sơ và chuyển khoản thủ công — **HOÀN THÀNH (5/5 sub-bước)**
 
 **Mục tiêu:** chuyển mô hình quota "N lượt/ngày" hiện tại sang mô hình

@@ -43,6 +43,14 @@ class BaoChayReaderResult(ReaderResult):
     ly_do_nhan_dien: str = ""
 
 
+class ChuaChayTuDongReaderResult(ReaderResult):
+    """Riêng cho mẫu B6 (chữa cháy tự động bằng nước/bọt) trong ccnuoc_reader.py
+    — AI phải tự xác định công trình CÓ thiết kế hệ sprinkler/drencher hay
+    không trước khi đối chiếu (chỉ đạo nghiệp vụ của owner). Không có default —
+    bắt buộc AI trả lời rõ ràng, không được bỏ sót."""
+    co_thiet_ke_tu_dong: bool
+
+
 def validate_reader_result(data: dict, expected_ids, model_cls=ReaderResult):
     """Parse JSON thô qua Pydantic model_cls, rồi kiểm tra 'items' khớp ĐÚNG bộ id
     kỳ vọng (không thiếu, không thừa). Raise SchemaValidationError với thông báo
