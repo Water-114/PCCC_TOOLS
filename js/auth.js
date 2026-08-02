@@ -78,7 +78,11 @@ window.PcccAuth = (function(){
   };
 })();
 
-(function(){
+// Script nap som (ngay sau <nav>, xem index.html) de window.PcccAuth san sang
+// truoc cac script khac o cuoi body - nhung phan doc DOM ben duoi can cho DOM
+// parse xong het (vd #verifyEmailCta nam trong #view-aiho, o rat xa phia
+// duoi trong document) nen phai cho DOMContentLoaded thay vi chay ngay.
+document.addEventListener('DOMContentLoaded', function(){
   var A = window.PcccAuth;
   var authStatusEl = document.getElementById('authStatus');
   var authOpenBtn = document.getElementById('authOpenBtn');
@@ -95,6 +99,8 @@ window.PcccAuth = (function(){
   var authModalTitle = document.getElementById('authModalTitle');
   var authResendBtn = document.getElementById('authResendBtn');
   var authGlobalMsg = document.getElementById('authGlobalMsg');
+  var verifyEmailCta = document.getElementById('verifyEmailCta');
+  var verifyEmailCtaBtn = document.getElementById('verifyEmailCtaBtn');
   var authMode = 'login';
 
   function showAuthGlobalMsg(text, isError){
@@ -109,11 +115,13 @@ window.PcccAuth = (function(){
       authOpenBtn.hidden = true;
       authLogoutBtn.hidden = false;
       authResendBtn.hidden = !!user.email_verified;
+      verifyEmailCta.hidden = !!user.email_verified;
     } else {
       authStatusEl.textContent = 'Chưa đăng nhập';
       authOpenBtn.hidden = false;
       authLogoutBtn.hidden = true;
       authResendBtn.hidden = true;
+      verifyEmailCta.hidden = true;
     }
   }
 
@@ -170,10 +178,10 @@ window.PcccAuth = (function(){
     });
   });
 
-  authResendBtn.addEventListener('click', function(){
-    authResendBtn.disabled = true;
+  function handleSendVerificationEmailClick(btn){
+    btn.disabled = true;
     A.sendVerificationEmail().then(function(vr){
-      authResendBtn.disabled = false;
+      btn.disabled = false;
       var user = A.getUser();
       if(vr.ok){
         showAuthGlobalMsg('Đã gửi email xác thực tới ' + (user ? user.email : '') + ' — kiểm tra hộp thư (kể cả Spam) để nhận 2 Bộ hồ sơ dùng thử.', false);
@@ -181,10 +189,12 @@ window.PcccAuth = (function(){
         showAuthGlobalMsg(vr.data.error || 'Không gửi được email xác thực — vui lòng thử lại sau.', true);
       }
     }).catch(function(){
-      authResendBtn.disabled = false;
+      btn.disabled = false;
       showAuthGlobalMsg('Không kết nối được tới máy chủ — chưa gửi được email xác thực.', true);
     });
-  });
+  }
+  authResendBtn.addEventListener('click', function(){ handleSendVerificationEmailClick(authResendBtn); });
+  verifyEmailCtaBtn.addEventListener('click', function(){ handleSendVerificationEmailClick(verifyEmailCtaBtn); });
 
   authLogoutBtn.addEventListener('click', function(){ A.logout(); });
 
@@ -213,4 +223,4 @@ window.PcccAuth = (function(){
   } else {
     A.refreshMe();
   }
-})();
+});
