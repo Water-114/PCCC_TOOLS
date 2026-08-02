@@ -9,14 +9,17 @@ Gọi AI 2 lần (mỗi lần 1 mẫu, cùng 1 file bản vẽ) chạy song song
 ThreadPoolExecutor để tổng thời gian chờ ≈ mẫu chậm nhất thay vì cộng dồn cả
 2, rồi gộp kết quả lại. Nếu 1 mẫu lỗi vẫn trả về mẫu còn thành công.
 
-Chỉ đạo nghiệp vụ của owner cho 4 nhóm tiêu chí đặc biệt trong 2 mẫu này
+Chỉ đạo nghiệp vụ của owner cho 6 nhóm tiêu chí đặc biệt trong 2 mẫu này
 (không phải suy đoán — xem _SPECIAL_ID_BLOCKS bên dưới):
 1. B12 id 4,7,8,9,10,11 (phân loại mức nguy hiểm + tính số bình): giữ nguyên
    logic đối chiếu, chỉ yêu cầu AI nêu rõ NGUỒN xác định công năng (ghi chú/
    thuyết minh nào trên bản vẽ) trong noi_dung_thiet_ke.
-2. B12 id 14,15 (bình bột chữa cháy tự động kích hoạt loại treo): hạng mục
-   TUỲ CHỌN — nếu bản vẽ không thể hiện, kết luận "dat" (không phải "Bổ
-   sung") vì không thiết kế có thể là lựa chọn hợp lệ.
+2. B12 id 14,15 (bình bột chữa cháy tự động kích hoạt loại treo — TUỲ CHỌN)
+   và id 17-22 (bình khí/sol-khí chữa cháy tự động kích hoạt — cũng TUỲ
+   CHỌN): nếu bản vẽ không thể hiện, kết luận "khong_ap_dung" (KHÔNG phải
+   "dat" hay "chua_the_hien") — không thiết kế có thể là lựa chọn hợp lệ, cột
+   "Kết luận" trong MĐC để TRỐNG cho giá trị này (xem routes/aiho.py
+   _answers_from_items(), khác "Đạt"/"KN").
 3. B12 id 28,29 (mặt nạ lọc độc/mặt nạ phòng độc cách ly): thuộc diện theo
    ĐÚNG điều kiện đã code trong evaluate_mat_na() (backend/app/services/
    phuong_tien.py, Phụ lục F QCVN 10:2025/BCA) — khách sạn ≥3 tầng hoặc
@@ -68,11 +71,27 @@ _MUC_NGUY_HIEM_BLOCK = """
 YÊU CẦU RIÊNG CHO id=4, 7, 8, 9, 10, 11 (phân loại mức nguy hiểm và tính số bình chữa cháy): xác định mức nguy hiểm (Thấp/Trung bình/Cao theo Bảng 1 TCVN 7435-1:2004 / Bảng D.1 TCVN 7435-2) CĂN CỨ công năng công trình thể hiện trên chính bản vẽ (ghi chú, thuyết minh, tên dự án trong khung tên) — giữ nguyên cách đối chiếu bình thường (Bước 1/Bước 2), CHỈ THÊM yêu cầu: trong "noi_dung_thiet_ke" của các id này, PHẢI nêu rõ đã căn cứ ghi chú/thuyết minh/tên dự án nào trên bản vẽ để xác định công năng và mức nguy hiểm tương ứng (ví dụ: "Theo tên dự án/thuyết minh trên bản vẽ: [công năng] → mức nguy hiểm [Thấp/Trung bình/Cao] theo Bảng 1 TCVN 7435-1:2004..."). Nếu bản vẽ không ghi rõ công năng để căn cứ: ghi "Chưa thể hiện trên bản vẽ cung cấp" như bình thường (không phải trường hợp đặc biệt).
 """
 
-_BINH_BOT_TREO_BLOCK = """
-YÊU CẦU RIÊNG CHO id=14, 15 (bình bột chữa cháy tự động kích hoạt loại treo, TCVN 12314-1:2018): đây là hạng mục TUỲ CHỌN, không bắt buộc với mọi công trình.
-- Nếu bản vẽ KHÔNG thể hiện gì về bình bột chữa cháy tự động loại treo: "ket_luan": "dat" (KHÔNG phải "chua_the_hien"), "noi_dung_thiet_ke": "Không có thiết kế bình bột chữa cháy tự động loại treo" — KHÔNG tạo kiến nghị "Bổ sung" cho 2 id này, vì không thiết kế có thể là lựa chọn thiết kế hợp lệ, không phải thiếu sót.
-- Nếu bản vẽ CÓ thể hiện bình bột chữa cháy tự động loại treo: đối chiếu bình thường theo Bước 1/Bước 2 (nêu rõ nội dung, vị trí, và số hiệu bản vẽ nơi thể hiện trong "noi_dung_thiet_ke").
+def _optional_item_block(ids, ten_tieu_chi, can_cu):
+    ids_str = ", ".join(str(i) for i in ids)
+    ten_thuong = ten_tieu_chi[0].lower() + ten_tieu_chi[1:]
+    return f"""
+YÊU CẦU RIÊNG CHO id={ids_str} ({ten_tieu_chi}, {can_cu}): đây là hạng mục TUỲ CHỌN, không bắt buộc với mọi công trình.
+- Nếu bản vẽ KHÔNG thể hiện gì về {ten_thuong}: "ket_luan": "khong_ap_dung" (KHÔNG phải "chua_the_hien" hay "dat"), "noi_dung_thiet_ke": "Không có thiết kế {ten_thuong}" — KHÔNG tạo kiến nghị nào cho (các) id này, vì không thiết kế có thể là lựa chọn thiết kế hợp lệ, không phải thiếu sót.
+- Nếu bản vẽ CÓ thể hiện {ten_thuong}: đối chiếu bình thường theo Bước 1/Bước 2 (nêu rõ nội dung, vị trí, và số hiệu bản vẽ nơi thể hiện trong "noi_dung_thiet_ke").
 """
+
+
+_BINH_BOT_TREO_BLOCK = _optional_item_block(
+    ids=[14, 15],
+    ten_tieu_chi="Bình bột chữa cháy tự động kích hoạt loại treo",
+    can_cu="TCVN 12314-1:2018",
+)
+
+_BINH_KHI_TU_DONG_BLOCK = _optional_item_block(
+    ids=[17, 18, 19, 20, 21, 22],
+    ten_tieu_chi="Bình khí, bình sol-khí chữa cháy tự động kích hoạt",
+    can_cu="QCVN 10:2025/BCA, TCVN 12314-2:2022",
+)
 
 _MAT_NA_BLOCK = _scope_dependent_block(
     ids=[28, 29],
@@ -110,7 +129,7 @@ _LOA_THONG_BAO_BLOCK = _scope_dependent_block(
 )
 
 _SPECIAL_ID_BLOCKS = {
-    "binh_chua_chay": _MUC_NGUY_HIEM_BLOCK + _BINH_BOT_TREO_BLOCK + _MAT_NA_BLOCK,
+    "binh_chua_chay": _MUC_NGUY_HIEM_BLOCK + _BINH_BOT_TREO_BLOCK + _BINH_KHI_TU_DONG_BLOCK + _MAT_NA_BLOCK,
     "den_su_co": _BIEN_TAM_THAP_BLOCK + _LOA_THONG_BAO_BLOCK,
 }
 
@@ -131,7 +150,7 @@ YÊU CẦU THÊM: Đọc SỐ HIỆU BẢN VẼ ghi trong khung tên (title bloc
 
 BƯỚC 1: Với MỖI dòng tiêu chí dưới đây (mỗi dòng có sẵn "id" — khi trả lời PHẢI giữ nguyên đúng id đó, và phải trả lời ĐỦ cho TẤT CẢ id, không bỏ sót), đối chiếu với bản vẽ và trả về:
 - "noi_dung_thiet_ke": nội dung điền vào cột "Nội dung thiết kế" của mẫu MĐC gốc — ngắn gọn, đúng mạch đối chiếu (dùng gạch đầu dòng "-" nếu nhiều ý), nêu số liệu cụ thể NHÌN THẤY trên bản vẽ. Nếu bản vẽ không thể hiện đủ thông tin để kết luận: ghi đúng "Chưa thể hiện trên bản vẽ cung cấp".
-- "ket_luan": "dat" nếu nội dung trên bản vẽ đáp ứng đúng quy định; "chua_dat" nếu đã thể hiện nhưng vi phạm giá trị/quy định; "chua_the_hien" nếu bản vẽ không đủ thông tin để kết luận.
+- "ket_luan": "dat" nếu nội dung trên bản vẽ đáp ứng đúng quy định; "chua_dat" nếu đã thể hiện nhưng vi phạm giá trị/quy định; "chua_the_hien" nếu bản vẽ không đủ thông tin để kết luận; "khong_ap_dung" CHỈ dùng cho đúng các id có hướng dẫn riêng bên dưới chỉ định rõ (hạng mục tuỳ chọn không thiết kế) — KHÔNG tự ý dùng cho id khác.
 {special_block}
 --- DANH SÁCH TIÊU CHÍ ({mdc_label} — {ten_he_thong}) ---
 {_fmt_rows(rows)}
@@ -156,7 +175,7 @@ Trả lời DUY NHẤT bằng JSON hợp lệ theo đúng cấu trúc sau, khôn
 {{
   "so_hieu_ban_ve": "số hiệu bản vẽ đọc từ khung tên, hoặc \\"Không xác định được số hiệu bản vẽ\\"",
   "items": [
-    {{"id": 2, "noi_dung_thiet_ke": "...", "ket_luan": "dat" | "chua_dat" | "chua_the_hien"}}
+    {{"id": 2, "noi_dung_thiet_ke": "...", "ket_luan": "dat" | "chua_dat" | "chua_the_hien" | "khong_ap_dung"}}
   ],
   "tong_ket": "1-2 câu tổng kết tình trạng chung của riêng hệ thống {ten_he_thong}",
   "kien_nghi": {{

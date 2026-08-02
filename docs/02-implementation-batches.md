@@ -426,6 +426,54 @@ TIẾP của owner (không phải suy đoán của tôi — ghi rõ nguồn từ
   thể (đặc biệt B13 loa thông báo và B12 mặt nạ lọc độc) trước khi commit,
   theo đúng yêu cầu.
 
+**Tiếp tục mở rộng (2 việc gộp chung 1 lần, sau khi văn phong ở trên đã được
+duyệt):**
+
+- **A. Tô đỏ cột "Kết luận" khi = "KN"** — `mdc_filler.fill_docx()`: trước đây
+  chỉ tô đỏ cột "Nội dung thiết kế" (cột 3); nay cột "Kết luận" (cột 5) CŨNG
+  được tô đỏ (dùng đúng `MAU_DO` có sẵn) **CHỈ khi giá trị là "KN"** — "Đạt"
+  và rỗng giữ màu mặc định (đen). Sửa **đúng 1 chỗ trong hàm dùng chung**
+  (`fill_docx()`) nên áp dụng tự động cho **MỌI hạng mục** (báo cháy, điện,
+  nước, SC/BC, và mọi hạng mục AI thật sau này) — không cần sửa riêng từng
+  reader.
+- **B. Cột "Kết luận" để TRỐNG cho mục tuỳ chọn không thiết kế** (thay vì
+  "Đạt" như bản trước đã trình bày để owner duyệt):
+  1. `ai_schema.KetLuan` thêm giá trị thứ 4 **`"khong_ap_dung"`** (mục tuỳ
+     chọn theo nhu cầu, không phải thiếu sót — khác `"chua_the_hien"`, vốn có
+     nghĩa "đáng lẽ phải có nhưng bản vẽ chưa thể hiện").
+  2. `routes/aiho.py::_answers_from_items()`: `"dat"` → `"Đạt"`,
+     `"khong_ap_dung"` → `""` (rỗng — kết hợp với phần A, ô này sẽ KHÔNG bị tô
+     đỏ vì không phải `"KN"`), còn lại (`chua_dat`/`chua_the_hien`) → `"KN"`
+     (tự động tô đỏ nhờ phần A). Thêm fail-safe: giá trị lạ/thiếu mặc định về
+     `"KN"` (không bao giờ âm thầm thành "Đạt"/rỗng nếu dữ liệu bất thường lọt
+     qua Pydantic).
+  3. `densucco_reader.py`: sửa `_BINH_BOT_TREO_BLOCK` (B12 id 14,15) đổi từ
+     `"dat"` sang `"khong_ap_dung"` khi không thiết kế (đúng theo yêu cầu vá
+     lại của owner — bản trước dùng "dat" tạm thời). Thêm block mới
+     `_BINH_KHI_TU_DONG_BLOCK` cho nhóm **"Trang bị, bố trí bình khí, bình
+     sol-khí chữa cháy tự động kích hoạt"** (B12 id **17,18,19,20,21,22** —
+     đã tự tra qua `load_criteria_rows("binh_chua_chay")`, xác nhận đây là
+     nhóm tôi từng ghi nhận ở bản khảo sát trước là "tuỳ chọn, chưa được yêu
+     cầu xử lý" — nay owner xác nhận xử lý cùng lúc). Cả 2 nhóm dùng chung 1
+     hàm `_optional_item_block()` mới (DRY, tránh lặp code) — cùng khuôn: bản
+     vẽ không thể hiện → `"khong_ap_dung"` + `"Không có thiết kế [tên hạng
+     mục]"`, không sinh kiến nghị nào.
+- **26 test mới/sửa**: `test_mdc_filler.py` (mới, 5 test — trực tiếp mở lại
+  file `.docx` vừa sinh, đọc màu run thật của cột Kết luận, xác nhận áp dụng
+  cho cả B14 lẫn B12 tức "dùng chung cho mọi hạng mục"); 
+  `test_aiho_answers_from_items.py` (mới, 7 test — khoá đúng ánh xạ 4 giá trị
+  + fail-safe); `test_densucco_reader_prompt_content.py` (thêm 2 test cho
+  block bình khí tự động + 1 test xác nhận "khong_ap_dung" xuất hiện trong cả
+  2 prompt); `test_aiho_read_routes.py` (viết lại 1 test hiện có thành
+  **end-to-end thật**: mô phỏng AI trả `"khong_ap_dung"` cho id=14 VÀ
+  `"chua_dat"` thật cho 1 id khác trong CÙNG 1 response, mở file `.docx` thật
+  sinh ra từ route, xác nhận đúng lúc: ô id=14 rỗng KHÔNG tô đỏ, ô có "KN"
+  tô đỏ đúng, ô "Đạt" khác không tô đỏ — kiểm chứng phần A+B hoạt động đúng
+  CÙNG NHAU qua toàn bộ pipeline thật, không chỉ từng phần riêng lẻ).
+  `pytest -q` xác nhận **654/654 test backend pass** (từ 640), không hồi quy.
+- **CHƯA commit** — chờ owner xem mô tả kết quả mẫu bằng chữ (không gọi AI
+  thật) trước khi duyệt.
+
 ## Batch 5A — Xác thực email, Bộ hồ sơ và chuyển khoản thủ công — **HOÀN THÀNH (5/5 sub-bước)**
 
 **Mục tiêu:** chuyển mô hình quota "N lượt/ngày" hiện tại sang mô hình

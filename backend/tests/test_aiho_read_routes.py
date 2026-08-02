@@ -7,9 +7,12 @@ form).
 
 KHÔNG gọi AI thật — mock app.routes.aiho.get_provider hoàn toàn."""
 
+import base64
 import io
 import json
 from unittest.mock import patch
+
+from docx import Document
 
 from app.models import HoSoSession
 from app.providers.base import GenerationResult, ProviderNotConfigured
@@ -537,11 +540,12 @@ def test_densucco_form_cap_exceeded_returns_400(client):
 # tuan thu prompt hay khong - chi xac nhan CODE xu ly dung khi AI tra loi theo
 # dung dinh dang da huong dan trong prompt).
 # ---------------------------------------------------------------------------
-def test_densucco_binh_bot_treo_absent_does_not_generate_bo_sung_kien_nghi(client):
+def test_densucco_binh_bot_treo_absent_leaves_ket_luan_cell_blank_not_red(client):
     """Mo phong AI tuan thu huong dan: id=14,15 (binh bot treo) vang mat tren
-    ban ve -> AI tra ve 'dat' (khong phai 'chua_the_hien') - dam bao code
-    khong tu sinh kien nghi 'Bo sung' cho 2 id nay (vi ket_luan=dat khong bao
-    gio sinh kien nghi, theo dung Buoc 2 cua prompt)."""
+    ban ve -> AI tra ve 'khong_ap_dung' (khong phai 'dat'/'chua_the_hien') -
+    dam bao: (1) khong sinh kien nghi 'Bo sung' nao, (2) o "Ket luan" trong
+    MDC that su duoc DE TRONG (khong phai "KN"/to do) - kiem tra ca response
+    JSON lan file .docx that duoc sinh ra (Phan A + B ket hop, end-to-end)."""
     token, _ = _register_login_and_grant(client, email="aihoread17@pccc.local")
     session_id = _open_session(client, token)
 
@@ -551,11 +555,15 @@ def test_densucco_binh_bot_treo_absent_does_not_generate_bo_sung_kien_nghi(clien
             items = []
             for r in rows:
                 if r["id"] in (14, 15):
-                    items.append({"id": r["id"], "noi_dung_thiet_ke": "Không có thiết kế bình bột chữa cháy tự động loại treo", "ket_luan": "dat"})
+                    items.append({"id": r["id"], "noi_dung_thiet_ke": "Không có thiết kế bình bột chữa cháy tự động kích hoạt loại treo", "ket_luan": "khong_ap_dung"})
+                elif r["id"] == 12:  # 1 id "chua_dat" that su - de doi chieu mau do van hoat dong dung
+                    items.append({"id": r["id"], "noi_dung_thiet_ke": "Bố trí sai vị trí", "ket_luan": "chua_dat"})
                 else:
                     items.append({"id": r["id"], "noi_dung_thiet_ke": "ok", "ket_luan": "dat"})
             return json.dumps({
-                "items": items, "tong_ket": "ok", "kien_nghi": EMPTY_KIEN_NGHI, "so_hieu_ban_ve": "BB-01",
+                "items": items, "tong_ket": "ok",
+                "kien_nghi": {"I_chua_the_hien": [], "II_chua_thong_nhat": [], "III_chua_phu_hop": ["Bố trí lại (Căn cứ điều 5)."], "IV_de_xuat_bo_sung": []},
+                "so_hieu_ban_ve": "BB-01",
             })
         rows = mdc_filler.load_criteria_rows("den_su_co")
         return json.dumps({
@@ -565,15 +573,35 @@ def test_densucco_binh_bot_treo_absent_does_not_generate_bo_sung_kien_nghi(clien
 
     provider = FakeProvider(fn=fake_generate)
     with patch("app.routes.aiho.get_provider", return_value=provider):
-        resp = _upload(client, token, session_id, path="/api/aiho/read-densucco")
+        resp = _upload(client, token, session_id, path="/api/aiho/read-densucco", extra_form={"outputs": "mdc"})
 
     assert resp.status_code == 200
     data = resp.get_json()
     binh_items = {i["id"]: i for i in data["forms"]["binh_chua_chay"]["items"]}
-    assert binh_items[14]["ket_luan"] == "dat"
-    assert binh_items[14]["noi_dung_thiet_ke"] == "Không có thiết kế bình bột chữa cháy tự động loại treo"
-    for group in data["kien_nghi"].values():
-        assert group == []  # khong co kien nghi "Bo sung" nao duoc sinh ra
+    assert binh_items[14]["ket_luan"] == "khong_ap_dung"
+    assert binh_items[14]["noi_dung_thiet_ke"] == "Không có thiết kế bình bột chữa cháy tự động kích hoạt loại treo"
+    assert data["kien_nghi"]["I_chua_the_hien"] == []
+    assert data["kien_nghi"]["IV_de_xuat_bo_sung"] == []
+    assert "Bố trí lại" in data["kien_nghi"]["III_chua_phu_hop"][0]  # kien nghi that (chua_dat) van di qua binh thuong
+
+    # Phan A+B ket hop: mo file .docx that, xac nhan id=14 (khong_ap_dung) de
+    # trong KHONG to do, id=12 (chua_dat -> "KN") duoc to do, id dat khac khong to do.
+    binh_chua_chay_file = next(f for f in data["mdc_docx_files"] if f["loai"] == "binh_chua_chay")
+    docx_bytes = base64.b64decode(binh_chua_chay_file["base64"])
+    doc = Document(io.BytesIO(docx_bytes))
+    table = doc.tables[0]
+
+    cell_14 = table.rows[14].cells[mdc_filler.COL_KET_LUAN]
+    assert cell_14.text == ""
+    assert not cell_14.paragraphs[0].runs or cell_14.paragraphs[0].runs[0].font.color.rgb != mdc_filler.MAU_DO
+
+    cell_12 = table.rows[12].cells[mdc_filler.COL_KET_LUAN]
+    assert cell_12.text == "KN"
+    assert cell_12.paragraphs[0].runs[0].font.color.rgb == mdc_filler.MAU_DO
+
+    cell_2 = table.rows[2].cells[mdc_filler.COL_KET_LUAN]  # id=2, ket_luan="dat" -> "Đạt", khong to do
+    assert cell_2.text == "Đạt"
+    assert not cell_2.paragraphs[0].runs or cell_2.paragraphs[0].runs[0].font.color.rgb != mdc_filler.MAU_DO
 
 
 def test_densucco_insufficient_scope_info_kien_nghi_flows_to_nhom_iv(client):

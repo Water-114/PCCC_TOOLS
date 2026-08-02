@@ -1,13 +1,15 @@
-"""Batch 4 (mở rộng) — khoá lại nội dung 5 khối hướng dẫn đặc biệt trong system
+"""Batch 4 (mở rộng) — khoá lại nội dung 6 khối hướng dẫn đặc biệt trong system
 prompt của densucco_reader.py (B12/B13), theo đúng chỉ đạo nghiệp vụ của owner
 (không phải suy đoán — ngưỡng số lấy từ backend/app/services/phuong_tien.py):
 
 1. B12 id 4,7,8,9,10,11 (mức nguy hiểm + tính bình) — yêu cầu nêu rõ nguồn xác
    định công năng, KHÔNG đổi ngưỡng/logic đối chiếu.
-2. B12 id 14,15 (bình bột tự động treo) — tuỳ chọn, không "Bổ sung" khi vắng.
-3. B12 id 28,29 (mặt nạ lọc độc) — thuộc diện theo evaluate_mat_na().
-4. B13 id 15,19 (biển tầm thấp) — thuộc diện theo evaluate_den().
-5. B13 id 24,25,26 (loa thông báo) — thuộc diện theo evaluate_loa().
+2. B12 id 14,15 (bình bột tự động treo) — tuỳ chọn, "khong_ap_dung" khi vắng.
+3. B12 id 17,18,19,20,21,22 (bình khí/sol-khí tự động) — tuỳ chọn, cùng khuôn
+   xử lý với id 14,15 ("khong_ap_dung" khi vắng).
+4. B12 id 28,29 (mặt nạ lọc độc) — thuộc diện theo evaluate_mat_na().
+5. B13 id 15,19 (biển tầm thấp) — thuộc diện theo evaluate_den().
+6. B13 id 24,25,26 (loa thông báo) — thuộc diện theo evaluate_loa().
 
 Không gọi AI thật — chỉ kiểm tra chuỗi system prompt sinh ra có đúng nội dung
 mong đợi hay không (test hồi quy cho prompt engineering, không phải hành vi
@@ -27,12 +29,25 @@ def test_muc_nguy_hiem_block_present_with_correct_ids():
     assert set(BINH_TBL.keys()) == {"thap", "tb", "cao"}
 
 
-def test_binh_bot_treo_block_present_and_not_bo_sung_when_absent():
+def test_binh_bot_treo_block_present_and_khong_ap_dung_when_absent():
     assert "YÊU CẦU RIÊNG CHO id=14, 15" in BINH_PROMPT
     assert "TUỲ CHỌN" in BINH_PROMPT
-    assert '"ket_luan": "dat" (KHÔNG phải "chua_the_hien")' in BINH_PROMPT
-    assert "Không có thiết kế bình bột chữa cháy tự động loại treo" in BINH_PROMPT
+    assert '"ket_luan": "khong_ap_dung"' in BINH_PROMPT
+    assert "Không có thiết kế bình bột chữa cháy tự động kích hoạt loại treo" in BINH_PROMPT
     assert "KHÔNG tạo kiến nghị" in BINH_PROMPT
+
+
+def test_binh_khi_tu_dong_block_present_and_khong_ap_dung_when_absent():
+    assert "YÊU CẦU RIÊNG CHO id=17, 18, 19, 20, 21, 22" in BINH_PROMPT
+    assert "TUỲ CHỌN" in BINH_PROMPT
+    assert "Không có thiết kế bình khí, bình sol-khí chữa cháy tự động kích hoạt" in BINH_PROMPT
+    assert "KHÔNG tạo kiến nghị" in BINH_PROMPT
+    assert "TCVN 12314-2:2022" in BINH_PROMPT
+
+
+def test_ket_luan_enum_mentions_khong_ap_dung_for_both_forms():
+    assert "khong_ap_dung" in BINH_PROMPT
+    assert "khong_ap_dung" in DEN_PROMPT
 
 
 def test_mat_na_block_present_matches_evaluate_mat_na_thresholds():
@@ -85,6 +100,7 @@ def test_special_blocks_do_not_appear_in_wrong_prompt():
     """Block dac thu cua B12 khong duoc lot sang B13 va nguoc lai."""
     assert "YÊU CẦU RIÊNG CHO id=4, 7, 8, 9, 10, 11" not in DEN_PROMPT
     assert "YÊU CẦU RIÊNG CHO id=14, 15" not in DEN_PROMPT
+    assert "YÊU CẦU RIÊNG CHO id=17, 18, 19, 20, 21, 22" not in DEN_PROMPT
     assert "YÊU CẦU RIÊNG CHO id=28, 29" not in DEN_PROMPT
     assert "YÊU CẦU RIÊNG CHO id=15, 19" not in BINH_PROMPT
     assert "YÊU CẦU RIÊNG CHO id=24, 25, 26" not in BINH_PROMPT

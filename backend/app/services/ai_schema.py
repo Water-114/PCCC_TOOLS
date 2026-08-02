@@ -11,7 +11,11 @@ from pydantic import BaseModel, Field, ValidationError
 MAX_NOI_DUNG_LEN = 3000
 KHONG_XAC_DINH_SO_HIEU = "Không xác định được số hiệu bản vẽ"
 
-KetLuan = Literal["dat", "chua_dat", "chua_the_hien"]
+# "khong_ap_dung": mục TUỲ CHỌN (vd bình bột/bình khí tự động treo) mà công
+# trình không thiết kế — KHÔNG phải thiếu sót, khác "chua_the_hien" (đáng lẽ
+# phải có nhưng bản vẽ chưa thể hiện). Cột "Kết luận" trong MĐC để TRỐNG cho
+# giá trị này (xem routes/aiho.py _answers_from_items(), mdc_filler.fill_docx()).
+KetLuan = Literal["dat", "chua_dat", "chua_the_hien", "khong_ap_dung"]
 
 
 class SchemaValidationError(Exception):

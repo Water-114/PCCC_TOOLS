@@ -5,6 +5,9 @@ khoá vào TEMPLATE_PATHS/TEMPLATE_FILENAMES bên dưới.
 
 Nguyên tắc theo đúng references/quy-tac-dien-form.md của skill ra-mau-doi-chieu-pccc:
 chỉ điền cột 3, tô đỏ nội dung mới, giữ nguyên 100% các cột còn lại và bố cục bảng.
+Cột "Kết luận" (cột 5): tô đỏ CHỈ khi giá trị là "KN" (kiến nghị/chưa đạt) —
+"Đạt" và rỗng (mục không áp dụng) giữ màu mặc định. Áp dụng chung cho MỌI
+hạng mục, không riêng form nào.
 """
 
 import io
@@ -23,6 +26,7 @@ TEMPLATE_PATHS = {
     "chua_chay_tu_dong": TEMPLATES_DIR / "B6_chua_chay_tu_dong.docx",
     "binh_chua_chay": TEMPLATES_DIR / "B12_binh_chua_chay.docx",
     "den_su_co": TEMPLATES_DIR / "B13_den_su_co.docx",
+    "quy_mo": TEMPLATES_DIR / "A_quy_mo.docx",
 }
 TEMPLATE_FILENAMES = {
     "thuong": "B1_MDC_bao_chay_thuong.docx",
@@ -33,6 +37,7 @@ TEMPLATE_FILENAMES = {
     "chua_chay_tu_dong": "B6_MDC_chua_chay_tu_dong.docx",
     "binh_chua_chay": "B12_MDC_binh_chua_chay.docx",
     "den_su_co": "B13_MDC_den_su_co.docx",
+    "quy_mo": "A_MDC_quy_mo.docx",
 }
 
 COL_DOI_CHIEU = 1
@@ -98,7 +103,12 @@ def fill_docx(loai: str, answers: list) -> bytes:
         cell.text = ans.get("noi_dung_thiet_ke") or ""
         if cell.paragraphs[0].runs:
             cell.paragraphs[0].runs[0].font.color.rgb = MAU_DO
-        row.cells[COL_KET_LUAN].text = ans.get("ket_luan") or ""
+
+        ket_luan_cell = row.cells[COL_KET_LUAN]
+        ket_luan_text = ans.get("ket_luan") or ""
+        ket_luan_cell.text = ket_luan_text
+        if ket_luan_text == "KN" and ket_luan_cell.paragraphs[0].runs:
+            ket_luan_cell.paragraphs[0].runs[0].font.color.rgb = MAU_DO
 
     buf = io.BytesIO()
     doc.save(buf)

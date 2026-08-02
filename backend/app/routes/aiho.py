@@ -39,6 +39,9 @@ def _sniff_magic_bytes(data: bytes, media_type: str) -> bool:
     return any(data.startswith(p) for p in prefixes)
 
 
+_KET_LUAN_TO_DOCX = {"dat": "Đạt", "khong_ap_dung": ""}
+
+
 def _answers_from_items(items):
     answers = []
     for item in items:
@@ -46,10 +49,13 @@ def _answers_from_items(items):
             row_id = int(item.get("id"))
         except (TypeError, ValueError):
             continue
+        # "khong_ap_dung" (muc tuy chon khong thiet ke) -> de trong cot Ket
+        # luan, khong phai "KN" - khac voi chua_dat/chua_the_hien (that su
+        # can kien nghi). Xem ai_schema.KetLuan.
         answers.append({
             "id": row_id,
             "noi_dung_thiet_ke": item.get("noi_dung_thiet_ke"),
-            "ket_luan": "Đạt" if item.get("ket_luan") == "dat" else "KN",
+            "ket_luan": _KET_LUAN_TO_DOCX.get(item.get("ket_luan"), "KN"),
         })
     return answers
 
