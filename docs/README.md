@@ -13,6 +13,7 @@
 3. [Quy tắc kiểm thử, review và deploy](03-quality-release-gates.md)
 4. [Prompt handoff cho Claude](CLAUDE-HANDOFF-PROMPT.md)
 5. [Runbook migration/rollback (từ Batch 2)](04-migration-runbook.md)
+6. [Runbook incident — AI provider down, rollback deployment, revoke secret (từ Batch 5)](05-incident-runbook.md)
 
 ## Phạm vi hiện tại
 

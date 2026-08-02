@@ -784,7 +784,7 @@ sót của sub-bước 4, không phải sub-bước 5):**
   không thể xảy ra; sẽ thêm validate frontend thật khi có hạng mục mới khiến
   ngưỡng này chạm được trong luồng UI bình thường.
 
-## Batch 5 — UAT và release readiness
+## Batch 5 — UAT và release readiness — **ĐANG TRIỂN KHAI (3/5 việc xong hoặc một phần, còn thiếu monitoring/alerting và quyết định Redis/worker)**
 
 **Mục tiêu:** đưa production (một PostgreSQL production duy nhất —
 `pccc-trolynghiepvu-db`, không có staging riêng, xem
@@ -792,27 +792,72 @@ sót của sub-bước 4, không phải sub-bước 5):**
 mở cho người dùng, và quyết định có cần tăng độ phức tạp (worker/Redis) hay
 không.
 
+**Tiến độ — đã làm:**
+
+- **Lập runbook incident** — xong (tôi làm, chỉ tài liệu), xem
+  [docs/05-incident-runbook.md](05-incident-runbook.md): AI provider down
+  (dựa trên circuit breaker có sẵn từ Batch 4,
+  `backend/app/providers/resilience.py`), rollback deployment (quy trình
+  Render Dashboard), rollback migration (tóm tắt + link `04-migration-runbook.md`),
+  revoke secret (bảng đầy đủ từng loại secret hiện có + nơi rotate). Vẫn
+  **chưa diễn tập thật** rollback deployment/revoke secret trên production —
+  ghi rõ trong phần "Khoảng trống chưa có" của file đó.
+- **`DATABASE_URL` production + migration thật** — xong. **Owner xác nhận
+  trực tiếp** (2026-08-02, lúc xử lý một sự cố production ngoài phạm vi các
+  commit của tôi): đã gắn `DATABASE_URL` thủ công trên Render Dashboard
+  (không commit vào `render.yaml`, đúng chủ đích bảo mật) và chạy `flask db
+  upgrade` **thật thành công** trên `pccc-trolynghiepvu-db` — `flask db
+  current` = `4ca63b0c73f2` (head), `/api/health` trả `database: ok` trên
+  chính production. Đánh giá trước đó của tôi (dựa trên đọc `render.yaml`
+  trong repo, không thấy được cấu hình Dashboard thật) rằng mục này "chưa
+  làm" là **sai** — đã sửa lại trong `docs/03-quality-release-gates.md`.
+- **Smoke test thật trên production** — đã làm **một phần** (owner xác nhận
+  2026-08-02, cùng lúc xử lý sự cố trên): đăng ký, xác thực email qua SMTP
+  thật, đăng nhập, gọi AI thật hạng mục Điện PCCC chạy đúng, nạp tiền + admin
+  xác nhận, số dư đúng. Đây là smoke test thật, không phải suy luận — nhưng
+  **chưa phải UAT đầy đủ theo đúng checklist hình thức** (chưa đo p50/p95 AI
+  và tỷ lệ lỗi có hệ thống, chưa có người nghiệp vụ ký xác nhận UAT).
+- **Rà checklist "Điều kiện cấm deploy production"** — xong, xem mục "Rà soát
+  hiện trạng checklist trên" trong `docs/03-quality-release-gates.md` (đã cập
+  nhật theo xác nhận của owner ở trên). Kết luận hiện tại: **chỉ còn 1/6 mục
+  thực sự chặn deploy** — chưa có lệnh `APPROVE DEPLOY PRODUCTION`. Test
+  617/617 pass, lint sạch, không secret nào lộ trong git history, output demo
+  được ghi nhãn rõ ràng.
+
+**Còn thiếu thật sự** (chưa có xác nhận nào cho 2 mục này):
+
+- Monitoring lỗi/alerting tự động — hiện chỉ có `/api/health` + log mặc định
+  Render, chưa có cảnh báo tự động khi lỗi (structured logging tập trung
+  cũng chưa có, xem `docs/05-incident-runbook.md` mục "Khoảng trống chưa có").
+- Quyết định có cần Redis/worker hay không (xem
+  `docs/01-target-architecture.md` mục "AI ở giai đoạn đơn giản").
+- UAT hình thức đầy đủ (đo p50/p95, tỷ lệ lỗi, chữ ký xác nhận của người
+  nghiệp vụ) — khác với smoke test thật đã làm một phần ở trên.
+
 **Công việc**
 
-- Gắn `DATABASE_URL` vào web service, chạy `flask db upgrade` trên
-  `pccc-trolynghiepvu-db` theo đúng `docs/04-migration-runbook.md` (backup
-  trước, xác nhận `flask db current` sau) — đóng 4 gate còn treo từ Batch 2.
-- Thiết lập monitoring lỗi, structured logging, health/readiness check
+- [x] Gắn `DATABASE_URL` vào web service, chạy `flask db upgrade` trên
+  `pccc-trolynghiepvu-db` theo đúng `docs/04-migration-runbook.md` — đóng
+  gate migration Postgres thật còn treo từ Batch 2 (owner xác nhận trực
+  tiếp, xem "Tiến độ" ở trên).
+- [ ] Thiết lập monitoring lỗi, structured logging, health/readiness check
   (`/api/health` đã kiểm tra kết nối database thật từ Batch 2).
-- Chạy smoke test và UAT theo checklist ngay trên production (vì không có
-  staging riêng) — thực hiện ở khung giờ kiểm soát được, trước khi mời
-  người dùng thật, và có kế hoạch rollback nhanh nếu phát hiện lỗi; đo
-  p50/p95 AI và tỷ lệ lỗi.
-- Lập runbook incident: AI provider down, rollback deployment, rollback
+- [ ] Chạy smoke test và UAT theo checklist ngay trên production — đã làm
+  **một phần** thật (xem "Tiến độ" ở trên: đăng ký/xác thực email/đăng
+  nhập/AI thật/nạp tiền+admin xác nhận), còn thiếu đo p50/p95 + tỷ lệ lỗi có
+  hệ thống và chữ ký xác nhận UAT của người nghiệp vụ.
+- [x] Lập runbook incident: AI provider down, rollback deployment, rollback
   migration (đã có runbook migration cơ bản, bổ sung phần incident khác),
-  revoke secret.
-- Quyết định có cần Redis/worker theo ngưỡng trong kiến trúc mục tiêu hay
+  revoke secret — xong, xem "Tiến độ" ở trên.
+- [ ] Quyết định có cần Redis/worker theo ngưỡng trong kiến trúc mục tiêu hay
   không (xem `docs/01-target-architecture.md` mục "AI ở giai đoạn đơn giản").
 
 **Gate kiểm tra**
 
 - 4 gate còn treo từ Batch 2 (migration Postgres thật, smoke test, restart
-  không mất dữ liệu, review backup/rollback) đã pass.
+  không mất dữ liệu, review backup/rollback) — migration Postgres thật và
+  smoke test nay có xác nhận một phần (xem "Tiến độ"); restart không mất dữ
+  liệu và review backup/rollback CHƯA có xác nhận nào.
 - Không có lỗi P0/P1 mở.
 - Security checklist pass và secret không xuất hiện trong repository/log.
 - UAT được người nghiệp vụ ký xác nhận.

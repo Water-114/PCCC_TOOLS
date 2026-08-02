@@ -64,6 +64,63 @@ Root static UI cần có thêm script kiểm tra cú pháp tất cả file trong
 - `SECRET_KEY`, API key hoặc database URL xuất hiện trong git diff/log.
 - Chưa có phê duyệt rõ ràng bằng câu lệnh `APPROVE DEPLOY PRODUCTION` từ người sở hữu dự án.
 
+## Rà soát hiện trạng checklist trên (cập nhật 2026-08-02, chuẩn bị đóng Batch 5)
+
+Rà từng mục dựa trên bằng chứng cụ thể (đọc source/chạy lệnh thật) khi có
+thể; khi không tự kiểm tra được (cấu hình/trạng thái thật trên Render
+Dashboard, ngoài tầm với của tôi), ghi rõ nguồn là **xác nhận trực tiếp của
+owner**, không phải suy luận từ repo. **Kết luận: chỉ còn 1/6 mục thực sự
+CHẶN deploy ngay bây giờ** (mục 6 — chưa có lệnh phê duyệt) — các mục còn
+lại PASS.
+
+1. **Lỗi P0/P1 chưa được owner chấp nhận** — Không có bug tracker chính thức
+   trong repo để đối chiếu tuyệt đối. Trong phiên làm việc gần nhất, đã phát
+   hiện và **sửa xong** 2 lỗi thật mức nghiêm trọng cao: (a) luồng xác thực
+   email chưa từng được nối vào frontend — mọi tài khoản đăng ký mới bị kẹt
+   vĩnh viễn ở 0 Bộ hồ sơ (sửa, test, đã push ở commit `c963edb`); (b) bug
+   `auth.js` đọc DOM trước khi phần tử mới được parse xong, làm vỡ UI đăng
+   nhập (sửa, test, đã push ở commit `e5981a3`). Không biết P0/P1 nào khác
+   đang mở — nhưng đây là đánh giá theo phạm vi đã trực tiếp làm việc, **không
+   phải một audit toàn ứng dụng từ đầu**, nên không thể coi mục này là "đã rà
+   soát đầy đủ", chỉ là "không có gì đang biết là mở".
+2. **Backup database / migration diễn tập local** — PASS, đã cập nhật sau
+   xác nhận trực tiếp của owner (2026-08-02): đánh giá trước đó của tôi ("chưa
+   gắn `DATABASE_URL`") chỉ dựa trên đọc `render.yaml` trong repo — **sai**,
+   vì `DATABASE_URL` production được gắn **thủ công trực tiếp trên Render
+   Dashboard** theo đúng chủ đích bảo mật (không commit vào `render.yaml`),
+   nên tôi không thể tự thấy được qua git. Owner xác nhận: đã gắn
+   `DATABASE_URL` và chạy `flask db upgrade` **thật thành công** trên
+   `pccc-trolynghiepvu-db` production cùng ngày, `flask db current` trả về
+   đúng revision mới nhất (`4ca63b0c73f2`, head), và `/api/health` trả về
+   `database: ok` trên chính production thật (không phải local) — trong lúc
+   xử lý một sự cố production ngoài phạm vi các commit của tôi. Migration
+   local trước đó (SQLite, upgrade/downgrade/upgrade lại) vẫn đúng như đã ghi
+   ở `docs/04-migration-runbook.md`; nay đã có thêm xác nhận migration THẬT
+   trên Postgres production.
+3. **Test bắt buộc không chạy/pass** — PASS. Vừa chạy lại xác nhận:
+   `pytest -q` → 617/617 pass; `npm run lint` → sạch (chỉ còn các cảnh báo cũ
+   không liên quan, đã biết từ trước).
+4. **Output demo trình bày như kết quả AI thật** — PASS theo đúng thiết kế:
+   3 hạng mục (Báo cháy tự động, Chữa cháy bằng nước, Điện PCCC) gọi AI thật;
+   các hạng mục còn lại vẫn minh hoạ nhưng được ghi rõ ràng ngay trong UI
+   (`index.html`, phần giới thiệu tab AIHO: "...các hạng mục còn lại vẫn
+   đang minh hoạ, chưa đọc bản vẽ thật") — không trình bày như kết quả thật.
+5. **`SECRET_KEY`/API key/database URL trong git diff/log** — PASS. Đã quét
+   lại **toàn bộ lịch sử git** (`git log --all -p`) tìm pattern API key thật
+   (`sk-ant-api03-...`, `AIzaSy...`) và giá trị gán trực tiếp cho
+   `SECRET_KEY`/`ANTHROPIC_API_KEY`/`GEMINI_API_KEY`/`SMTP_PASSWORD`/chuỗi
+   kết nối Postgres có mật khẩu thật — 0 kết quả thật, chỉ có đúng 1 dòng ví
+   dụ minh hoạ rõ ràng là giả trong `.env.example`
+   (`postgres://user:password@dpg-xxxxxxxx-...`). Không có file `.env`/
+   credentials nào từng được commit trong lịch sử.
+6. **Phê duyệt `APPROVE DEPLOY PRODUCTION`** — **CHƯA CÓ**, xác nhận chưa
+   từng có lệnh này trong toàn bộ quá trình làm việc tới nay. Tự mục này đã
+   đủ để chặn deploy bất kể các mục khác, đúng theo thiết kế gate.
+
+Xem thêm [docs/05-incident-runbook.md](05-incident-runbook.md) (mới, Batch 5)
+cho runbook incident bổ sung (AI provider down, rollback deployment, revoke
+secret) — phần "Lập runbook incident" của Batch 5.
+
 ## Dữ liệu và trách nhiệm chuyên môn
 
 - Không tải bản vẽ/hồ sơ khách hàng thật lên staging hay môi trường AI test nếu chưa có quyền xử lý dữ liệu.
