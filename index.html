@@ -26,12 +26,16 @@
 </nav>
 <div class="subnav no-print" id="globalAuthBar">
   <div class="subnav-inner" style="justify-content:space-between">
-    <span id="authStatus" style="font-family:var(--sans);font-size:13.5px;font-weight:600;color:var(--ink)">Chưa đăng nhập</span>
+    <span style="display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span id="authStatus" style="font-family:var(--sans);font-size:13.5px;font-weight:600;color:var(--ink)">Chưa đăng nhập</span>
+      <button type="button" class="btn-ghost" id="authResendBtn" style="padding:4px 10px;font-size:12px" hidden>Gửi lại email xác thực</button>
+    </span>
     <span>
       <button type="button" class="btn-ghost" id="authOpenBtn" style="padding:6px 14px;font-size:13px">Đăng nhập / Đăng ký</button>
       <button type="button" class="btn-ghost" id="authLogoutBtn" style="padding:6px 14px;font-size:13px" hidden>Đăng xuất</button>
     </span>
   </div>
+  <div class="gas-msg" id="authGlobalMsg" role="status" style="max-width:880px;margin:0 auto"></div>
 </div>
 
 <div class="modal-overlay" id="authModal" hidden>

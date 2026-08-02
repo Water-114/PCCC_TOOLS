@@ -598,6 +598,74 @@ sub-bước cuối cùng của Batch 5A):**
   góp ý (theo đúng phương án đã chọn); không đổi luồng góp ý ẩn danh (vẫn nhận
   bình thường, chỉ không bao giờ được tính vào thưởng).
 
+**Vá lỗi production phát hiện SAU KHI Batch 5A đã đánh dấu HOÀN THÀNH (thiếu
+sót của sub-bước 4, không phải sub-bước 5):**
+
+- **Lỗi thật trên production**: route backend `POST
+  /api/auth/send-verification-email` và `POST /api/auth/verify-email` đã có
+  từ sub-bước 1, nhưng `js/auth.js` **chưa bao giờ được nối vào 2 route này**
+  — đăng ký xong không tự gửi email xác thực, và không có chỗ nào đọc query
+  param `?verify-email=TOKEN` từ link trong email để gọi route xác thực. Hệ
+  quả: **mọi tài khoản đăng ký xong bị kẹt vĩnh viễn ở 0 Bộ hồ sơ**, không có
+  cách nào tự lấy được 2 Bộ hồ sơ dùng thử qua UI. Đây là thiếu sót của
+  **sub-bước 4** (lúc làm UI thật cho luồng "Bộ hồ sơ") — sub-bước đó nối đúng
+  UI nạp tiền/admin nhưng bỏ sót hẳn UI xác thực email dù route đã sẵn từ
+  sub-bước 1; không bị phát hiện lúc đó vì việc bấm thử thủ công (xem "Tiến độ
+  — Sub-bước 4") chỉ đi qua luồng nạp tiền, không đi qua luồng đăng ký mới +
+  xác thực email.
+- **`js/auth.js` — 3 chỗ sửa**: (1) sau khi `register()` thành công trong
+  handler submit form, tự động gọi `A.sendVerificationEmail()` (hàm mới,
+  `POST /api/auth/send-verification-email`), hiện banner mới `#authGlobalMsg`
+  (thanh nav, tái dùng pattern `.gas-msg` + màu `var(--green)` như
+  `showTopupMsg`) với câu "Đã gửi email xác thực tới `<email>` — kiểm tra hộp
+  thư (kể cả Spam) để nhận 2 Bộ hồ sơ dùng thử."; (2) cuối IIFE, đọc query
+  param `verify-email` bằng `URLSearchParams(location.search)` lúc tải trang —
+  nếu có thì gọi `A.verifyEmail(token)` (hàm mới, `POST
+  /api/auth/verify-email`), hiện đúng thông báo thành công/lỗi từ response
+  backend, gọi `A.refreshMe()` để số dư cập nhật, rồi `history.replaceState`
+  xoá query param khỏi URL (tránh xử lý lặp nếu tải lại trang); (3) nút mới
+  `#authResendBtn` ("Gửi lại email xác thực") cạnh `#authStatus` trên thanh
+  nav, chỉ hiện khi đã đăng nhập VÀ `user.email_verified === false` — cho
+  trường hợp email đầu thất lạc/vào Spam.
+- **`backend/app/models.py`**: `User.to_public_dict()` trước đây KHÔNG có
+  field `email_verified` — thêm `"email_verified":
+  self.email_verified_at is not None` (field mới, additive, ảnh hưởng
+  `register`/`login`/`me` và cả 2 chỗ admin đang dùng `to_public_dict()` —
+  không phá gì vì chỉ thêm key mới). Đây là field frontend cần để biết lúc
+  nào hiện nút "Gửi lại email xác thực".
+- **Test**: 2 test backend mới (`test_auth.py` —
+  `test_register_response_reports_email_not_verified`,
+  `test_me_reports_email_verified_true_after_verification`) khoá lại field
+  `email_verified` đúng giá trị trước/sau khi xác thực thật; **617/617 test
+  backend pass** (từ 615), không hồi quy. Vì repo không có framework test JS
+  thường trực (đúng quyết định trước đó), 3 kịch bản JS theo đúng yêu cầu
+  (đăng ký tự gửi đúng 1 lần; tải trang có token hợp lệ gọi verify đúng + cập
+  nhật UI; token sai hiện lỗi rõ ràng không crash) được xác nhận bằng 1 script
+  Node chạy `js/auth.js` THẬT (không phải bản viết lại) trong 1 sandbox VM với
+  `document`/`fetch`/`localStorage`/`location`/`history` giả lập tối thiểu —
+  cùng kiểu "jsdom tạm trong scratchpad" đã dùng trước đó trong batch này,
+  không phải hạ tầng test JS mới thêm vào repo. Cả 3 kịch bản pass, không có
+  `unhandledRejection`.
+- **Đã tự bấm thử luồng thật trên trình duyệt** (do đây là bug chặn
+  production, không chỉ dừng ở test giả lập): dựng Flask thật trên 1 SQLite
+  tạm riêng (KHÔNG đụng `backend/app.db` thật, đã `flask db upgrade` đầy đủ),
+  `SMTP_HOST` để trống nên email xác thực chỉ log ra console thay vì gửi thật
+  — dùng chính log đó để lấy token thật (tương đương việc đọc email), dùng
+  Playwright (cài tạm qua `npm install --no-save`, gỡ lại sau khi xong) điều
+  khiển Chromium thật đi hết luồng: đăng ký → banner tự động "Đã gửi email xác
+  thực..." hiện đúng, nút "Gửi lại email xác thực" hiện đúng (chưa xác thực)
+  → mở link `?verify-email=<token thật>` → banner "Xác thực email thành công!
+  Đã cộng 2 Bộ hồ sơ dùng thử." → số dư nav đổi đúng thành "còn 2 Bộ hồ sơ",
+  nút resend tự ẩn → URL đã sạch query param → tải lại trang không xử lý lặp/
+  không lỗi → đăng ký user thứ 2, bấm nút "Gửi lại email xác thực" thủ công
+  xác nhận gọi lại đúng → mở link với token SAI xác nhận hiện đúng "Token xác
+  thực không hợp lệ.", không có `pageerror`/crash, URL vẫn được dọn sạch. Đã
+  dọn sạch sau khi xong: tắt server test, xoá DB tạm, gỡ Playwright — không có
+  gì sót lại ngoài `js/auth.js`/`index.html`/`backend/app/models.py` đã sửa.
+- **KHÔNG làm** (ngoài phạm vi vá lỗi này): không đổi `send-verification-email`/
+  `verify-email` route backend (đã đúng từ sub-bước 1, chỉ thiếu chỗ gọi từ
+  frontend); không đổi chính sách 2 Bộ hồ sơ/nạp tiền/feedback bonus.
+
 **Chính sách nghiệp vụ (owner quyết định, giữ nguyên khi triển khai)**
 
 - Tài khoản xác thực email lần đầu được đúng **2 Bộ hồ sơ** dùng thử.

@@ -46,6 +46,19 @@ window.PcccAuth = (function(){
       .then(function(r){ if(r.ok){ setToken(r.data.token); currentUser = r.data.user; notify(); } return r; });
   }
 
+  function sendVerificationEmail(){
+    return fetch(BACKEND_BASE + '/api/auth/send-verification-email', {
+      method: 'POST', headers: authHeaders()
+    }).then(function(res){ return res.json().then(function(data){ return {ok: res.ok, data: data}; }); });
+  }
+
+  function verifyEmail(token){
+    return fetch(BACKEND_BASE + '/api/auth/verify-email', {
+      method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({token: token})
+    }).then(function(res){ return res.json().then(function(data){ return {ok: res.ok, data: data}; }); })
+      .then(function(r){ if(r.ok){ currentUser = r.data.user; notify(); } return r; });
+  }
+
   function logout(){ setToken(null); currentUser = null; notify(); }
   function setUserBoHoSo(boHoSo){ if(currentUser){ currentUser.bo_ho_so = boHoSo; notify(); } }
 
@@ -57,6 +70,8 @@ window.PcccAuth = (function(){
     refreshMe: refreshMe,
     login: login,
     register: register,
+    sendVerificationEmail: sendVerificationEmail,
+    verifyEmail: verifyEmail,
     logout: logout,
     onChange: onChange,
     setUserBoHoSo: setUserBoHoSo
@@ -78,17 +93,27 @@ window.PcccAuth = (function(){
   var authToggleBtn = document.getElementById('authToggleBtn');
   var authToggleText = document.getElementById('authToggleText');
   var authModalTitle = document.getElementById('authModalTitle');
+  var authResendBtn = document.getElementById('authResendBtn');
+  var authGlobalMsg = document.getElementById('authGlobalMsg');
   var authMode = 'login';
+
+  function showAuthGlobalMsg(text, isError){
+    authGlobalMsg.textContent = text;
+    authGlobalMsg.style.color = isError ? '' : 'var(--green)';
+    authGlobalMsg.classList.toggle('show', !!text);
+  }
 
   function updateAuthUI(user){
     if(user){
       authStatusEl.textContent = user.email + ' · còn ' + user.bo_ho_so.con_lai + ' Bộ hồ sơ' + (user.role === 'admin' ? ' · admin' : '');
       authOpenBtn.hidden = true;
       authLogoutBtn.hidden = false;
+      authResendBtn.hidden = !!user.email_verified;
     } else {
       authStatusEl.textContent = 'Chưa đăng nhập';
       authOpenBtn.hidden = false;
       authLogoutBtn.hidden = true;
+      authResendBtn.hidden = true;
     }
   }
 
@@ -116,6 +141,7 @@ window.PcccAuth = (function(){
     e.preventDefault();
     var email = authEmail.value.trim();
     var password = authPassword.value;
+    var wasRegister = authMode === 'register';
     authSubmitBtn.disabled = true;
     var action = authMode === 'login' ? A.login : A.register;
     action(email, password).then(function(r){
@@ -126,6 +152,17 @@ window.PcccAuth = (function(){
         return;
       }
       window.closeAuthModal();
+      if(wasRegister){
+        A.sendVerificationEmail().then(function(vr){
+          if(vr.ok){
+            showAuthGlobalMsg('Đã gửi email xác thực tới ' + email + ' — kiểm tra hộp thư (kể cả Spam) để nhận 2 Bộ hồ sơ dùng thử.', false);
+          } else {
+            showAuthGlobalMsg(vr.data.error || 'Không gửi được email xác thực — vui lòng thử lại sau bằng nút "Gửi lại email xác thực".', true);
+          }
+        }).catch(function(){
+          showAuthGlobalMsg('Không kết nối được tới máy chủ — chưa gửi được email xác thực.', true);
+        });
+      }
     }).catch(function(){
       authSubmitBtn.disabled = false;
       authFormMsg.textContent = 'Không kết nối được tới máy chủ — kiểm tra backend đã chạy chưa.';
@@ -133,8 +170,47 @@ window.PcccAuth = (function(){
     });
   });
 
+  authResendBtn.addEventListener('click', function(){
+    authResendBtn.disabled = true;
+    A.sendVerificationEmail().then(function(vr){
+      authResendBtn.disabled = false;
+      var user = A.getUser();
+      if(vr.ok){
+        showAuthGlobalMsg('Đã gửi email xác thực tới ' + (user ? user.email : '') + ' — kiểm tra hộp thư (kể cả Spam) để nhận 2 Bộ hồ sơ dùng thử.', false);
+      } else {
+        showAuthGlobalMsg(vr.data.error || 'Không gửi được email xác thực — vui lòng thử lại sau.', true);
+      }
+    }).catch(function(){
+      authResendBtn.disabled = false;
+      showAuthGlobalMsg('Không kết nối được tới máy chủ — chưa gửi được email xác thực.', true);
+    });
+  });
+
   authLogoutBtn.addEventListener('click', function(){ A.logout(); });
 
   A.onChange(updateAuthUI);
-  A.refreshMe();
+
+  // Xu ly link xac thuc email dang ?verify-email=TOKEN (xem
+  // backend/app/routes/auth.py _verification_email_content) - tu dong goi
+  // verify-email luc tai trang, hien ket qua, roi xoa query param khoi URL de
+  // khong xu ly lap lai neu user tai lai trang (F5/bookmark link cu).
+  var verifyToken = new URLSearchParams(location.search).get('verify-email');
+  if(verifyToken){
+    A.verifyEmail(verifyToken).then(function(vr){
+      if(vr.ok){
+        showAuthGlobalMsg(vr.data.message || 'Xác thực email thành công!', false);
+      } else {
+        showAuthGlobalMsg(vr.data.error || 'Xác thực email thất bại — liên kết có thể sai hoặc đã hết hạn.', true);
+      }
+    }).catch(function(){
+      showAuthGlobalMsg('Không kết nối được tới máy chủ — chưa xác thực được email.', true);
+    }).then(function(){
+      A.refreshMe();
+      var url = new URL(location.href);
+      url.searchParams.delete('verify-email');
+      history.replaceState({}, '', url.toString());
+    });
+  } else {
+    A.refreshMe();
+  }
 })();

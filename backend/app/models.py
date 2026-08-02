@@ -47,7 +47,12 @@ class User(db.Model):
         return self.daily_quota if self.daily_quota is not None else Config.AIHO_DAILY_QUOTA
 
     def to_public_dict(self) -> dict:
-        return {"id": self.id, "email": self.email, "role": self.role}
+        return {
+            "id": self.id,
+            "email": self.email,
+            "role": self.role,
+            "email_verified": self.email_verified_at is not None,
+        }
 
 
 class UsageLog(db.Model):
