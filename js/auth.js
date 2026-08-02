@@ -97,10 +97,10 @@ document.addEventListener('DOMContentLoaded', function(){
   var authToggleBtn = document.getElementById('authToggleBtn');
   var authToggleText = document.getElementById('authToggleText');
   var authModalTitle = document.getElementById('authModalTitle');
-  var authResendBtn = document.getElementById('authResendBtn');
   var authGlobalMsg = document.getElementById('authGlobalMsg');
   var verifyEmailCta = document.getElementById('verifyEmailCta');
   var verifyEmailCtaBtn = document.getElementById('verifyEmailCtaBtn');
+  var verifyEmailCtaMsg = document.getElementById('verifyEmailCtaMsg');
   var authMode = 'login';
 
   function showAuthGlobalMsg(text, isError){
@@ -109,19 +109,29 @@ document.addEventListener('DOMContentLoaded', function(){
     authGlobalMsg.classList.toggle('show', !!text);
   }
 
+  // Nho email cua lan cuoi CTA hien de reset lai nut/thong bao khi doi sang
+  // tai khoan chua xac thuc KHAC (dang xuat roi dang nhap tai khoan khac) -
+  // khong reset khi van cung 1 tai khoan (vd updateAuthUI chay lai chi vi so
+  // du Bo ho so thay doi) de giu dung trang thai "da gui, khoa nut" nhu yeu cau.
+  var verifyEmailCtaShownFor = null;
   function updateAuthUI(user){
     if(user){
       authStatusEl.textContent = user.email + ' · còn ' + user.bo_ho_so.con_lai + ' Bộ hồ sơ' + (user.role === 'admin' ? ' · admin' : '');
       authOpenBtn.hidden = true;
       authLogoutBtn.hidden = false;
-      authResendBtn.hidden = !!user.email_verified;
       verifyEmailCta.hidden = !!user.email_verified;
+      if(!user.email_verified && verifyEmailCtaShownFor !== user.email){
+        verifyEmailCtaShownFor = user.email;
+        verifyEmailCtaBtn.disabled = false;
+        verifyEmailCtaBtn.textContent = 'Gửi email xác thực';
+        verifyEmailCtaMsg.classList.remove('show');
+      }
     } else {
       authStatusEl.textContent = 'Chưa đăng nhập';
       authOpenBtn.hidden = false;
       authLogoutBtn.hidden = true;
-      authResendBtn.hidden = true;
       verifyEmailCta.hidden = true;
+      verifyEmailCtaShownFor = null;
     }
   }
 
@@ -178,23 +188,31 @@ document.addEventListener('DOMContentLoaded', function(){
     });
   });
 
-  function handleSendVerificationEmailClick(btn){
-    btn.disabled = true;
+  function showVerifyEmailCtaMsg(text, isError){
+    verifyEmailCtaMsg.textContent = text;
+    verifyEmailCtaMsg.style.color = isError ? '' : 'var(--green)';
+    verifyEmailCtaMsg.classList.toggle('show', !!text);
+  }
+
+  verifyEmailCtaBtn.addEventListener('click', function(){
+    verifyEmailCtaBtn.disabled = true;
     A.sendVerificationEmail().then(function(vr){
-      btn.disabled = false;
       var user = A.getUser();
       if(vr.ok){
-        showAuthGlobalMsg('Đã gửi email xác thực tới ' + (user ? user.email : '') + ' — kiểm tra hộp thư (kể cả Spam) để nhận 2 Bộ hồ sơ dùng thử.', false);
+        // Khoa han nut lai (khong mo lai) - da gui thanh cong, tranh bam gui
+        // lien tuc; chi mo lai khi that su that bai (nhanh else ben duoi) hoac
+        // khi doi sang tai khoan khac (xem verifyEmailCtaShownFor o updateAuthUI).
+        verifyEmailCtaBtn.textContent = 'Đã gửi email xác thực';
+        showVerifyEmailCtaMsg('Đã gửi email xác thực tới ' + (user ? user.email : '') + ' — kiểm tra hộp thư (kể cả Spam) để nhận 2 Bộ hồ sơ dùng thử.', false);
       } else {
-        showAuthGlobalMsg(vr.data.error || 'Không gửi được email xác thực — vui lòng thử lại sau.', true);
+        verifyEmailCtaBtn.disabled = false;
+        showVerifyEmailCtaMsg(vr.data.error || 'Không gửi được email xác thực — vui lòng thử lại sau.', true);
       }
     }).catch(function(){
-      btn.disabled = false;
-      showAuthGlobalMsg('Không kết nối được tới máy chủ — chưa gửi được email xác thực.', true);
+      verifyEmailCtaBtn.disabled = false;
+      showVerifyEmailCtaMsg('Không kết nối được tới máy chủ — chưa gửi được email xác thực.', true);
     });
-  }
-  authResendBtn.addEventListener('click', function(){ handleSendVerificationEmailClick(authResendBtn); });
-  verifyEmailCtaBtn.addEventListener('click', function(){ handleSendVerificationEmailClick(verifyEmailCtaBtn); });
+  });
 
   authLogoutBtn.addEventListener('click', function(){ A.logout(); });
 

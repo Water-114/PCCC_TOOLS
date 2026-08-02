@@ -26,10 +26,7 @@
 </nav>
 <div class="subnav no-print" id="globalAuthBar">
   <div class="subnav-inner" style="justify-content:space-between">
-    <span style="display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <span id="authStatus" style="font-family:var(--sans);font-size:13.5px;font-weight:600;color:var(--ink)">Chưa đăng nhập</span>
-      <button type="button" class="btn-ghost" id="authResendBtn" style="padding:4px 10px;font-size:12px" hidden>Gửi lại email xác thực</button>
-    </span>
+    <span id="authStatus" style="font-family:var(--sans);font-size:13.5px;font-weight:600;color:var(--ink)">Chưa đăng nhập</span>
     <span>
       <button type="button" class="btn-ghost" id="authOpenBtn" style="padding:6px 14px;font-size:13px">Đăng nhập / Đăng ký</button>
       <button type="button" class="btn-ghost" id="authLogoutBtn" style="padding:6px 14px;font-size:13px" hidden>Đăng xuất</button>
@@ -836,7 +833,6 @@
 
   <section class="buoc" id="topupSection" hidden>
     <div class="buoc-tag"><span class="num">BỘ HỒ SƠ</span><h3>Số dư & nạp thêm</h3></div>
-    <p class="section-note">Mỗi lượt phân tích 1 công trình (tối đa 5 file bản vẽ, 7 form MĐC) trừ đúng 1 Bộ hồ sơ. Tài khoản mới xác thực email được cấp 2 Bộ hồ sơ dùng thử; nạp 100.000đ được cộng thêm 5 Bộ hồ sơ sau khi admin xác nhận đã nhận được chuyển khoản.</p>
 
     <div class="card" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px">
       <div>
@@ -856,6 +852,7 @@
       <div class="actions" style="margin:12px 0 0">
         <button type="button" class="btn-main" id="verifyEmailCtaBtn">Gửi email xác thực</button>
       </div>
+      <div class="gas-msg" id="verifyEmailCtaMsg" role="status" style="margin-top:10px"></div>
     </div>
 
     <div class="card" id="topupFlowCard" hidden style="margin-top:14px"></div>
