@@ -8,7 +8,15 @@ services:
     # Migration KHONG chay tu dong luc web instance start (xem docs/04-migration-runbook.md) -
     # chay "flask db upgrade" thu cong 1 lan qua Render Shell truoc khi trien khai release
     # co doi schema, tranh nhieu instance cung chay migration dong thoi khi scale > 1 instance.
-    startCommand: "gunicorn run:app --bind 0.0.0.0:$PORT --timeout 900"
+    # 2 worker (process) x 4 thread (gthread) = toi da 8 request dong thoi.
+    # Ly do dung gthread thay vi sync workers=1 mac dinh: 1 luot doc ban ve AI
+    # co the choan toi 900s (timeout ben duoi) - voi 1 worker sync, request do
+    # se treo CA SITE cho moi nguoi dung khac trong luc do (da xay ra tren
+    # production 2026-08-02). AI call la I/O-bound (cho mang) nen thread chia
+    # se duoc, khong can tang RAM nhu tang so process. Circuit breaker
+    # (resilience.py) da dung threading.Lock nen an toan khi nhieu thread dung
+    # chung 1 worker.
+    startCommand: "gunicorn run:app --bind 0.0.0.0:$PORT --timeout 900 --workers 2 --threads 4 --worker-class gthread"
     envVars:
       - key: FLASK_APP
         value: run:app
