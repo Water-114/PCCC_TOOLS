@@ -195,3 +195,63 @@ class HoSoSession(db.Model):
 
     user = db.relationship("User")
     ledger_entry = db.relationship("CreditLedger")
+
+
+class HoSoSessionQuyMo(db.Model):
+    """Dữ liệu "Quy mô" (Form A) của 1 phiên Bộ hồ sơ — 1-1 với HoSoSession,
+    lưu tách bảng riêng vì chỉ dùng khi user CÓ đính hạng mục Quy mô (không
+    bắt buộc). Tên cột giữ ĐÚNG tên field mà tham_dinh.py/he_thong_bat_buoc.py/
+    phuong_tien.py dùng (qua to_dict()) để truyền thẳng vào evaluate_*() không
+    cần lớp chuyển đổi tên. source: 'ai' | 'manual'. Xem quy_mo_store.py."""
+
+    __tablename__ = "ho_so_session_quy_mo"
+
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.Integer, db.ForeignKey("ho_so_session.id"), nullable=False, unique=True, index=True)
+    source = db.Column(db.String(10), nullable=False)  # 'ai' | 'manual'
+    occ = db.Column(db.String(30), nullable=True)
+    floors = db.Column(db.Integer, nullable=True)
+    basements = db.Column(db.Integer, nullable=True)
+    semi_basements = db.Column(db.Integer, nullable=True)
+    area_floor = db.Column(db.Float, nullable=True)
+    total_area = db.Column(db.Float, nullable=True)
+    volume = db.Column(db.Float, nullable=True)
+    h_fire = db.Column(db.Float, nullable=True)
+    kids = db.Column(db.Integer, nullable=True)
+    seats = db.Column(db.Integer, nullable=True)
+    hazard = db.Column(db.String(1), nullable=True)
+    gara_kin = db.Column(db.String(10), nullable=True)
+    gara_kc12 = db.Column(db.String(10), nullable=True)
+    gara_bcl = db.Column(db.String(10), nullable=True)
+    gara_cap_s = db.Column(db.String(10), nullable=True)
+    ppl_floor = db.Column(db.Integer, nullable=True)
+    ext_level = db.Column(db.String(10), nullable=True)
+    hanh_lang_dai_nhat = db.Column(db.Float, nullable=True)
+    created_at = db.Column(db.DateTime(timezone=True), default=_utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False)
+
+    session = db.relationship("HoSoSession")
+
+    def to_dict(self):
+        """Trả về dict dùng ĐÚNG tên field của QuyMoFields/evaluate_*() (camelCase),
+        KHÔNG phải tên cột snake_case — để pass-through thẳng vào evaluate_*()."""
+        return {
+            "occ": self.occ,
+            "floors": self.floors,
+            "basements": self.basements,
+            "semiBasements": self.semi_basements,
+            "areaFloor": self.area_floor,
+            "totalArea": self.total_area,
+            "volume": self.volume,
+            "hFire": self.h_fire,
+            "kids": self.kids,
+            "seats": self.seats,
+            "hazard": self.hazard,
+            "garaKin": self.gara_kin,
+            "garaKC12": self.gara_kc12,
+            "garaBcl": self.gara_bcl,
+            "garaCapS": self.gara_cap_s,
+            "pplFloor": self.ppl_floor,
+            "extLevel": self.ext_level,
+            "hanhLangDaiNhat": self.hanh_lang_dai_nhat,
+        }

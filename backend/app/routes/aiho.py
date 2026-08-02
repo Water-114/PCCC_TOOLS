@@ -14,6 +14,8 @@ from ..services import (
     ho_so_session,
     kien_nghi_docx,
     mdc_filler,
+    quy_mo_store,
+    quymo_reader,
 )
 from ..services.ai_reader_common import AIReaderError
 
@@ -75,7 +77,7 @@ def _build_mdc_file(loai: str, label: str, items: list) -> dict:
         return {"loai": loai, "label": label, "error": "Không tạo được file MĐC — vui lòng thử lại sau."}
 
 
-def _handle_read_request(read_drawing_fn, build_mdc_files, forms_per_call):
+def _handle_read_request(read_drawing_fn, build_mdc_files, forms_per_call, on_success=None):
     """Xử lý chung cho mọi hạng mục AI đọc bản vẽ: kiểm tra file, kiểm tra + tăng
     số file/form đã dùng trong phiên Bộ hồ sơ (session_id), sinh MĐC nếu cần.
 
@@ -88,6 +90,10 @@ def _handle_read_request(read_drawing_fn, build_mdc_files, forms_per_call):
     — mỗi hạng mục tự quyết định cần điền mấy file MĐC (báo cháy/điện: 1 file; chữa cháy nước: 3 file).
     forms_per_call: số form MĐC mà 1 lần gọi hạng mục này chiếm trong giới hạn
     7 form/phiên (báo cháy/điện PCCC = 1, chữa cháy nước = 3 vì gộp B3+B5+B6).
+    on_success(session, result): callback tuỳ chọn, chạy NGAY sau khi AI đọc
+    thành công (trước khi build MĐC) — hiện chỉ dùng ở read-quymo để lưu lại
+    dữ liệu quy mô trích xuất được (quy_mo_store.save_quy_mo()) cho các hạng
+    mục khác trong cùng phiên tái dùng qua get_quy_mo().
     """
     user = g.current_user
 
@@ -133,8 +139,14 @@ def _handle_read_request(read_drawing_fn, build_mdc_files, forms_per_call):
     except ho_so_session.SessionCapExceeded as exc:
         return jsonify({"error": str(exc)}), 400
 
+    # Du lieu "Quy mo" cua CUNG phien, neu nguoi dung CO dinh (hoan toan tuy
+    # chon - dinh kem hang muc la tu nguyen, xem quy_mo_store.get_quy_mo()).
+    # None khi chua dinh -> read_drawing_fn tu doc/suy luan tu ban ve rieng
+    # nhu binh thuong, KHONG bi chan/bat buoc boi hang muc nay.
+    quy_mo = quy_mo_store.get_quy_mo(session.id)
+
     try:
-        result = read_drawing_fn(data, media_type, provider)
+        result = read_drawing_fn(data, media_type, provider, quy_mo=quy_mo)
     except ProviderNotConfigured as exc:
         return jsonify({"error": str(exc), "provider": provider.name}), 503
     except AIReaderError as exc:
@@ -144,6 +156,10 @@ def _handle_read_request(read_drawing_fn, build_mdc_files, forms_per_call):
         return jsonify({"error": f"Lỗi gọi máy chủ AI ('{provider.name}') — vui lòng thử lại sau."}), 502
 
     ho_so_session.mark_success(session)
+
+    if on_success:
+        on_success(session, result)
+
     result["provider"] = provider.name
     result["ho_so"] = {
         "session_id": session.id,
@@ -249,6 +265,65 @@ def read_densucco():
                 files.append(_build_mdc_file(loai, label, form_data.get("items", [])))
         return files
     return _handle_read_request(densucco_reader.read_drawing, build_mdc_files, forms_per_call=2)
+
+
+@bp.post("/read-quymo")
+@login_required
+def read_quymo():
+    def build_mdc_files(result):
+        items = quy_mo_store.build_form_a_items(
+            result.get("quy_mo") or {},
+            a2_bao_chay=result.get("bang_a2_bao_chay"),
+            a4_bao_chay=result.get("bang_a4_bao_chay"),
+            a2_sprinkler=result.get("bang_a2_sprinkler"),
+            a4_sprinkler=result.get("bang_a4_sprinkler"),
+        )
+        return [_build_mdc_file("quy_mo", "Quy mô công trình", items)]
+
+    def on_success(session, result):
+        quy_mo = result.get("quy_mo")
+        if quy_mo:
+            quy_mo_store.save_quy_mo(session.id, quy_mo, source="ai")
+
+    return _handle_read_request(quymo_reader.read_drawing, build_mdc_files, forms_per_call=1, on_success=on_success)
+
+
+@bp.post("/quymo-manual")
+@login_required
+def quymo_manual():
+    """Nhập tay dữ liệu Quy mô — KHÔNG gọi AI, KHÔNG trừ quota/Bộ hồ sơ (khác
+    hoàn toàn _handle_read_request/reserve_slot). Vẫn xuất được Form A (.docx)
+    giống route AI (/read-quymo) — dùng CHUNG quy_mo_store.build_form_a_items()
+    để đảm bảo đồng nhất nội dung mục 1 và các dòng "Đối tượng trang bị" giữa
+    2 cách nhập (AI đọc bản vẽ HOẶC nhập tay)."""
+    user = g.current_user
+    payload = request.get_json(silent=True) or {}
+
+    try:
+        session_id = int(payload.get("session_id"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Thiếu hoặc sai session_id (phiên Bộ hồ sơ)."}), 400
+
+    try:
+        session = ho_so_session.get_open_session_for_user(user.id, session_id)
+    except ho_so_session.SessionNotFound as exc:
+        return jsonify({"error": str(exc)}), 404
+    except ho_so_session.SessionNotOpen as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    try:
+        clean_fields = quy_mo_store.validate_manual_fields(payload.get("quy_mo"))
+    except quy_mo_store.QuyMoInputError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    quy_mo_store.save_quy_mo(session.id, clean_fields, source="manual")
+    items = quy_mo_store.build_form_a_items(clean_fields)
+    mdc_file = _build_mdc_file("quy_mo", "Quy mô công trình", items)
+
+    return jsonify({
+        "quy_mo": clean_fields,
+        "mdc_docx_files": [mdc_file],
+    })
 
 
 @bp.post("/export-kien-nghi")

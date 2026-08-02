@@ -21,7 +21,7 @@ không sinh kiến nghị cho B6; nếu true thì đối chiếu bình thường
 
 from concurrent.futures import ThreadPoolExecutor
 
-from . import mdc_filler
+from . import mdc_filler, quy_mo_store
 from .ai_reader_common import AIReaderError, read_and_validate_drawing_json, system_prompt_version
 from .ai_schema import ChuaChayTuDongReaderResult, KHONG_XAC_DINH_SO_HIEU, ReaderResult, validate_reader_result
 
@@ -112,13 +112,21 @@ def _validate_for(loai):
     return _validate
 
 
-def read_drawing(file_bytes: bytes, media_type: str, provider) -> dict:
+def read_drawing(file_bytes: bytes, media_type: str, provider, quy_mo: dict = None) -> dict:
     """Gọi AI 3 lần (B3/B5/B6) song song cho cùng 1 bản vẽ, mỗi lần validate qua
-    Pydantic (kèm retry-repair riêng từng lần nếu sai), rồi gộp kết quả lại."""
+    Pydantic (kèm retry-repair riêng từng lần nếu sai), rồi gộp kết quả lại.
+
+    quy_mo: dữ liệu quy mô công trình (hạng mục "Quy mô") của CÙNG phiên Bộ hồ
+    sơ, nếu người dùng CÓ đính kèm — HOÀN TOÀN TUỲ CHỌN (None nếu không đính,
+    hành vi giữ nguyên 100% như trước).
+    """
+    context = quy_mo_store.format_quy_mo_context(quy_mo) if quy_mo else ""
 
     def _call(form):
+        prompt = SYSTEM_PROMPTS[form["loai"]] + context
         return read_and_validate_drawing_json(
-            file_bytes, media_type, provider, SYSTEM_PROMPTS[form["loai"]], _validate_for(form["loai"])
+            file_bytes, media_type, provider, prompt, _validate_for(form["loai"]),
+            prompt_version=SYSTEM_PROMPT_VERSIONS[form["loai"]],
         )
 
     results = {}

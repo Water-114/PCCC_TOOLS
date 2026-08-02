@@ -40,9 +40,10 @@ nghị vào nhóm IV (đề xuất bổ sung hồ sơ) thay vì nhóm I.
 
 from concurrent.futures import ThreadPoolExecutor
 
-from . import mdc_filler
+from . import mdc_filler, quy_mo_store
 from .ai_reader_common import AIReaderError, read_and_validate_drawing_json, system_prompt_version
 from .ai_schema import KHONG_XAC_DINH_SO_HIEU, ReaderResult, validate_reader_result
+from .phuong_tien import PhuongTienInputError, evaluate_bien_tam_thap, evaluate_loa, evaluate_mat_na
 
 FORMS = [
     {"loai": "binh_chua_chay", "mdc_label": "MĐC B12", "ten_he_thong": "bình chữa cháy xách tay/xe đẩy"},
@@ -201,13 +202,94 @@ def _validate_for(loai):
     return _validate
 
 
-def read_drawing(file_bytes: bytes, media_type: str, provider) -> dict:
+# ---------------------------------------------------------------------------
+# Muc 2 (rieng densucco): neu quy_mo co du du lieu de goi thang evaluate_mat_na()/
+# evaluate_bien_tam_thap()/evaluate_loa() (phuong_tien.py) ra ket qua CHAC CHAN
+# (khong phai warn/chua_du_du_lieu), noi them 1 doan "da xac dinh bang code" de
+# GHI DE fallback "chua du thong tin quy mo" GOC cua 3 nhom _scope_dependent_block
+# (id 28,29 / 15,19 / 24,25,26) — CHI khi thuc su xac dinh duoc, khong bao gio
+# BAT BUOC quy_mo phai co (quy_mo=None -> khong override gi ca, giu nguyen
+# fallback goc y het truoc day).
+# ---------------------------------------------------------------------------
+def _override_block(ids, ten_tieu_chi, r):
+    ids_str = ", ".join(str(i) for i in ids)
+    thuoc_dien = "CÓ" if r["result"] == "yes" else "KHÔNG"
+    return f"""
+GHI CHÚ QUY MÔ ĐÃ XÁC ĐỊNH CHO id={ids_str} ({ten_tieu_chi}): dựa trên dữ liệu quy mô công trình đã xác nhận (xem mục "QUY MÔ CÔNG TRÌNH ĐÃ XÁC NHẬN" bên dưới), công trình {thuoc_dien} thuộc diện bắt buộc trang bị {ten_tieu_chi} — căn cứ: {r['detail']} ({r['can_cu']}). KHÔNG dùng câu "{CHUA_DU_QUY_MO_TEXT}" cho (các) id này nữa, TRỪ KHI bản vẽ chứa thông tin MÂU THUẪN rõ ràng với kết luận này (khi đó ưu tiên thông tin THỰC TẾ trên bản vẽ).
+- Nếu KHÔNG thuộc diện: "ket_luan": "dat", "noi_dung_thiet_ke" nêu rõ lý do không thuộc diện (dựa trên căn cứ trên).
+- Nếu CÓ thuộc diện: vẫn phải tự đọc bản vẽ để đối chiếu chi tiết kỹ thuật NHƯ BÌNH THƯỜNG (Bước 1/Bước 2 ở trên) — dữ liệu quy mô chỉ xác nhận CÓ thuộc diện, không thay thế việc đọc bản vẽ.
+"""
+
+
+def _mat_na_ready(quy_mo):
+    # evaluate_mat_na() chi phu thuoc "floors" khi occ=="khachsan" (con lai la
+    # nhanh khong phu thuoc so lieu: karaoke luon "yes", con lai luon "na") -
+    # chi can "floors" that su co khi occ=khachsan de tranh _num() mac dinh 0
+    # tao ra ket luan "no" GIA (thieu du lieu, khong phai that su < 3 tang).
+    if quy_mo.get("occ") == "khachsan":
+        return quy_mo.get("floors") is not None
+    return True
+
+
+def _bien_tam_thap_ready(quy_mo):
+    # evaluate_bien_tam_thap() co 2 nhanh doc lap (floors cho khach san, volume
+    # cho khoi tich) - yeu cau CA HAI cung co mat de tranh _num() mac dinh 0 o
+    # nhanh con lai lam sai lech ket luan "no" o 2 nhanh fallback cuoi ham.
+    return quy_mo.get("floors") is not None and quy_mo.get("volume") is not None
+
+
+def _loa_ready(_quy_mo):
+    # evaluate_loa() tu bao hieu thieu du lieu qua "notes" (xem _mucdo2_overrides:
+    # chi tin "no" khi khong co note nao) - khong can guard rieng o day.
+    return True
+
+
+_MUCDO2_TARGETS = (
+    (evaluate_mat_na, _mat_na_ready, "binh_chua_chay", (28, 29), "mặt nạ lọc độc và mặt nạ phòng độc cách ly"),
+    (evaluate_bien_tam_thap, _bien_tam_thap_ready, "den_su_co", (15, 19), "biển báo an toàn tầm thấp"),
+    (evaluate_loa, _loa_ready, "den_su_co", (24, 25, 26), "hệ thống loa thông báo và hướng dẫn thoát nạn"),
+)
+
+
+def _mucdo2_overrides(quy_mo):
+    blocks = {"binh_chua_chay": "", "den_su_co": ""}
+    if not quy_mo:
+        return blocks
+
+    for fn, ready, loai, ids, ten_tieu_chi in _MUCDO2_TARGETS:
+        if not ready(quy_mo):
+            continue
+        try:
+            r = fn(quy_mo)
+        except PhuongTienInputError:
+            continue
+        # "no" cua evaluate_loa() co the la san pham cua thieu du lieu (P/pplFloor
+        # None) o cac nhanh TT2/TT4 - ham tu ghi chu vao "notes" khi do, nen chi
+        # tin "no" khi KHONG co note nao (xem _loa_ready()).
+        if r["result"] == "no" and r.get("notes"):
+            continue
+        if r["result"] in ("yes", "no", "na"):
+            blocks[loai] += _override_block(ids, ten_tieu_chi, r)
+    return blocks
+
+
+def read_drawing(file_bytes: bytes, media_type: str, provider, quy_mo: dict = None) -> dict:
     """Gọi AI 2 lần (B12/B13) song song cho cùng 1 bản vẽ, mỗi lần validate qua
-    Pydantic (kèm retry-repair riêng từng lần nếu sai), rồi gộp kết quả lại."""
+    Pydantic (kèm retry-repair riêng từng lần nếu sai), rồi gộp kết quả lại.
+
+    quy_mo: dữ liệu quy mô công trình (hạng mục "Quy mô") của CÙNG phiên Bộ hồ
+    sơ, nếu người dùng CÓ đính kèm — HOÀN TOÀN TUỲ CHỌN (None nếu không đính,
+    hành vi giữ nguyên 100% như trước, kể cả 3 fallback "chưa đủ thông tin quy
+    mô" gốc của _scope_dependent_block()).
+    """
+    context = quy_mo_store.format_quy_mo_context(quy_mo) if quy_mo else ""
+    overrides = _mucdo2_overrides(quy_mo)
 
     def _call(form):
+        prompt = SYSTEM_PROMPTS[form["loai"]] + overrides.get(form["loai"], "") + context
         return read_and_validate_drawing_json(
-            file_bytes, media_type, provider, SYSTEM_PROMPTS[form["loai"]], _validate_for(form["loai"])
+            file_bytes, media_type, provider, prompt, _validate_for(form["loai"]),
+            prompt_version=SYSTEM_PROMPT_VERSIONS[form["loai"]],
         )
 
     results = {}

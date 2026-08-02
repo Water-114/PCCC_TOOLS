@@ -395,3 +395,35 @@ def evaluate_den(payload):
         "can_cu": "TCVN 13456:2022, mục 4.5, 5.1.1–5.1.6, 5.2",
         "rule_set_version": RULE_SET_VERSION,
     }
+
+
+# ---------------------------------------------------------------------------
+# evaluate_bien_tam_thap — tach rieng dieu kien "bien bao an toan tam thap"
+# da co san trong ghi chu cua evaluate_den() (TCVN 13456:2022 Dieu 5.2.3)
+# thanh 1 ham doc lap, tra ve DUNG 1 trong 3 trang thai ro rang (yes/no/
+# chua_du_du_lieu) - dung cho densucco_reader.py (Batch 5A mo rong, "Quy mo")
+# de xac dinh thuoc dien BANG CODE thay vi de AI tu doan tu 1 ban ve don le.
+# KHONG doi nguong so nao so voi ghi chu goc trong evaluate_den().
+# ---------------------------------------------------------------------------
+def evaluate_bien_tam_thap(payload):
+    validate_payload(payload)
+    occ = payload.get("occ")
+    floors = _num(payload, "floors")
+    volume = _num(payload, "volume")
+    hanh_lang = payload.get("hanhLangDaiNhat")
+    cc = "TCVN 13456:2022, Điều 5.2.3"
+
+    if occ == "khachsan" and floors >= 7:
+        return _result("yes", f"Khách sạn {_fmt(floors)} tầng ≥ 7 tầng — thuộc diện lắp biển báo an toàn tầm thấp.", cc)
+
+    if volume >= 5000:
+        if hanh_lang is None:
+            return _result("chua_du_du_lieu", f"Khối tích {_fmt(volume)} m³ ≥ 5.000 m³ nhưng chưa rõ chiều dài hành lang thoát nạn — cần xác nhận có hành lang > 10 m hay không để kết luận.", cc)
+        hanh_lang = float(hanh_lang)
+        if hanh_lang > 10:
+            return _result("yes", f"Khối tích {_fmt(volume)} m³ ≥ 5.000 m³ và hành lang thoát nạn {_fmt(hanh_lang)} m > 10 m — thuộc diện.", cc)
+        return _result("no", f"Khối tích {_fmt(volume)} m³ ≥ 5.000 m³ nhưng hành lang thoát nạn {_fmt(hanh_lang)} m ≤ 10 m — không thuộc diện theo điều kiện khối tích.", cc)
+
+    if occ == "khachsan":
+        return _result("no", f"Khách sạn {_fmt(floors)} tầng < 7 tầng và khối tích {_fmt(volume)} m³ < 5.000 m³ — không thuộc diện.", cc)
+    return _result("no", f"Khối tích {_fmt(volume)} m³ < 5.000 m³ và không phải khách sạn ≥ 7 tầng — không thuộc diện.", cc)

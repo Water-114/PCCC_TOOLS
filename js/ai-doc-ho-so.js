@@ -847,12 +847,16 @@
     if(activeSlots.length){
       // Ước lượng theo hạng mục chậm nhất đang chạy (chạy song song, không cộng dồn thời gian).
       var estimatedSec = Math.max.apply(null, activeSlots.map(function(slot){ return REAL_CATEGORIES[slot].estimatedSeconds; }));
+      // Tran toi da hien thi cho nguoi dung yen tam - khop dung gunicorn
+      // --timeout 900 ben server (xem render.yaml), khong dung de tinh % thanh
+      // tien trinh (van tinh theo estimatedSec nhu cu).
+      var MAX_WAIT_SEC = 900;
       var startedAt = Date.now();
       function updateRealProgress(){
         var elapsedSec = Math.floor((Date.now() - startedAt) / 1000);
         var percent = Math.min(92, 5 + (elapsedSec / estimatedSec) * 87);
         processingFill.style.width = percent + '%';
-        processingText.textContent = 'Đang đọc bản vẽ và đối chiếu — đã chờ ' + fmtElapsed(elapsedSec) + ' (dự kiến khoảng ' + fmtElapsed(estimatedSec) + ')…';
+        processingText.textContent = 'Đang đọc bản vẽ và đối chiếu — đã chờ ' + fmtElapsed(elapsedSec) + ' (dự kiến khoảng ' + fmtElapsed(estimatedSec) + ', tối đa ' + fmtElapsed(MAX_WAIT_SEC) + ')…';
       }
       updateRealProgress();
       interval = setInterval(updateRealProgress, 1000);

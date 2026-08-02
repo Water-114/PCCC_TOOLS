@@ -5,7 +5,7 @@ Tiêu chí đối chiếu lấy trực tiếp từ mẫu MĐC B14 qua mdc_filler
 mdc_templates/. Khác báo cháy: không cần bước phân loại (chỉ có 1 mẫu B14 duy nhất).
 """
 
-from . import mdc_filler
+from . import mdc_filler, quy_mo_store
 from .ai_reader_common import AIReaderError, read_and_validate_drawing_json, system_prompt_version
 from .ai_schema import ReaderResult, validate_reader_result
 
@@ -72,8 +72,16 @@ def _validate(data: dict):
     return validate_reader_result(data, _EXPECTED_IDS, ReaderResult)
 
 
-def read_drawing(file_bytes: bytes, media_type: str, provider) -> dict:
+def read_drawing(file_bytes: bytes, media_type: str, provider, quy_mo: dict = None) -> dict:
     """Gửi bản vẽ (ảnh hoặc PDF) kèm tiêu chí tới AI provider, validate qua Pydantic
-    (kèm retry-repair 1 lần nếu sai), trả về dict."""
-    model = read_and_validate_drawing_json(file_bytes, media_type, provider, SYSTEM_PROMPT, _validate)
+    (kèm retry-repair 1 lần nếu sai), trả về dict.
+
+    quy_mo: dữ liệu quy mô công trình (hạng mục "Quy mô") của CÙNG phiên Bộ hồ
+    sơ, nếu người dùng CÓ đính kèm — HOÀN TOÀN TUỲ CHỌN (None nếu không đính,
+    hành vi giữ nguyên 100% như trước).
+    """
+    system_prompt = SYSTEM_PROMPT + quy_mo_store.format_quy_mo_context(quy_mo) if quy_mo else SYSTEM_PROMPT
+    model = read_and_validate_drawing_json(
+        file_bytes, media_type, provider, system_prompt, _validate, prompt_version=SYSTEM_PROMPT_VERSION
+    )
     return model.model_dump()

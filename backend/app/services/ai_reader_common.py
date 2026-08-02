@@ -113,13 +113,20 @@ def read_drawing_json(file_bytes: bytes, media_type: str, provider, system_promp
     return parsed
 
 
-def read_and_validate_drawing_json(file_bytes: bytes, media_type: str, provider, system_prompt: str, validate_fn):
+def read_and_validate_drawing_json(file_bytes: bytes, media_type: str, provider, system_prompt: str, validate_fn, prompt_version: str = None):
     """Gọi read_drawing_json(), rồi validate kết quả qua validate_fn(dict) -> model
     Pydantic (raise SchemaValidationError nếu sai). Nếu thất bại lần 1: retry ĐÚNG
     1 LẦN, gọi lại AI với system_prompt được bổ sung thông báo lỗi cụ thể để AI tự
     sửa. Nếu lần 2 vẫn sai: raise AIReaderError rõ ràng — KHÔNG trả kết quả nửa vời.
+
+    prompt_version: override nhãn phiên bản ghi log — dùng khi system_prompt bị
+    NỐI THÊM dữ liệu động ở call-time (vd context "Quy mô" — xem quy_mo_store.py,
+    Mức 1 tích hợp vào 4 reader hiện có) khiến sha256 nội dung đổi mỗi lần gọi dù
+    prompt GỐC (template) không đổi; truyền SYSTEM_PROMPT_VERSION tĩnh của reader
+    vào đây để log vẫn phản ánh đúng "phiên bản template", không bị phân mảnh theo
+    dữ liệu quy mô cụ thể của từng lần gọi.
     """
-    version = system_prompt_version(system_prompt)  # tinh 1 lan tu prompt GOC, dung cho ca 2 lan goi (repair khong tinh la "phien ban" khac)
+    version = prompt_version if prompt_version is not None else system_prompt_version(system_prompt)  # tinh 1 lan tu prompt GOC, dung cho ca 2 lan goi (repair khong tinh la "phien ban" khac)
     raw = read_drawing_json(file_bytes, media_type, provider, system_prompt, prompt_version=version)
     try:
         return validate_fn(raw)

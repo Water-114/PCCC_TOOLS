@@ -176,6 +176,34 @@ def _eval_a3(payload, for_sprinkler=False):
     return _result("na", "Xưởng SX hạng D, E: Bảng A.3 mục 2 chủ yếu quy định cho hạng C1–C3 (mục 2.2–2.4) — hạng D, E cần đối chiếu thêm hoặc xin ý kiến kỹ sư.", cc("2"))
 
 
+def evaluate_gian_phong_bao_chay(payload):
+    """Dòng "Đối với gian phòng" (báo cháy) trong Form A — tách riêng khỏi
+    evaluate_bao_chay() ("Đối với nhà") vì Form A coi đây là 2 dòng "Đối
+    tượng trang bị" độc lập, không dùng chung 1 kết quả."""
+    validate_payload(payload)
+    if payload.get("occ") not in ("sanxuat", "kho"):
+        return _result(
+            "na",
+            "Bảng A.3 chỉ quy định cho nhà sản xuất/kho — công năng khác không thuộc phạm vi bảng này "
+            "(không có nghĩa là không cần báo cháy, xem dòng 'Đối với nhà').",
+            "QCVN 10:2025/BCA, Bảng A.3",
+        )
+    return _eval_a3(payload, for_sprinkler=False)
+
+
+def evaluate_gian_phong_sprinkler(payload):
+    """Dòng "Đối với gian phòng" (chữa cháy tự động) trong Form A — tương tự
+    evaluate_gian_phong_bao_chay() nhưng cho hệ sprinkler."""
+    validate_payload(payload)
+    if payload.get("occ") not in ("sanxuat", "kho"):
+        return _result(
+            "na",
+            "Bảng A.3 chỉ quy định cho nhà sản xuất/kho.",
+            "QCVN 10:2025/BCA, Bảng A.3",
+        )
+    return _eval_a3(payload, for_sprinkler=True)
+
+
 def _eval_garakin_bao_chay(payload):
     F = _num(payload, "totalArea")
     T = _num(payload, "floors")
