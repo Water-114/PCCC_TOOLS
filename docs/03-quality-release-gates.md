@@ -69,9 +69,8 @@ Root static UI cần có thêm script kiểm tra cú pháp tất cả file trong
 Rà từng mục dựa trên bằng chứng cụ thể (đọc source/chạy lệnh thật) khi có
 thể; khi không tự kiểm tra được (cấu hình/trạng thái thật trên Render
 Dashboard, ngoài tầm với của tôi), ghi rõ nguồn là **xác nhận trực tiếp của
-owner**, không phải suy luận từ repo. **Kết luận: chỉ còn 1/6 mục thực sự
-CHẶN deploy ngay bây giờ** (mục 6 — chưa có lệnh phê duyệt) — các mục còn
-lại PASS.
+owner**, không phải suy luận từ repo. **Cập nhật 2026-08-02: đã nhận lệnh
+`APPROVE DEPLOY PRODUCTION` — 0/6 mục còn chặn deploy** (xem mục 6).
 
 1. **Lỗi P0/P1 chưa được owner chấp nhận** — Không có bug tracker chính thức
    trong repo để đối chiếu tuyệt đối. Trong phiên làm việc gần nhất, đã phát
@@ -113,9 +112,15 @@ lại PASS.
    dụ minh hoạ rõ ràng là giả trong `.env.example`
    (`postgres://user:password@dpg-xxxxxxxx-...`). Không có file `.env`/
    credentials nào từng được commit trong lịch sử.
-6. **Phê duyệt `APPROVE DEPLOY PRODUCTION`** — **CHƯA CÓ**, xác nhận chưa
-   từng có lệnh này trong toàn bộ quá trình làm việc tới nay. Tự mục này đã
-   đủ để chặn deploy bất kể các mục khác, đúng theo thiết kế gate.
+6. **Phê duyệt `APPROVE DEPLOY PRODUCTION`** — **PASS**. Nhận đúng câu lệnh
+   này từ người sở hữu dự án ngày 2026-08-02.
+
+**Kết luận cập nhật: 0/6 mục còn chặn deploy.** Lưu ý: mục 1 (P0/P1) vẫn chỉ
+là "không biết gì đang mở trong phạm vi đã làm việc", không phải một audit
+toàn ứng dụng — owner chấp nhận rủi ro này khi phê duyệt. Phê duyệt deploy
+**không đồng nghĩa** các việc còn lại của Batch 5 (monitoring/alerting tự
+động, UAT hình thức đầy đủ có chữ ký) đã xong — xem `docs/02-implementation-batches.md`
+mục Batch 5.
 
 Xem thêm [docs/05-incident-runbook.md](05-incident-runbook.md) (mới, Batch 5)
 cho runbook incident bổ sung (AI provider down, rollback deployment, revoke

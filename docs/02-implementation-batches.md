@@ -784,7 +784,7 @@ sót của sub-bước 4, không phải sub-bước 5):**
   không thể xảy ra; sẽ thêm validate frontend thật khi có hạng mục mới khiến
   ngưỡng này chạm được trong luồng UI bình thường.
 
-## Batch 5 — UAT và release readiness — **ĐANG TRIỂN KHAI (3/5 việc xong hoặc một phần, còn thiếu monitoring/alerting và quyết định Redis/worker)**
+## Batch 5 — UAT và release readiness — **ĐANG TRIỂN KHAI (4/5 việc xong hoặc đã quyết định, còn thiếu monitoring/alerting) — DEPLOY PRODUCTION ĐÃ ĐƯỢC PHÊ DUYỆT 2026-08-02**
 
 **Mục tiêu:** đưa production (một PostgreSQL production duy nhất —
 `pccc-trolynghiepvu-db`, không có staging riêng, xem
@@ -818,19 +818,27 @@ không.
   **chưa phải UAT đầy đủ theo đúng checklist hình thức** (chưa đo p50/p95 AI
   và tỷ lệ lỗi có hệ thống, chưa có người nghiệp vụ ký xác nhận UAT).
 - **Rà checklist "Điều kiện cấm deploy production"** — xong, xem mục "Rà soát
-  hiện trạng checklist trên" trong `docs/03-quality-release-gates.md` (đã cập
-  nhật theo xác nhận của owner ở trên). Kết luận hiện tại: **chỉ còn 1/6 mục
-  thực sự chặn deploy** — chưa có lệnh `APPROVE DEPLOY PRODUCTION`. Test
+  hiện trạng checklist trên" trong `docs/03-quality-release-gates.md`. Test
   617/617 pass, lint sạch, không secret nào lộ trong git history, output demo
   được ghi nhãn rõ ràng.
+- **Quyết định Redis/worker** — xong. Owner xác nhận (2026-08-02): **chưa cần**
+  ở quy mô hiện tại — giữ nguyên kiến trúc đơn giản (không thêm Redis/Render
+  Background Worker), đúng tinh thần "AI ở giai đoạn đơn giản" trong
+  `docs/01-target-architecture.md`. Batch 6 (worker bất đồng bộ) vẫn đóng,
+  chỉ mở lại nếu quy mô thay đổi.
+- **Phê duyệt deploy production** — **ĐÃ CÓ**. Nhận đúng lệnh
+  `APPROVE DEPLOY PRODUCTION` từ người sở hữu dự án ngày 2026-08-02, sau khi
+  cả 6 mục checklist "Điều kiện cấm deploy production" đều PASS (xem
+  `docs/03-quality-release-gates.md`, mục "Rà soát hiện trạng"). Phê duyệt
+  này áp dụng cho gate deploy — **không tự động coi là đã hoàn thành toàn bộ
+  Batch 5** (monitoring/alerting và UAT hình thức đầy đủ vẫn còn thiếu, xem
+  dưới).
 
-**Còn thiếu thật sự** (chưa có xác nhận nào cho 2 mục này):
+**Còn thiếu thật sự** (duy nhất còn lại, không phải gate chặn deploy):
 
 - Monitoring lỗi/alerting tự động — hiện chỉ có `/api/health` + log mặc định
   Render, chưa có cảnh báo tự động khi lỗi (structured logging tập trung
   cũng chưa có, xem `docs/05-incident-runbook.md` mục "Khoảng trống chưa có").
-- Quyết định có cần Redis/worker hay không (xem
-  `docs/01-target-architecture.md` mục "AI ở giai đoạn đơn giản").
 - UAT hình thức đầy đủ (đo p50/p95, tỷ lệ lỗi, chữ ký xác nhận của người
   nghiệp vụ) — khác với smoke test thật đã làm một phần ở trên.
 
@@ -849,8 +857,9 @@ không.
 - [x] Lập runbook incident: AI provider down, rollback deployment, rollback
   migration (đã có runbook migration cơ bản, bổ sung phần incident khác),
   revoke secret — xong, xem "Tiến độ" ở trên.
-- [ ] Quyết định có cần Redis/worker theo ngưỡng trong kiến trúc mục tiêu hay
-  không (xem `docs/01-target-architecture.md` mục "AI ở giai đoạn đơn giản").
+- [x] Quyết định có cần Redis/worker theo ngưỡng trong kiến trúc mục tiêu hay
+  không — xong, owner quyết định KHÔNG cần ở quy mô hiện tại (xem "Tiến độ"
+  ở trên).
 
 **Gate kiểm tra**
 
@@ -858,10 +867,10 @@ không.
   không mất dữ liệu, review backup/rollback) — migration Postgres thật và
   smoke test nay có xác nhận một phần (xem "Tiến độ"); restart không mất dữ
   liệu và review backup/rollback CHƯA có xác nhận nào.
-- Không có lỗi P0/P1 mở.
-- Security checklist pass và secret không xuất hiện trong repository/log.
-- UAT được người nghiệp vụ ký xác nhận.
-- Người sở hữu dự án phê duyệt deploy production bằng văn bản rõ ràng.
+- Không có lỗi P0/P1 mở (trong phạm vi đã biết — không phải audit toàn ứng dụng).
+- Security checklist pass và secret không xuất hiện trong repository/log — đã PASS.
+- UAT được người nghiệp vụ ký xác nhận — CHƯA (mới smoke test một phần, chưa ký hình thức).
+- Người sở hữu dự án phê duyệt deploy production bằng văn bản rõ ràng — **ĐÃ CÓ**, `APPROVE DEPLOY PRODUCTION` 2026-08-02.
 
 ## Batch 6 — Tùy chọn: AI worker bất đồng bộ
 
