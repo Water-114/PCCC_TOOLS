@@ -5,7 +5,16 @@ from flask import Blueprint, current_app, g, jsonify, request
 from ..auth import login_required
 from ..providers.base import ProviderNotConfigured
 from ..providers.factory import get_provider
-from ..services import baochay_reader, ccnuoc_reader, credits, dienpccc_reader, ho_so_session, kien_nghi_docx, mdc_filler
+from ..services import (
+    baochay_reader,
+    ccnuoc_reader,
+    credits,
+    densucco_reader,
+    dienpccc_reader,
+    ho_so_session,
+    kien_nghi_docx,
+    mdc_filler,
+)
 from ..services.ai_reader_common import AIReaderError
 
 bp = Blueprint("aiho", __name__, url_prefix="/api/aiho")
@@ -219,6 +228,21 @@ def read_ccnuoc():
                 files.append(_build_mdc_file(loai, label, form_data.get("items", [])))
         return files
     return _handle_read_request(ccnuoc_reader.read_drawing, build_mdc_files, forms_per_call=3)
+
+
+@bp.post("/read-densucco")
+@login_required
+def read_densucco():
+    def build_mdc_files(result):
+        files = []
+        for loai, form_data in (result.get("forms") or {}).items():
+            label = form_data.get("mdc_label", "") + " — " + form_data.get("label", loai)
+            if "error" in form_data:
+                files.append({"loai": loai, "label": label, "error": form_data["error"]})
+            else:
+                files.append(_build_mdc_file(loai, label, form_data.get("items", [])))
+        return files
+    return _handle_read_request(densucco_reader.read_drawing, build_mdc_files, forms_per_call=2)
 
 
 @bp.post("/export-kien-nghi")

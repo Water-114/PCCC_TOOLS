@@ -301,6 +301,20 @@
         else if(allItems.some(function(it){ return it.ket_luan === 'chua_the_hien'; })) status = 'warn';
         return {status: status, note: data.tong_ket || ''};
       }
+    },
+    densucco: {
+      endpoint: '/api/aiho/read-densucco',
+      label: 'Đèn sự cố / chỉ dẫn thoát nạn / Bình chữa cháy',
+      estimatedSeconds: 110, // gộp 2 mẫu B12 (24 tiêu chí)/B13 (18 tiêu chí) song song ở backend — tạm ước lượng, đo lại sau lần chạy thật đầu tiên
+      summarize: function(data){
+        var forms = data.forms || {};
+        var allItems = [];
+        Object.keys(forms).forEach(function(k){ allItems = allItems.concat(forms[k].items || []); });
+        var status = 'ok';
+        if(allItems.some(function(it){ return it.ket_luan === 'chua_dat'; })) status = 'bad';
+        else if(allItems.some(function(it){ return it.ket_luan === 'chua_the_hien'; })) status = 'warn';
+        return {status: status, note: data.tong_ket || ''};
+      }
     }
   };
 
@@ -485,8 +499,7 @@
   var SLOT_MOCK = {
     kientruc: {status:'ok', note:'Xác định công năng: văn phòng hỗn hợp, 8 tầng nổi + 1 tầng hầm, ΣF ≈ 4.200 m².'},
     cckhi: {status:'bad', note:'Chưa thấy tính toán nồng độ thiết kế d₁, f₂ cho phòng điện — cần bổ sung.'},
-    capnuocngoai: {status:'ok', note:'Trụ nước ngoài nhà bố trí đủ theo bán kính bảo vệ.'},
-    densucco_binhcc: {status:'warn', note:'Số lượng và khoảng cách bình xách tay phù hợp TCVN 7435-1; một số vị trí đèn chỉ dẫn thoát nạn cách nhau quá 20 m.'}
+    capnuocngoai: {status:'ok', note:'Trụ nước ngoài nhà bố trí đủ theo bán kính bảo vệ.'}
   };
   var STATUS_LABEL = {ok:'Đạt', warn:'Cần bổ sung', bad:'Thiếu sót'};
 

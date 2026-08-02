@@ -1,8 +1,9 @@
 """Batch 4 + Batch 5A sub-bước 2 — gate kiểm tra cho các route AI đọc bản vẽ
-thật (/api/aiho/read-baochay, read-dienpccc, read-ccnuoc): không có API key,
-provider timeout, hết Bộ hồ sơ, partial result chữa cháy nước — CỘNG các gate
-riêng của mô hình "phiên Bộ hồ sơ" (session_id thiếu/sai/không thuộc user/đã
-đóng, vượt giới hạn 5 file/7 form).
+thật (/api/aiho/read-baochay, read-dienpccc, read-ccnuoc, read-densucco):
+không có API key, provider timeout, hết Bộ hồ sơ, partial result chữa cháy
+nước/đèn sự cố+bình chữa cháy — CỘNG các gate riêng của mô hình "phiên Bộ hồ
+sơ" (session_id thiếu/sai/không thuộc user/đã đóng, vượt giới hạn 5 file/7
+form).
 
 KHÔNG gọi AI thật — mock app.routes.aiho.get_provider hoàn toàn."""
 
@@ -339,3 +340,145 @@ def test_ccnuoc_partial_result_mdc_files_flag_failed_form(client):
     assert "error" in by_loai["hong_nuoc"]
     assert "base64" in by_loai["tram_bom"]
     assert "base64" in by_loai["chua_chay_tu_dong"]
+
+
+# ---------------------------------------------------------------------------
+# Den su co / binh chua chay (densucco, MDC B12+B13) - gop 2 mau tren 1 ban ve,
+# theo dung khuon ccnuoc (forms_per_call=2 thay vi 3).
+# ---------------------------------------------------------------------------
+def _fake_densucco_generate(system_prompt):
+    loai = "binh_chua_chay" if "B12" in system_prompt else "den_su_co"
+    rows = mdc_filler.load_criteria_rows(loai)
+    return json.dumps({
+        "items": [{"id": r["id"], "noi_dung_thiet_ke": "ok", "ket_luan": "dat"} for r in rows],
+        "tong_ket": "ok",
+        "kien_nghi": EMPTY_KIEN_NGHI,
+        "so_hieu_ban_ve": "DSC-01",
+    })
+
+
+def test_densucco_success_returns_200_with_2_forms(client):
+    token, _ = _register_login_and_grant(client, email="aihoread9@pccc.local")
+    session_id = _open_session(client, token)
+    provider = FakeProvider(fn=_fake_densucco_generate)
+    with patch("app.routes.aiho.get_provider", return_value=provider):
+        resp = _upload(client, token, session_id, path="/api/aiho/read-densucco")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["so_hieu_ban_ve"] == "DSC-01"
+    assert set(data["forms"].keys()) == {"binh_chua_chay", "den_su_co"}
+    assert data["forms"]["binh_chua_chay"]["items"]
+    assert data["forms"]["den_su_co"]["items"]
+    assert data["ho_so"]["files_used"] == 1
+    assert data["ho_so"]["forms_used"] == 2  # B12+B13 = 2 form, khong phai 3 nhu ccnuoc
+
+
+def test_densucco_partial_result_when_one_form_fails(client):
+    token, _ = _register_login_and_grant(client, email="aihoread10@pccc.local")
+    session_id = _open_session(client, token)
+
+    def fake_generate(system_prompt):
+        if "B13" in system_prompt:
+            raise ConnectionError("mat ket noi luc doc mau B13")
+        rows = mdc_filler.load_criteria_rows("binh_chua_chay")
+        return json.dumps({
+            "items": [{"id": r["id"], "noi_dung_thiet_ke": "ok", "ket_luan": "dat"} for r in rows],
+            "tong_ket": "ok",
+            "kien_nghi": EMPTY_KIEN_NGHI,
+            "so_hieu_ban_ve": "DSC-02",
+        })
+
+    provider = FakeProvider(fn=fake_generate)
+    with patch("app.routes.aiho.get_provider", return_value=provider):
+        resp = _upload(client, token, session_id, path="/api/aiho/read-densucco")
+
+    assert resp.status_code == 200  # KHONG sap ca request vi 1 mau loi
+    data = resp.get_json()
+    forms = data["forms"]
+    assert "error" in forms["den_su_co"]
+    assert "items" in forms["binh_chua_chay"] and forms["binh_chua_chay"]["items"]
+    assert "mat ket noi" in data["tong_ket"]
+
+
+def test_densucco_partial_result_mdc_files_flag_failed_form(client):
+    token, _ = _register_login_and_grant(client, email="aihoread11@pccc.local")
+    session_id = _open_session(client, token)
+
+    def fake_generate(system_prompt):
+        if "B13" in system_prompt:
+            raise ConnectionError("mat ket noi")
+        rows = mdc_filler.load_criteria_rows("binh_chua_chay")
+        return json.dumps({
+            "items": [{"id": r["id"], "noi_dung_thiet_ke": "ok", "ket_luan": "dat"} for r in rows],
+            "tong_ket": "ok",
+            "kien_nghi": EMPTY_KIEN_NGHI,
+            "so_hieu_ban_ve": "DSC-03",
+        })
+
+    provider = FakeProvider(fn=fake_generate)
+    with patch("app.routes.aiho.get_provider", return_value=provider):
+        resp = _upload(client, token, session_id, path="/api/aiho/read-densucco", extra_form={"outputs": "mdc"})
+
+    assert resp.status_code == 200
+    files = resp.get_json()["mdc_docx_files"]
+    by_loai = {f["loai"]: f for f in files}
+    assert "error" in by_loai["den_su_co"]
+    assert "base64" in by_loai["binh_chua_chay"]
+
+
+def test_densucco_form_cap_exceeded_returns_400(client):
+    """densucco chiem 2 form/lan goi (B12+B13) - 4 lan = 8 form > gioi han 7."""
+    token, _ = _register_login_and_grant(client, email="aihoread12@pccc.local")
+    session_id = _open_session(client, token)
+    provider = FakeProvider(fn=_fake_densucco_generate)
+    with patch("app.routes.aiho.get_provider", return_value=provider):
+        for i in range(3):  # 3 lan x 2 form = 6 form, van trong gioi han
+            resp = _upload(client, token, session_id, path="/api/aiho/read-densucco", filename=f"f{i}.png")
+            assert resp.status_code == 200
+        resp = _upload(client, token, session_id, path="/api/aiho/read-densucco", filename="f3.png")  # 8 form - vuot 7
+    assert resp.status_code == 400
+    assert "7 form" in resp.get_json()["error"]
+
+
+def test_all_4_real_categories_in_one_session_hits_exactly_file_and_form_cap(client):
+    """Ca 4 hang muc AI that (baochay 1f/1m + dienpccc 1f/1m + ccnuoc 1f/3m +
+    densucco 1f/2m) trong CUNG 1 phien = dung 4 file, 7 form - dung khit tran
+    form (7), con du dung 1 file (5) - dung nhu thiet ke da duyet."""
+    token, _ = _register_login_and_grant(client, email="aihoread13@pccc.local")
+    session_id = _open_session(client, token)
+
+    def fake_generate(system_prompt):
+        if "B1" in system_prompt and "B2" in system_prompt:
+            rows = mdc_filler.load_criteria_rows("thuong")
+            return json.dumps({
+                "loai_he_thong": "thuong",
+                "ly_do_nhan_dien": "test",
+                "items": [{"id": r["id"], "noi_dung_thiet_ke": "ok", "ket_luan": "dat"} for r in rows],
+                "tong_ket": "ok",
+                "kien_nghi": EMPTY_KIEN_NGHI,
+                "so_hieu_ban_ve": "ALL-01",
+            })
+        if "B14" in system_prompt:
+            return _dienpccc_payload()
+        if "B3" in system_prompt or "B5" in system_prompt or "B6" in system_prompt:
+            loai = "tram_bom" if "B3" in system_prompt else ("hong_nuoc" if "B5" in system_prompt else "chua_chay_tu_dong")
+            rows = mdc_filler.load_criteria_rows(loai)
+            return json.dumps({
+                "items": [{"id": r["id"], "noi_dung_thiet_ke": "ok", "ket_luan": "dat"} for r in rows],
+                "tong_ket": "ok",
+                "kien_nghi": EMPTY_KIEN_NGHI,
+                "so_hieu_ban_ve": "ALL-01",
+            })
+        return _fake_densucco_generate(system_prompt)
+
+    provider = FakeProvider(fn=fake_generate)
+    with patch("app.routes.aiho.get_provider", return_value=provider):
+        r1 = _upload(client, token, session_id, path="/api/aiho/read-baochay", filename="a.png")
+        r2 = _upload(client, token, session_id, path="/api/aiho/read-dienpccc", filename="b.png")
+        r3 = _upload(client, token, session_id, path="/api/aiho/read-ccnuoc", filename="c.png")
+        r4 = _upload(client, token, session_id, path="/api/aiho/read-densucco", filename="d.png")
+
+    assert [r.status_code for r in (r1, r2, r3, r4)] == [200, 200, 200, 200]
+    session = HoSoSession.query.get(session_id)
+    assert session.files_used == 4
+    assert session.forms_used == 7

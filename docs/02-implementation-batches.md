@@ -276,6 +276,75 @@ owner ở batch/thời điểm khác):**
 - Rủi ro cộng dồn timeout worst-case (retry mạng × retry-repair schema) nêu trên — đã giới hạn thực tế nhưng chưa airtight tuyệt đối ở trường hợp cực xấu lý thuyết.
 - Chưa gỡ package `google-generativeai` khỏi venv cục bộ (chỉ đổi `requirements.txt`) — không ảnh hưởng gì (không còn file nào import), chỉ là dọn dẹp không bắt buộc.
 
+**Mở rộng SAU KHI Batch 4 đã đánh dấu HOÀN THÀNH — hạng mục AI thật thứ 4
+(Đèn sự cố/chỉ dẫn thoát nạn/Bình chữa cháy, MĐC B12+B13):**
+
+- **Khảo sát trước khi code** (đúng quy trình): xác nhận `evalBinh`/`evalDen`
+  (`js/tuvan-so-bo.js`) và bản port `phuong_tien.py` (Batch 3 cụm 4) là công
+  cụ rule-based cho "Tư vấn sơ bộ" — nhận số liệu người dùng gõ tay, KHÔNG đọc
+  bản vẽ, hoàn toàn độc lập với việc thêm hạng mục AI thật ở đây. Phát hiện
+  **chặn cứng**: chưa có template MĐC B12/B13 trong `mdc_templates/` — đã
+  dừng lại hỏi owner đúng quy trình thay vì tự tạo nội dung pháp lý. Owner bổ
+  sung 2 file (`B12_binh_chua_chay.docx` 24 tiêu chí, `B13_den_su_co.docx` 18
+  tiêu chí, commit `f3802bd`) rồi mới cho phép viết code tiếp.
+- **`backend/app/services/densucco_reader.py`** (mới) — mirror 1:1 cấu trúc
+  `ccnuoc_reader.py` (gọi AI 2 lần song song qua `ThreadPoolExecutor` cho
+  B12+B13 CÙNG 1 bản vẽ, mỗi lần validate Pydantic riêng qua `ReaderResult` +
+  retry-repair 1 lần nếu sai, gộp `forms`/`kien_nghi`/`so_hieu_ban_ve`) — tái
+  dùng nguyên khối hạ tầng Batch 4 (schema, timeout/circuit-breaker qua
+  `resilience.py`, logging qua `ai_reader_common._log_ai_call()`), không sửa
+  gì các file đó.
+- **`mdc_filler.py`**: thêm 2 khoá `binh_chua_chay`/`den_su_co` vào
+  `TEMPLATE_PATHS`/`TEMPLATE_FILENAMES` — theo đúng owner đã đăng ký sẵn ở
+  commit `f3802bd`, không cần sửa thêm.
+- **Route mới** `POST /api/aiho/read-densucco` (`routes/aiho.py`) — mirror
+  `read_ccnuoc()`, `forms_per_call=2` (khác `ccnuoc`=3, vì chỉ 2 mẫu B12+B13
+  thay vì 3 mẫu B3+B5+B6).
+- **Tích hợp `HoSoSession` (Batch 5A)**: 1 bản vẽ SC/BC = 1 file + 2 form.
+  Xác nhận bằng test: nếu 1 phiên dùng đủ cả 4 hạng mục AI thật (báo cháy
+  1f/1m + điện PCCC 1f/1m + chữa cháy nước 1f/3m + đèn/bình 1f/2m) = **đúng 4
+  file, đúng khít trần 7 form** (`MAX_FORMS_PER_SESSION`), còn dư đúng 1 file
+  (`MAX_FILES_PER_SESSION=5`). **Cần owner biết**: hết dư form cho bất kỳ
+  hạng mục AI thật thứ 5 nào sau này trong cùng 1 phiên, trừ khi nâng
+  `MAX_FORMS_PER_SESSION` — không phải vấn đề chặn bây giờ, chỉ ghi nhận
+  trước khi thêm hạng mục AI thật tiếp theo.
+- **Frontend**: `index.html` — thẻ "Đèn sự cố / chỉ dẫn thoát nạn / Bình chữa
+  cháy" đổi `data-slot="densucco_binhcc"` (kiểu thẻ demo cũ) → `data-slot="densucco"`
+  + `id="densuccoCard"`/`densuccoFileInput`/`densuccoStatus` (đúng khuôn 3
+  thẻ AI thật hiện có), badge `Sắp có` → `AI thật`, bỏ `data-file` demo cũ.
+  `js/ai-doc-ho-so.js`: thêm entry `densucco` vào `REAL_CATEGORIES` (copy
+  logic `summarize()` của `ccnuoc` — cùng shape `forms`), xoá entry
+  `densucco_binhcc` chết trong `SLOT_MOCK` (đúng tinh thần đã làm cho
+  baochay/ccnuoc/dienpccc ở Batch 4 — hạng mục AI thật không còn đường nào
+  chạm demo mock). Không sửa dòng giới thiệu đầu trang tab AIHO — đã rút gọn
+  từ trước, không liệt kê tên hạng mục nên không cần cập nhật thêm (theo yêu
+  cầu owner).
+- **20 test** trong `test_aiho_read_routes.py` (từ 15 → 20, cộng 1 test đổi
+  docstring): thành công 2 form, partial-result khi 1 mẫu lỗi (B12 vẫn có,
+  B13 lỗi), MĐC files gắn cờ đúng mẫu lỗi, vượt giới hạn 7 form khi gọi 4 lần
+  (4×2=8 form), và 1 test tổng hợp gọi **cả 4 hạng mục AI thật trong cùng 1
+  phiên** xác nhận đúng khít 4 file/7 form như thiết kế. `pytest -q` xác nhận
+  **622/622 test backend pass** (từ 617), không hồi quy. `npm run lint` sạch.
+- **Đã tự bấm thử thật trên trình duyệt** (Flask thật, SQLite tạm riêng,
+  `ANTHROPIC_API_KEY`/`GEMINI_API_KEY` để trống có chủ đích để KHÔNG tốn chi
+  phí AI thật cho lần kiểm tra plumbing này — chưa hỏi owner có muốn chi trả
+  1 lần gọi AI thật để kiểm tra nội dung/độ chính xác, xem "Việc CHƯA làm"
+  bên dưới): đăng nhập → thẻ SC/BC hiện đúng badge "AI thật" (không còn "Sắp
+  có") → đính kèm file → chọn output MĐC → bấm "Bắt đầu phân tích" → cả 2 mẫu
+  B12/B13 đều báo lỗi "Chưa cấu hình ANTHROPIC_API_KEY" rõ ràng trong bảng
+  kết quả (không crash, không lộ chi tiết hạ tầng) → phiên tự hoàn lại đúng 1
+  Bộ hồ sơ (0 lần thành công) → số dư hiển thị đúng nguyên vẹn. Không có
+  console error/pageerror. Đã dọn sạch: tắt server test, xoá DB tạm, gỡ
+  Playwright.
+- **Việc CHƯA làm**: chưa có lần gọi AI thật nào (tốn phí) để kiểm tra AI có
+  đọc đúng nội dung bản vẽ đèn sự cố/bình chữa cháy thật hay không — khác với
+  baochay/dienpccc/ccnuoc trước đây đã có số liệu đo thời gian thực tế
+  ("~134s cho 47 tiêu chí"...), `estimatedSeconds` của `densucco` trong
+  `REAL_CATEGORIES` (110s) hiện chỉ là ước lượng theo tỷ lệ số tiêu chí
+  (24+18=42, gần ngang báo cháy), CHƯA đo thời gian thật — cần đo lại sau lần
+  chạy AI thật đầu tiên. Đây là quyết định có chủ đích để không tự ý tốn phí
+  AI khi chưa được yêu cầu, không phải thiếu sót kỹ thuật.
+
 ## Batch 5A — Xác thực email, Bộ hồ sơ và chuyển khoản thủ công — **HOÀN THÀNH (5/5 sub-bước)**
 
 **Mục tiêu:** chuyển mô hình quota "N lượt/ngày" hiện tại sang mô hình

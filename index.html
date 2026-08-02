@@ -921,14 +921,15 @@
         </div>
       </button>
 
-      <button type="button" class="drop-card" data-slot="densucco_binhcc" data-file="DSC-BCC-den-su-co-binh-chua-chay.pdf · 1.8 MB">
+      <button type="button" class="drop-card" data-slot="densucco" id="densuccoCard">
         <div class="drop-icon">ĐSC/BCC</div>
         <div class="drop-body">
-          <h4>Đèn sự cố / chỉ dẫn thoát nạn / Bình chữa cháy <span class="soon-badge">Sắp có</span></h4>
+          <h4>Đèn sự cố / chỉ dẫn thoát nạn / Bình chữa cháy <span class="real-badge">AI thật</span></h4>
           <p class="hint">Đèn chiếu sáng sự cố, đèn chỉ dẫn thoát nạn, vị trí/chủng loại bình xách tay/xe đẩy — thường thiết kế chung trên cùng bản vẽ — đối chiếu MĐC B12, B13</p>
           <span class="drop-meta">PDF, ảnh scan · tối đa 15MB · cần đăng nhập</span>
-          <span class="drop-status">○ Chưa đính kèm</span>
+          <span class="drop-status" id="densuccoStatus">○ Chưa đính kèm</span>
         </div>
+        <input type="file" id="densuccoFileInput" accept="application/pdf,image/png,image/jpeg,image/webp" hidden>
       </button>
 
       <button type="button" class="drop-card" data-slot="dienpccc" id="dienpcccCard">
