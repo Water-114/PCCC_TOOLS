@@ -23,7 +23,7 @@
   function renderUsers(users){
     var table = document.getElementById('adminUsersTable');
     table.innerHTML = '';
-    table.appendChild(headerRow(['Email', 'Vai trò', 'Ngày tạo', 'Đã dùng / hạn mức hôm nay', 'Chỉnh hạn mức/ngày']));
+    table.appendChild(headerRow(['Email', 'Vai trò', 'Ngày tạo', 'Đã dùng / hạn mức hôm nay', 'Bộ hồ sơ còn lại', 'Đã dùng (tổng)', 'Chỉnh hạn mức/ngày']));
 
     users.forEach(function(u){
       var isCustom = u.daily_quota !== null && u.daily_quota !== undefined;
@@ -45,6 +45,16 @@
       var tdUsage = document.createElement('td');
       tdUsage.textContent = u.used_today + ' / ' + effective;
       tr.appendChild(tdUsage);
+
+      // So du Bo ho so THAT (credits.credit_balance) - khac han "used_today"
+      // o tren (do la han muc goi AI/ngay, khong phai so du Bo ho so).
+      var tdBoHoSoConLai = document.createElement('td');
+      tdBoHoSoConLai.textContent = u.bo_ho_so_con_lai;
+      tr.appendChild(tdBoHoSoConLai);
+
+      var tdBoHoSoDaDung = document.createElement('td');
+      tdBoHoSoDaDung.textContent = u.bo_ho_so_da_dung;
+      tr.appendChild(tdBoHoSoDaDung);
 
       var tdQuota = document.createElement('td');
       var span = document.createElement('span');

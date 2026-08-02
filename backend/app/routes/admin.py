@@ -5,8 +5,8 @@ from sqlalchemy.orm import joinedload
 from ..auth import admin_required
 from ..config import Config
 from ..extensions import db
-from ..models import AIHO_API_NAME, Feedback, TopupRequest, User, UsageLog, _start_of_day_utc, count_usage_today
-from ..services import topup
+from ..models import AIHO_API_NAME, CreditLedger, Feedback, TopupRequest, User, UsageLog, _start_of_day_utc, count_usage_today
+from ..services import credits, topup
 
 bp = Blueprint("admin", __name__, url_prefix="/api/admin")
 
@@ -70,6 +70,27 @@ def users():
             .all()
         )
 
+    # So du Bo ho so THAT (khac han "used_today" - do la han muc goi AI/ngay).
+    # 2 truy van group-by rieng cho ca trang, tranh N+1 giong usage_counts o tren.
+    credit_balances = {}
+    usage_deduction_counts = {}
+    if user_ids:
+        credit_balances = dict(
+            db.session.query(CreditLedger.user_id, func.coalesce(func.sum(CreditLedger.delta), 0))
+            .filter(CreditLedger.user_id.in_(user_ids))
+            .group_by(CreditLedger.user_id)
+            .all()
+        )
+        usage_deduction_counts = dict(
+            db.session.query(CreditLedger.user_id, func.count(CreditLedger.id))
+            .filter(
+                CreditLedger.user_id.in_(user_ids),
+                CreditLedger.reason == credits.CREDIT_REASON_USAGE_DEDUCTION,
+            )
+            .group_by(CreditLedger.user_id)
+            .all()
+        )
+
     data = []
     for u in rows:
         used = usage_counts.get(u.id, 0)
@@ -81,6 +102,8 @@ def users():
             "default_quota": Config.AIHO_DAILY_QUOTA,
             "used_today": used,
             "remaining_today": max(0, limit - used),
+            "bo_ho_so_con_lai": int(credit_balances.get(u.id, 0)),
+            "bo_ho_so_da_dung": usage_deduction_counts.get(u.id, 0),
         })
     return jsonify({
         "users": data,
