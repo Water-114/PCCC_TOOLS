@@ -398,12 +398,21 @@ def evaluate_den(payload):
 
 
 # ---------------------------------------------------------------------------
-# evaluate_bien_tam_thap — tach rieng dieu kien "bien bao an toan tam thap"
-# da co san trong ghi chu cua evaluate_den() (TCVN 13456:2022 Dieu 5.2.3)
-# thanh 1 ham doc lap, tra ve DUNG 1 trong 3 trang thai ro rang (yes/no/
-# chua_du_du_lieu) - dung cho densucco_reader.py (Batch 5A mo rong, "Quy mo")
-# de xac dinh thuoc dien BANG CODE thay vi de AI tu doan tu 1 ban ve don le.
-# KHONG doi nguong so nao so voi ghi chu goc trong evaluate_den().
+# evaluate_bien_tam_thap — dieu kien "bien bao chi huong thoat nan tam thap"
+# (TCVN 13456:2022 Dieu 5.2.3). CHI ap dung cho KHACH SAN (khong phai moi
+# cong nang) - dung cho densucco_reader.py (Batch 5A mo rong, "Quy mo") de
+# xac dinh thuoc dien BANG CODE thay vi de AI tu doan tu 1 ban ve don le.
+#
+# SUA 2026-08-03 theo dinh chinh truc tiep cua owner tu van ban quy dinh goc
+# (co trich dan): 3 dieu kien la MOT dieu kien GOP (AND), khong phai 2 nhanh
+# doc lap nhu ban truoc:
+#   (1) tang co phong nghi khach san
+#   (2) cong trinh >=7 tang HOAC khoi tich >=5.000 m3
+#   (3) "DONG THOI" (=cung luc voi 1+2) hanh lang thoat nan cua tang do > 10m
+# => CHI khach san, VA (>=7 tang HOAC >=5000m3), VA hanh lang >10m thi moi
+# thuoc dien - ban truoc SAI o 2 diem: (a) nhanh >=7 tang bo qua khong kiem
+# tra hanh lang, (b) nhanh >=5000m3 ap dung nham cho MOI cong nang thay vi
+# chi khach san.
 # ---------------------------------------------------------------------------
 def evaluate_bien_tam_thap(payload):
     validate_payload(payload)
@@ -413,17 +422,16 @@ def evaluate_bien_tam_thap(payload):
     hanh_lang = payload.get("hanhLangDaiNhat")
     cc = "TCVN 13456:2022, Điều 5.2.3"
 
-    if occ == "khachsan" and floors >= 7:
-        return _result("yes", f"Khách sạn {_fmt(floors)} tầng ≥ 7 tầng — thuộc diện lắp biển báo an toàn tầm thấp.", cc)
+    if occ != "khachsan":
+        return _result("no", "Không phải khách sạn — quy định biển báo an toàn tầm thấp chỉ áp dụng cho tầng có phòng nghỉ khách sạn.", cc)
 
-    if volume >= 5000:
-        if hanh_lang is None:
-            return _result("chua_du_du_lieu", f"Khối tích {_fmt(volume)} m³ ≥ 5.000 m³ nhưng chưa rõ chiều dài hành lang thoát nạn — cần xác nhận có hành lang > 10 m hay không để kết luận.", cc)
-        hanh_lang = float(hanh_lang)
-        if hanh_lang > 10:
-            return _result("yes", f"Khối tích {_fmt(volume)} m³ ≥ 5.000 m³ và hành lang thoát nạn {_fmt(hanh_lang)} m > 10 m — thuộc diện.", cc)
-        return _result("no", f"Khối tích {_fmt(volume)} m³ ≥ 5.000 m³ nhưng hành lang thoát nạn {_fmt(hanh_lang)} m ≤ 10 m — không thuộc diện theo điều kiện khối tích.", cc)
+    if not (floors >= 7 or volume >= 5000):
+        return _result("no", f"Khách sạn {_fmt(floors)} tầng < 7 tầng và khối tích {_fmt(volume)} m³ < 5.000 m³ — không đủ quy mô, không thuộc diện.", cc)
 
-    if occ == "khachsan":
-        return _result("no", f"Khách sạn {_fmt(floors)} tầng < 7 tầng và khối tích {_fmt(volume)} m³ < 5.000 m³ — không thuộc diện.", cc)
-    return _result("no", f"Khối tích {_fmt(volume)} m³ < 5.000 m³ và không phải khách sạn ≥ 7 tầng — không thuộc diện.", cc)
+    quy_mo_note = f"{_fmt(floors)} tầng" if floors >= 7 else f"khối tích {_fmt(volume)} m³"
+    if hanh_lang is None:
+        return _result("chua_du_du_lieu", f"Khách sạn đủ quy mô ({quy_mo_note} ≥ ngưỡng) nhưng chưa rõ chiều dài hành lang thoát nạn — cần xác nhận > 10 m hay không để kết luận.", cc)
+    hanh_lang = float(hanh_lang)
+    if hanh_lang > 10:
+        return _result("yes", f"Khách sạn đủ quy mô ({quy_mo_note} ≥ ngưỡng) và hành lang thoát nạn {_fmt(hanh_lang)} m > 10 m — thuộc diện.", cc)
+    return _result("no", f"Khách sạn đủ quy mô ({quy_mo_note} ≥ ngưỡng) nhưng hành lang thoát nạn {_fmt(hanh_lang)} m ≤ 10 m — không thuộc diện.", cc)

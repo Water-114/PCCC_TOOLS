@@ -418,25 +418,22 @@ function evalDen(d){
   ];
   if(d.occ==="khachsan"&&d.floors>=7) notes.unshift("Khách sạn ≥ 7 tầng: sơ đồ thoát nạn tại mọi phòng nghỉ (5.2.9).");
   else if(d.occ==="khachsan") notes.unshift("Cơ sở lưu trú: sơ đồ thoát nạn tại mọi phòng nghỉ (5.2.9).");
-  // Bien bao an toan tam thap (5.2.3) - luon bao 1 trong 3 trang thai ro rang
-  // (thuoc dien / khong thuoc dien / chua du du lieu), khong chi im lang khi
-  // khong thuoc dien - dung EXACT nguong da duyet trong evaluate_bien_tam_thap()
-  // (backend/app/services/phuong_tien.py): khach san >=7 tang LUON thuoc dien
-  // (khong can hanh lang); con lai thi can khoi tich >=5000 m3 VA hanh lang
-  // thoat nan > 10 m (corridor chi thu thap khi occ=chungcu nen cac cong nang
-  // khac se roi vao nhanh "chua du du lieu" neu khoi tich du lon).
-  if(d.occ==="khachsan"&&d.floors>=7){
-    notes.push("<b>Biển báo an toàn tầm thấp: THUỘC DIỆN</b> — khách sạn ≥ 7 tầng, bắt buộc lắp tại các tầng có phòng nghỉ (đáy biển 150–200 mm so sàn, khoảng cách ≤ 10 m) (TCVN 13456:2022, mục 5.2.3).");
-  } else if(d.volume>=5000){
-    if(d.corridor==="gt10"){
-      notes.push("<b>Biển báo an toàn tầm thấp: THUỘC DIỆN</b> — khối tích ≥ 5.000 m³ và hành lang thoát nạn > 10 m (TCVN 13456:2022, mục 5.2.3).");
-    } else if(d.corridor==="le10"){
-      notes.push("<b>Biển báo an toàn tầm thấp: KHÔNG thuộc diện</b> — khối tích ≥ 5.000 m³ nhưng hành lang thoát nạn ≤ 10 m (TCVN 13456:2022, mục 5.2.3).");
-    } else {
-      notes.push("<b>Biển báo an toàn tầm thấp: CHƯA ĐỦ DỮ LIỆU</b> — khối tích ≥ 5.000 m³, cần xác nhận chiều dài hành lang thoát nạn dài nhất (> 10 m thì thuộc diện). Cân nhắc kiểm tra lại mục này nếu công trình thuộc đối tượng liệt kê tại QCVN 10:2025/BCA và TCVN 13456:2022, mục 5.2.3.");
-    }
+  // Bien bao an toan tam thap (5.2.3) - SUA 2026-08-03 theo dinh chinh cua
+  // owner tu van ban quy dinh goc: 3 dieu kien la MOT dieu kien GOP (AND),
+  // CHI ap dung khach san (khong phai moi cong nang): (1) khach san, VA (2)
+  // >=7 tang HOAC >=5.000 m3, VA (3) hanh lang thoat nan cua tang do > 10m -
+  // khac ban truoc (nhanh >=7 tang bo qua hanh lang; nhanh khoi tich ap dung
+  // nham cho moi cong nang). Khop dung evaluate_bien_tam_thap() (backend).
+  if(d.occ!=="khachsan"){
+    notes.push("<b>Biển báo an toàn tầm thấp: KHÔNG thuộc diện</b> — quy định chỉ áp dụng cho tầng có phòng nghỉ khách sạn (TCVN 13456:2022, mục 5.2.3).");
+  } else if(!(d.floors>=7 || d.volume>=5000)){
+    notes.push("<b>Biển báo an toàn tầm thấp: KHÔNG thuộc diện</b> — khách sạn nhưng < 7 tầng và khối tích < 5.000 m³, chưa đủ quy mô (TCVN 13456:2022, mục 5.2.3).");
+  } else if(d.corridor==="gt10"){
+    notes.push("<b>Biển báo an toàn tầm thấp: THUỘC DIỆN</b> — khách sạn đủ quy mô (≥ 7 tầng hoặc ≥ 5.000 m³) và hành lang thoát nạn > 10 m: bắt buộc lắp tại các tầng có phòng nghỉ (đáy biển 150–200 mm so sàn, khoảng cách ≤ 10 m) (TCVN 13456:2022, mục 5.2.3).");
+  } else if(d.corridor==="le10"){
+    notes.push("<b>Biển báo an toàn tầm thấp: KHÔNG thuộc diện</b> — khách sạn đủ quy mô nhưng hành lang thoát nạn ≤ 10 m (TCVN 13456:2022, mục 5.2.3).");
   } else {
-    notes.push("<b>Biển báo an toàn tầm thấp: KHÔNG thuộc diện</b> — không phải khách sạn ≥ 7 tầng và khối tích < 5.000 m³ (TCVN 13456:2022, mục 5.2.3). Biển tầm thấp chỉ mang tính bổ trợ khi khói che khuất biển an toàn tiêu chuẩn, không thay thế biển tiêu chuẩn.");
+    notes.push("<b>Biển báo an toàn tầm thấp: CHƯA ĐỦ DỮ LIỆU</b> — khách sạn đủ quy mô (≥ 7 tầng hoặc ≥ 5.000 m³), cần xác nhận chiều dài hành lang thoát nạn dài nhất (> 10 m thì thuộc diện). Cân nhắc kiểm tra lại mục này theo QCVN 10:2025/BCA và TCVN 13456:2022, mục 5.2.3.");
   }
   if(d.areaFloor>1000) notes.push(`Tầng > 1.000 m² (tầng điển hình ${fmt(d.areaFloor)} m²): bắt buộc SƠ ĐỒ CHỈ DẪN THOÁT NẠN tại tầng, kích thước ≥ 600×400 mm, mép dưới cao 1,5 ± 0,2 m (5.2.9).`);
   else notes.push("Tầng có ≥ 2 lối ra thoát nạn: bắt buộc sơ đồ chỉ dẫn thoát nạn tại tầng (5.2.9) — xác nhận theo mặt bằng.");
