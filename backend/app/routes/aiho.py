@@ -3,6 +3,8 @@ import base64
 from flask import Blueprint, current_app, g, jsonify, request
 
 from ..auth import login_required
+from ..extensions import db
+from ..models import AIHO_API_NAME, UsageLog, count_usage_today
 from ..providers.base import ProviderNotConfigured
 from ..providers.factory import get_provider
 from ..services import (
@@ -126,6 +128,17 @@ def _handle_read_request(read_drawing_fn, build_mdc_files, forms_per_call, on_su
     if not _sniff_magic_bytes(data, media_type):
         return jsonify({"error": "Nội dung file không khớp với định dạng khai báo — file có thể bị hỏng hoặc sai định dạng thật."}), 400
 
+    # Han muc goi AI/ngay (khac gioi han file/form cua 1 phien Bo ho so o tren) -
+    # dung lai dung logic cua /api/ai/comment (routes/ai.py): so count_usage_today()
+    # voi effective_quota() cua user, chan som TRUOC KHI goi AI neu da dat/vuot.
+    limit = user.effective_quota()
+    used_today = count_usage_today(user.id, AIHO_API_NAME)
+    if used_today >= limit:
+        return jsonify({
+            "error": f"Đã đạt hạn mức {limit} lượt gọi AI/ngày cho tính năng này — thử lại vào ngày mai.",
+            "quota": {"limit": limit, "used_today": used_today, "remaining_today": 0},
+        }), 429
+
     wants_mdc = "mdc" in {o.strip() for o in (request.form.get("outputs") or "").split(",")}
 
     provider_name = request.form.get("provider")
@@ -148,12 +161,21 @@ def _handle_read_request(read_drawing_fn, build_mdc_files, forms_per_call, on_su
     try:
         result = read_drawing_fn(data, media_type, provider, quy_mo=quy_mo)
     except ProviderNotConfigured as exc:
+        # Chua cau hinh API key - chua thuc su goi AI nao, khong tinh la 1
+        # luot dung (giong het nhanh nay o /api/ai/comment, routes/ai.py).
         return jsonify({"error": str(exc), "provider": provider.name}), 503
     except AIReaderError as exc:
+        db.session.add(UsageLog(user_id=user.id, api_name=AIHO_API_NAME, status="error"))
+        db.session.commit()
         return jsonify({"error": str(exc)}), 502
     except Exception:  # lỗi mạng/SDK bên thứ ba — không lộ chi tiết ra client
+        db.session.add(UsageLog(user_id=user.id, api_name=AIHO_API_NAME, status="error"))
+        db.session.commit()
         current_app.logger.exception("Loi goi provider '%s'", provider.name)
         return jsonify({"error": f"Lỗi gọi máy chủ AI ('{provider.name}') — vui lòng thử lại sau."}), 502
+
+    db.session.add(UsageLog(user_id=user.id, api_name=AIHO_API_NAME, status="success"))
+    db.session.commit()
 
     ho_so_session.mark_success(session)
 

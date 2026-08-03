@@ -14,7 +14,8 @@ from unittest.mock import patch
 
 from docx import Document
 
-from app.models import HoSoSession
+from app.extensions import db
+from app.models import HoSoSession, User
 from app.providers.base import GenerationResult, ProviderNotConfigured
 from app.providers.resilience import CircuitBreakerOpen
 from app.services import credits, mdc_filler
@@ -32,6 +33,15 @@ def _register_login_and_grant(client, email="aihoread@pccc.local", password="mat
     if amount:
         credits.grant_credits(user_id, amount, credits.CREDIT_REASON_EMAIL_VERIFICATION, note="test setup")
     return token, user_id
+
+
+def _bump_daily_quota(email, value):
+    """Nang han muc goi AI/ngay cho 1 user - dung o cac test can lam nhieu hon
+    5 lot goi that trong ngay ma KHONG muon bi chan boi han muc AIHO_DAILY_QUOTA
+    (vd test rieng gioi han file/form cua 1 phien Bo ho so, khac han muc/ngay)."""
+    user = User.query.filter_by(email=email).first()
+    user.daily_quota = value
+    db.session.commit()
 
 
 def _open_session(client, token):
@@ -244,6 +254,7 @@ def test_closing_session_with_one_success_keeps_deduction(client):
 # ---------------------------------------------------------------------------
 def test_file_cap_exceeded_returns_400(client):
     token, _ = _register_login_and_grant(client, email="aihoread5file@pccc.local")
+    _bump_daily_quota("aihoread5file@pccc.local", 10)  # co lap voi han muc goi AI/ngay - test nay chi kiem tra rieng gioi han file/phien
     session_id = _open_session(client, token)
     provider = FakeProvider(fn=lambda sp: _dienpccc_payload())
     with patch("app.routes.aiho.get_provider", return_value=provider):
