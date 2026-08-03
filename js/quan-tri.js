@@ -23,7 +23,7 @@
   function renderUsers(users){
     var table = document.getElementById('adminUsersTable');
     table.innerHTML = '';
-    table.appendChild(headerRow(['Email', 'Vai trò', 'Ngày tạo', 'Đã dùng / hạn mức hôm nay', 'Bộ hồ sơ còn lại', 'Đã dùng (tổng)', 'Chỉnh hạn mức/ngày']));
+    table.appendChild(headerRow(['Email', 'Vai trò', 'Ngày tạo', 'Bộ hồ sơ còn lại', 'Đã dùng (tổng)', 'Trần gọi AI/ngày', 'Chỉnh trần/ngày']));
 
     users.forEach(function(u){
       var isCustom = u.daily_quota !== null && u.daily_quota !== undefined;
@@ -42,12 +42,9 @@
       tdCreated.textContent = fmtDate(u.created_at);
       tr.appendChild(tdCreated);
 
-      var tdUsage = document.createElement('td');
-      tdUsage.textContent = u.used_today + ' / ' + effective;
-      tr.appendChild(tdUsage);
-
-      // So du Bo ho so THAT (credits.credit_balance) - khac han "used_today"
-      // o tren (do la han muc goi AI/ngay, khong phai so du Bo ho so).
+      // So du Bo ho so THAT (credits.credit_balance) - con so quan trong nhat,
+      // dat NGAY sau "Ngay tao" de de thay - khac han "Tran goi AI/ngay" o
+      // duoi (do la gioi han ky thuat chong spam, khong phai so du that).
       var tdBoHoSoConLai = document.createElement('td');
       tdBoHoSoConLai.textContent = u.bo_ho_so_con_lai;
       tr.appendChild(tdBoHoSoConLai);
@@ -55,6 +52,10 @@
       var tdBoHoSoDaDung = document.createElement('td');
       tdBoHoSoDaDung.textContent = u.bo_ho_so_da_dung;
       tr.appendChild(tdBoHoSoDaDung);
+
+      var tdUsage = document.createElement('td');
+      tdUsage.textContent = u.used_today + ' / ' + effective;
+      tr.appendChild(tdUsage);
 
       var tdQuota = document.createElement('td');
       var span = document.createElement('span');
