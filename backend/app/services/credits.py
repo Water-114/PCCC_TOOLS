@@ -16,6 +16,7 @@ CREDIT_REASON_USAGE_DEDUCTION = "usage_deduction"
 CREDIT_REASON_REFUND_TECHNICAL_ERROR = "refund_technical_error"
 CREDIT_REASON_TOPUP_CONFIRMED = "topup_confirmed"
 CREDIT_REASON_FEEDBACK_BONUS = "feedback_bonus"
+CREDIT_REASON_ADMIN_ADJUSTMENT = "admin_adjustment"
 
 
 def credit_balance(user_id: int) -> int:

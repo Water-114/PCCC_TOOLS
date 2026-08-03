@@ -147,6 +147,43 @@ def set_user_quota(user_id):
     })
 
 
+@bp.post("/users/<int:user_id>/credits")
+@admin_required
+def adjust_user_credits(user_id):
+    """Cap/tru thu cong so du Bo ho so cho 1 tai khoan (vd. tang cho khach hang,
+    sua sai sot) - ghi vao credit_ledger dung cach nhu moi giao dich khac (khong
+    co cot so du rieng, luon tinh lai tu SUM(delta), xem services/credits.py).
+    BAT BUOC ghi ly do (note) - day la tien/luot that, can dau vet ro ai chinh,
+    khi nao, vi sao."""
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "Không tìm thấy tài khoản."}), 404
+
+    payload = request.get_json(silent=True) or {}
+
+    try:
+        delta = int(payload.get("delta"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Số lượng phải là một số nguyên."}), 400
+    if delta == 0:
+        return jsonify({"error": "Số lượng phải khác 0."}), 400
+
+    note = (payload.get("note") or "").strip()
+    if not note:
+        return jsonify({"error": "Cần ghi lý do điều chỉnh."}), 400
+
+    admin_email = g.current_user.email
+    credits.grant_credits(
+        user.id, delta, credits.CREDIT_REASON_ADMIN_ADJUSTMENT,
+        note=f"Admin {admin_email}: {note}",
+    )
+
+    return jsonify({
+        "id": user.id,
+        "bo_ho_so_con_lai": credits.credit_balance(user.id),
+    })
+
+
 @bp.get("/feedback")
 @admin_required
 def feedback():

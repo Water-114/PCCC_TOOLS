@@ -23,7 +23,7 @@
   function renderUsers(users){
     var table = document.getElementById('adminUsersTable');
     table.innerHTML = '';
-    table.appendChild(headerRow(['Email', 'Vai trò', 'Ngày tạo', 'Bộ hồ sơ còn lại', 'Đã dùng (tổng)', 'Trần gọi AI/ngày', 'Chỉnh trần/ngày']));
+    table.appendChild(headerRow(['Email', 'Vai trò', 'Ngày tạo', 'Bộ hồ sơ còn lại', 'Đã dùng (tổng)', 'Cấp/trừ Bộ hồ sơ', 'Trần gọi AI/ngày', 'Chỉnh trần/ngày']));
 
     users.forEach(function(u){
       var isCustom = u.daily_quota !== null && u.daily_quota !== undefined;
@@ -52,6 +52,43 @@
       var tdBoHoSoDaDung = document.createElement('td');
       tdBoHoSoDaDung.textContent = u.bo_ho_so_da_dung;
       tr.appendChild(tdBoHoSoDaDung);
+
+      // Cap/tru thu cong Bo ho so that (khac han "Chinh tran/ngay" o cuoi -
+      // day la tien/luot that, ghi vao credit_ledger, BAT BUOC ly do de co
+      // dau vet. Delta co the am (tru) hoac duong (cap).
+      var tdCredit = document.createElement('td');
+      var creditSpan = document.createElement('span');
+      creditSpan.className = 'quota-edit';
+
+      var deltaInput = document.createElement('input');
+      deltaInput.type = 'number';
+      deltaInput.className = 'credit-delta-input';
+      deltaInput.placeholder = 'vd: 5 hoặc -2';
+      deltaInput.style.width = '70px';
+      creditSpan.appendChild(deltaInput);
+
+      var noteInput = document.createElement('input');
+      noteInput.type = 'text';
+      noteInput.className = 'credit-note-input';
+      noteInput.placeholder = 'Lý do';
+      noteInput.style.width = '110px';
+      creditSpan.appendChild(noteInput);
+
+      var creditSaveBtn = document.createElement('button');
+      creditSaveBtn.type = 'button';
+      creditSaveBtn.className = 'btn-credit-save';
+      creditSaveBtn.dataset.id = u.id;
+      creditSaveBtn.textContent = 'Lưu';
+      creditSpan.appendChild(creditSaveBtn);
+
+      tdCredit.appendChild(creditSpan);
+
+      var creditErrEl = document.createElement('span');
+      creditErrEl.className = 'quota-err credit-err';
+      creditErrEl.hidden = true;
+      tdCredit.appendChild(creditErrEl);
+
+      tr.appendChild(tdCredit);
 
       var tdUsage = document.createElement('td');
       tdUsage.textContent = u.used_today + ' / ' + effective;
@@ -99,6 +136,7 @@
       table.appendChild(tr);
     });
     wireQuotaControls();
+    wireCreditControls();
   }
 
   function saveQuota(id, value, errEl){
@@ -144,6 +182,53 @@
         var id = btn.dataset.id;
         var errEl = btn.closest('td').querySelector('.quota-err');
         saveQuota(id, null, errEl);
+      });
+    });
+  }
+
+  function saveCredits(id, delta, note, errEl){
+    var headers = Object.assign({'Content-Type': 'application/json'}, A.authHeaders());
+    return fetch(A.BACKEND_BASE + '/api/admin/users/' + id + '/credits', {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({delta: delta, note: note})
+    }).then(function(r){ return r.json().then(function(data){ return {ok: r.ok, data: data}; }); })
+      .then(function(res){
+        if(!res.ok){
+          errEl.textContent = res.data.error || 'Không lưu được.';
+          errEl.hidden = false;
+          return;
+        }
+        errEl.hidden = true;
+        loadDashboard();
+      })
+      .catch(function(){
+        errEl.textContent = 'Không kết nối được tới máy chủ.';
+        errEl.hidden = false;
+      });
+  }
+
+  function wireCreditControls(){
+    Array.prototype.forEach.call(document.querySelectorAll('.btn-credit-save'), function(btn){
+      btn.addEventListener('click', function(){
+        var id = btn.dataset.id;
+        var cell = btn.closest('td');
+        var deltaRaw = cell.querySelector('.credit-delta-input').value.trim();
+        var note = cell.querySelector('.credit-note-input').value.trim();
+        var errEl = cell.querySelector('.credit-err');
+
+        var delta = Number(deltaRaw);
+        if(deltaRaw === '' || isNaN(delta) || !Number.isInteger(delta) || delta === 0){
+          errEl.textContent = 'Nhập số nguyên khác 0 (dương để cấp, âm để trừ).';
+          errEl.hidden = false;
+          return;
+        }
+        if(!note){
+          errEl.textContent = 'Cần ghi lý do.';
+          errEl.hidden = false;
+          return;
+        }
+        saveCredits(id, delta, note, errEl);
       });
     });
   }

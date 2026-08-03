@@ -122,6 +122,97 @@ def test_admin_users_per_page_capped(app, client):
     assert resp.get_json()["per_page"] == 300  # _MAX_PER_PAGE
 
 
+def test_adjust_user_credits_grants_positive_delta(app, client):
+    with app.app_context():
+        _make_admin()
+        u1 = _make_user("credit1@pccc.local")
+        u1_id = u1.id
+
+    token = _login(client, "admin@pccc.local")
+    resp = client.post(
+        f"/api/admin/users/{u1_id}/credits",
+        json={"delta": 3, "note": "khuyến mãi khách hàng thân thiết"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.get_json()["bo_ho_so_con_lai"] == 3
+
+
+def test_adjust_user_credits_negative_delta_deducts(app, client):
+    with app.app_context():
+        _make_admin()
+        u1 = _make_user("credit2@pccc.local")
+        u1_id = u1.id
+        credits.grant_credits(u1_id, 5, credits.CREDIT_REASON_EMAIL_VERIFICATION)
+
+    token = _login(client, "admin@pccc.local")
+    resp = client.post(
+        f"/api/admin/users/{u1_id}/credits",
+        json={"delta": -2, "note": "sửa nhầm lẫn khi cấp trước đó"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    assert resp.get_json()["bo_ho_so_con_lai"] == 3
+
+
+def test_adjust_user_credits_requires_note(app, client):
+    with app.app_context():
+        _make_admin()
+        u1 = _make_user("credit3@pccc.local")
+        u1_id = u1.id
+
+    token = _login(client, "admin@pccc.local")
+    resp = client.post(
+        f"/api/admin/users/{u1_id}/credits",
+        json={"delta": 3, "note": "  "},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 400
+
+
+def test_adjust_user_credits_rejects_zero_delta(app, client):
+    with app.app_context():
+        _make_admin()
+        u1 = _make_user("credit4@pccc.local")
+        u1_id = u1.id
+
+    token = _login(client, "admin@pccc.local")
+    resp = client.post(
+        f"/api/admin/users/{u1_id}/credits",
+        json={"delta": 0, "note": "test"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 400
+
+
+def test_adjust_user_credits_requires_admin_role(app, client):
+    with app.app_context():
+        u1 = _make_user("credit5@pccc.local")
+        u1_id = u1.id
+        _make_user("notadmin@pccc.local")
+
+    token = _login(client, "notadmin@pccc.local")
+    resp = client.post(
+        f"/api/admin/users/{u1_id}/credits",
+        json={"delta": 3, "note": "test"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 403
+
+
+def test_adjust_user_credits_unknown_user_returns_404(app, client):
+    with app.app_context():
+        _make_admin()
+
+    token = _login(client, "admin@pccc.local")
+    resp = client.post(
+        "/api/admin/users/999999/credits",
+        json={"delta": 3, "note": "test"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 404
+
+
 def test_admin_feedback_returns_user_email_via_joinedload(app, client):
     with app.app_context():
         _make_admin()
