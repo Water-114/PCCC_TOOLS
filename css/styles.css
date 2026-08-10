@@ -284,6 +284,14 @@ ul.pos li{margin-bottom:2px}
 .quymo-manual-actions{display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap}
 .quymo-manual-msg{font-size:12.5px}
 
+/* Tieu de phan biet 2 nhom cach dinh file trong Buoc 1 - to, dam, in hoa,
+   xanh dam (--blue) de noi bat, khong phai link/button. */
+.section-case-heading{
+  font-family:var(--sans);font-size:15px;font-weight:800;letter-spacing:.03em;
+  text-transform:uppercase;color:var(--blue);margin:20px 0 8px;
+}
+.section-case-heading:first-of-type{margin-top:14px}
+
 /* Nut "Dung 1 file cho nhieu hang muc" - cung kieu voi quymo-manual-toggle
    nhung nam o cap SECTION (canh tieu de Buoc 1), khong rang buoc trong 1 the. */
 .multi-attach-toggle{
