@@ -19,7 +19,7 @@ function App() {
   return (
     <main className="wrap">
       <header>
-        <h1>Tư vấn PCCC — Demo MVP</h1>
+        <h1>Hướng dẫn PCCC — Demo MVP</h1>
         <p>React + Vite (UI) + Flask (API) + AI gateway (Claude/Gemini).</p>
       </header>
 
