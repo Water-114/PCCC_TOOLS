@@ -17,6 +17,8 @@ mức độ bảo vệ mà _reserve_usage_slot gốc cũng chỉ đạt tới, k
 
 from datetime import datetime, timedelta, timezone
 
+from sqlalchemy import update as sa_update
+
 from ..extensions import db
 from ..models import HoSoSession
 from . import credits
@@ -126,14 +128,50 @@ def reserve_slot(session: HoSoSession, files_delta: int, forms_delta: int) -> No
     gioi han 5 file/7 form (khong ton 1 lan goi AI cho yeu cau chac chan bi tu
     choi). KHONG hoan lai file/form da tang neu AI sau do loi ky thuat (khac voi
     hoan Bo ho so o cap phien) - giu don gian, dung UI hien tai khong co duong
-    nao "thu lai dung hang muc trong cung 1 phien" sau khi loi."""
-    if session.files_used + files_delta > MAX_FILES_PER_SESSION:
-        raise SessionCapExceeded(f"Vượt quá giới hạn {MAX_FILES_PER_SESSION} file bản vẽ/Bộ hồ sơ.")
-    if session.forms_used + forms_delta > MAX_FORMS_PER_SESSION:
-        raise SessionCapExceeded(f"Vượt quá giới hạn {MAX_FORMS_PER_SESSION} form MĐC/Bộ hồ sơ.")
-    session.files_used += files_delta
-    session.forms_used += forms_delta
+    nao "thu lai dung hang muc trong cung 1 phien" sau khi loi.
+
+    NGUYEN TU O TANG SQL — KHONG doc-roi-ghi: truoc day ham nay doc
+    session.files_used vao bien Python, cong, roi commit — neu 2+ hang muc
+    trong CUNG 1 phien chay dong thoi (vd nut "Dung 1 file cho nhieu hang muc"),
+    moi request co the doc trung 1 gia tri CU truoc khi request kia kip commit,
+    khien request sau GHI DE mat phan tang cua request truoc (lost update) —
+    dem thieu files_used/forms_used, co the cho vuot han muc that.
+    Ban sua: dieu kien "khong vuot han muc" nam NGAY TRONG WHERE cua 1 cau
+    UPDATE DUY NHAT, so sanh voi gia tri COT hien tai trong DB (khong phai bien
+    Python `session` co the da cu) — Postgres (production) tu khoa dong ay o
+    muc row-level cho moi UPDATE nhu vay, cac request dong thoi tu xep hang o
+    tang SQL thay vi tranh chap tren du lieu Python da doc truoc do. rowcount==0
+    nghia la KHONG co dong nao khop dieu kien (da vuot gioi han tai thoi diem
+    THUC THI) — refresh() lai `session` de doc dung gia tri that tu DB truoc khi
+    quyet dinh thong bao loi nao (chi de CHON DUNG THONG BAO, khong anh huong
+    toi quyet dinh chan/cho — quyet dinh that da nam trong cau UPDATE o tren).
+    """
+    stmt = (
+        sa_update(HoSoSession)
+        .where(
+            HoSoSession.id == session.id,
+            HoSoSession.files_used + files_delta <= MAX_FILES_PER_SESSION,
+            HoSoSession.forms_used + forms_delta <= MAX_FORMS_PER_SESSION,
+        )
+        .values(
+            files_used=HoSoSession.files_used + files_delta,
+            forms_used=HoSoSession.forms_used + forms_delta,
+        )
+    )
+    result = db.session.execute(stmt)
     db.session.commit()
+
+    if result.rowcount == 0:
+        db.session.refresh(session)
+        if session.files_used + files_delta > MAX_FILES_PER_SESSION:
+            raise SessionCapExceeded(f"Vượt quá giới hạn {MAX_FILES_PER_SESSION} file bản vẽ/Bộ hồ sơ.")
+        if session.forms_used + forms_delta > MAX_FORMS_PER_SESSION:
+            raise SessionCapExceeded(f"Vượt quá giới hạn {MAX_FORMS_PER_SESSION} form MĐC/Bộ hồ sơ.")
+        raise SessionCapExceeded(
+            f"Vượt quá giới hạn {MAX_FILES_PER_SESSION} file bản vẽ hoặc {MAX_FORMS_PER_SESSION} form MĐC/Bộ hồ sơ."
+        )
+
+    db.session.refresh(session)
 
 
 def mark_success(session: HoSoSession) -> None:

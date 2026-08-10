@@ -6,6 +6,7 @@ phiên bị bỏ quên (timeout) tự đóng đúng khi mở phiên mới."""
 from datetime import timedelta
 
 import pytest
+from sqlalchemy.orm.attributes import set_committed_value
 
 from app.extensions import db
 from app.models import HoSoSession, User
@@ -160,6 +161,68 @@ def test_reserve_slot_exactly_at_cap_boundary_succeeds(app):
     ho_so_session.reserve_slot(session, 1, 1)  # dung bang 5 file, 7 form
     assert session.files_used == 5
     assert session.forms_used == 7
+
+
+# ---------------------------------------------------------------------------
+# reserve_slot - chung minh het "lost update" khi doc-roi-ghi (ban cu), bang
+# cach mo phong dung kich ban gay loi that o production: "request A" tang
+# truoc va commit that su len 5/5, "request B" thi VAN CON GIU 1 GIA TRI PYTHON
+# CU cho object HoSoSession no dang giu (doc/refresh TU TRUOC khi A kip chay -
+# hoan toan hop ly voi 2 request Flask khac nhau, moi request co bien `session`
+# rieng trong bo nho, tai thoi diem code cua no bat dau chay khong the biet
+# request kia vua commit gi).
+#
+# VE VIEC KHONG DUNG threading that: engine test dung SQLite ":memory:" voi
+# StaticPool (1 connection sqlite3 DUY NHAT dung chung cho CA APP - xac nhan
+# rieng: type(db.engine.pool).__name__ == "StaticPool") - nhieu THREAD he dieu
+# hanh cung dung 1 connection sqlite3 nhu vay se nem loi KY THUAT CUA DRIVER
+# ("cannot start a transaction within a transaction", da tu kiem chung bang
+# script rieng) thay vi mo phong dung 1 race dang co that (nhieu KET NOI doc
+# lap nhu tren Postgres production, moi request 1 connection rieng tu pool) -
+# dung threading o day se flaky vi 1 ly do KHAC han cai dang can kiem tra.
+#
+# Thay vao do, test nay chung minh THANG vao dung tinh chat can co: sau khi
+# sua, quyet dinh chan/cho cua reserve_slot() KHONG doc `session.files_used`
+# (bien Python cua object duoc truyen vao) de quyet dinh nua - no chi dung
+# `session.id` de dung trong WHERE, con dieu kien "con cho hay khong" nam
+# trong chinh cau SQL, doc gia tri COT tai thoi diem UPDATE THUC THI. Vi vay,
+# du object `session` dang giu 1 gia tri .files_used SAI/CU trong bo nho
+# (mo phong bang cach tu gan lai, KHONG commit), ket qua van phai DUNG theo
+# DB - day chinh la co che giup an toan tren Postgres that (moi ket noi/
+# transaction doc lap, UPDATE luon doc dung gia tri cot moi nhat).
+# ---------------------------------------------------------------------------
+def test_reserve_slot_uses_current_db_value_not_stale_python_object(app):
+    user = _make_user()
+    session = ho_so_session.open_session(user.id)
+    session.files_used = 3  # con dung 2 slot truoc khi cham gioi han 5
+    db.session.commit()
+
+    # "Request A" chay truoc, thanh cong: dung not 2 slot con lai -> DB THAT SU
+    # da len dung 5/5 (xac nhan qua object `session` - reserve_slot() da
+    # refresh() no o cuoi ham).
+    ho_so_session.reserve_slot(session, 2, 0)
+    assert session.files_used == 5
+
+    # Mo phong "request B": 1 bien Python khac (thuc te se la 1 object HoSoSession
+    # rieng cua request do) van dang GIU GIA TRI CU no tung doc TRUOC khi A kip
+    # chay/commit - dung set_committed_value() (API cong khai cua SQLAlchemy,
+    # danh rieng cho truong hop nay: "set gia tri KHONG tao lich su thay doi" -
+    # xem docs sqlalchemy.orm.attributes) de mo phong DUNG 1 attribute doc duoc
+    # tu truoc, KHONG bien no thanh 1 thay doi "dirty" (neu chi gan bang `=`
+    # binh thuong, autoflush se tu ghi de gia tri gia nay xuong DB THAT truoc
+    # khi UPDATE nguyen tu kip chay, lam sai lech chinh cai dang kiem tra).
+    set_committed_value(session, "files_used", 3)
+
+    with pytest.raises(ho_so_session.SessionCapExceeded, match="5 file"):
+        ho_so_session.reserve_slot(session, 1, 0)
+
+    # Neu con doc-roi-ghi (ban cu): code se tin session.files_used dang la 3,
+    # tinh 3+1=4 <= 5 nen KHONG chan, roi GHI DE DB tu 5 xuong 4 - mat dung
+    # 1 slot A vua tang that su (lost update, dem SAI so voi thuc te da dung).
+    # Xac nhan gia tri THAT trong DB (doc lai tu dau, khong qua object cu) van
+    # dung la 5 - khong bi ghi de xuong 4 (mat) hay len 6 (vuot gioi han).
+    final = HoSoSession.query.get(session.id)
+    assert final.files_used == 5
 
 
 # ---------------------------------------------------------------------------
