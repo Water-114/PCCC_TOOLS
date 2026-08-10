@@ -291,6 +291,7 @@ ul.pos li{margin-bottom:2px}
   text-transform:uppercase;color:var(--blue);margin:20px 0 8px;
 }
 .section-case-heading:first-of-type{margin-top:14px}
+.section-case-icon{font-size:2em;line-height:0;vertical-align:middle;display:inline-block;margin-right:2px}
 
 /* Nut "Dung 1 file cho nhieu hang muc" - cung kieu voi quymo-manual-toggle
    nhung nam o cap SECTION (canh tieu de Buoc 1), khong rang buoc trong 1 the. */
