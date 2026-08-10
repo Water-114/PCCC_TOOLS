@@ -284,6 +284,22 @@ ul.pos li{margin-bottom:2px}
 .quymo-manual-actions{display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap}
 .quymo-manual-msg{font-size:12.5px}
 
+/* Nut "Dung 1 file cho nhieu hang muc" - cung kieu voi quymo-manual-toggle
+   nhung nam o cap SECTION (canh tieu de Buoc 1), khong rang buoc trong 1 the. */
+.multi-attach-toggle{
+  display:inline-block;margin:10px 0 0;background:none;border:none;padding:0;
+  font-family:var(--sans);font-size:13px;font-weight:600;color:var(--blue);
+  text-decoration:underline;text-underline-offset:2px;cursor:pointer;
+}
+.multi-attach-toggle:hover{color:var(--red)}
+.multi-attach-panel{margin:10px 0 18px;padding:16px 18px;border:1px solid var(--line);border-radius:6px;background:var(--card);max-width:640px}
+.multi-attach-checklist{display:flex;flex-direction:column;gap:9px;margin:10px 0}
+.multi-attach-item{display:flex;align-items:center;gap:9px;font-size:14px;cursor:pointer}
+.multi-attach-item input{width:auto}
+.multi-attach-warning{font-size:13px;color:var(--amber);margin-top:10px;min-height:18px}
+.multi-attach-error{font-size:13px;color:var(--red-deep);margin-top:4px}
+.multi-attach-error[hidden]{display:none}
+
 /* Nut "HUONG DAN" cho trang AI kiem tra ho so - chu do dam, in hoa, khong icon */
 .aiho-guide-toggle{
   display:inline-block;margin-top:8px;background:none;border:none;padding:0;

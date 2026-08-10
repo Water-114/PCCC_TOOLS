@@ -382,6 +382,55 @@
       });
   }
 
+  // Kiem tra kich thuoc file - dung CHUNG cho ca 2 duong dinh file: tung the
+  // rieng (setupRealFileCard) VA panel "Dung 1 file cho nhieu hang muc".
+  // Tra ve chuoi loi neu vuot han muc, null neu hop le.
+  function validateFileSize(f){
+    if(f.size > MAX_FILE_BYTES){
+      var overMb = (f.size / (1024 * 1024)).toFixed(1);
+      return 'File "' + f.name + '" (' + overMb + ' MB) vượt quá giới hạn ' + MAX_FILE_MB + 'MB — vui lòng nén file hoặc chia nhỏ PDF rồi đính kèm lại.';
+    }
+    return null;
+  }
+
+  // Gan 1 file (da qua validateFileSize) vao 1 slot cu the - cap nhat realFiles
+  // + giao dien the (giong het duong dinh tung the rieng le). Dung CHUNG cho ca
+  // setupRealFileCard VA panel "Dung 1 file cho nhieu hang muc" (khong viet lai).
+  function attachFileToSlot(slot, f){
+    var card = document.getElementById(slot + 'Card');
+    var status = document.getElementById(slot + 'Status');
+    if(!card || !status) return;
+
+    realFiles[slot] = f;
+    realResults[slot] = null;
+    realData[slot] = null;
+    card.classList.add('filled');
+    status.textContent = '● Đã đính kèm';
+    status.classList.add('attached');
+    var body = card.querySelector('.drop-body');
+    var existing = body.querySelector('.drop-file');
+    if(existing) existing.remove();
+    var sizeMb = (f.size / (1024 * 1024)).toFixed(1);
+    var fileRow = buildFileRow(f.name + ' · ' + sizeMb + ' MB');
+    fileRow.querySelector('button').addEventListener('click', function(e){
+      e.stopPropagation();
+      realFiles[slot] = null;
+      realResults[slot] = null;
+      realData[slot] = null;
+      var fileInput = document.getElementById(slot + 'FileInput');
+      if(fileInput) fileInput.value = '';
+      card.classList.remove('filled');
+      status.textContent = '○ Chưa đính kèm';
+      status.classList.remove('attached');
+      fileRow.remove();
+      updateCta();
+      updateProgress();
+    });
+    body.appendChild(fileRow);
+    updateCta();
+    updateProgress();
+  }
+
   function setupRealFileCard(slot){
     var card = document.getElementById(slot + 'Card');
     var fileInput = document.getElementById(slot + 'FileInput');
@@ -397,41 +446,15 @@
     fileInput.addEventListener('change', function(){
       var f = fileInput.files[0];
       if(!f) return;
-      if(f.size > MAX_FILE_BYTES){
-        var overMb = (f.size / (1024 * 1024)).toFixed(1);
-        msg.textContent = 'File "' + f.name + '" (' + overMb + ' MB) vượt quá giới hạn ' + MAX_FILE_MB + 'MB — vui lòng nén file hoặc chia nhỏ PDF rồi đính kèm lại.';
+      var err = validateFileSize(f);
+      if(err){
+        msg.textContent = err;
         msg.classList.add('show');
         fileInput.value = '';
         return;
       }
       msg.classList.remove('show');
-      realFiles[slot] = f;
-      realResults[slot] = null;
-      realData[slot] = null;
-      card.classList.add('filled');
-      status.textContent = '● Đã đính kèm';
-      status.classList.add('attached');
-      var body = card.querySelector('.drop-body');
-      var existing = body.querySelector('.drop-file');
-      if(existing) existing.remove();
-      var sizeMb = (f.size / (1024 * 1024)).toFixed(1);
-      var fileRow = buildFileRow(f.name + ' · ' + sizeMb + ' MB');
-      fileRow.querySelector('button').addEventListener('click', function(e){
-        e.stopPropagation();
-        realFiles[slot] = null;
-        realResults[slot] = null;
-        realData[slot] = null;
-        fileInput.value = '';
-        card.classList.remove('filled');
-        status.textContent = '○ Chưa đính kèm';
-        status.classList.remove('attached');
-        fileRow.remove();
-        updateCta();
-        updateProgress();
-      });
-      body.appendChild(fileRow);
-      updateCta();
-      updateProgress();
+      attachFileToSlot(slot, f);
     });
   }
   Object.keys(REAL_CATEGORIES).forEach(setupRealFileCard);
@@ -650,6 +673,146 @@
       }
       quymoManualForm.hidden = !willOpen;
       quymoManualToggle.textContent = willOpen ? 'Ẩn form nhập tay' : 'Không có bản vẽ riêng? Nhập tay thông số';
+    });
+  }
+
+  /* ===================================================================
+     "Dùng 1 file cho nhiều hạng mục" — tiện ích UX THUẦN TUÝ: gán CÙNG 1
+     File object vào nhiều slot (realFiles[slot]) cùng lúc, dùng lại ĐÚNG
+     attachFileToSlot() ở trên — mỗi hạng mục vẫn tự gọi AI đọc ĐỘC LẬP trên
+     file này như đính riêng lẻ, KHÔNG tự nhận diện/gộp kết quả gì cả.
+     Chặn tối đa 4 hạng mục/lần (rút kinh nghiệm sự cố OOM production khi
+     nhiều hạng mục gọi AI đồng thời) - xem render.yaml (gunicorn --workers).
+     =================================================================== */
+  var MULTI_ATTACH_MAX = 4;
+  var multiAttachToggle = document.getElementById('multiAttachToggle');
+  var multiAttachPanel = document.getElementById('multiAttachPanel');
+
+  function buildMultiAttachPanel(){
+    multiAttachPanel.innerHTML = '';
+
+    var introP = document.createElement('p');
+    introP.className = 'hint';
+    introP.textContent = 'Dùng khi bạn có 1 bản vẽ duy nhất áp dụng cho nhiều hạng mục (công trình nhỏ) — mỗi hạng mục vẫn tự đọc AI độc lập trên file này, không tự gộp kết quả.';
+    multiAttachPanel.appendChild(introP);
+
+    var fileField = document.createElement('div');
+    fileField.className = 'field';
+    fileField.style.marginTop = '10px';
+    var fileLabel = document.createElement('label');
+    fileLabel.textContent = 'Chọn file bản vẽ dùng chung';
+    fileField.appendChild(fileLabel);
+    var fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'application/pdf,image/png,image/jpeg,image/webp';
+    fileField.appendChild(fileInput);
+    multiAttachPanel.appendChild(fileField);
+
+    var checklistLabel = document.createElement('p');
+    checklistLabel.className = 'hint';
+    checklistLabel.style.marginTop = '12px';
+    checklistLabel.textContent = 'Áp dụng file này cho các hạng mục (tối đa ' + MULTI_ATTACH_MAX + '):';
+    multiAttachPanel.appendChild(checklistLabel);
+
+    var checklistWrap = document.createElement('div');
+    checklistWrap.className = 'multi-attach-checklist';
+    var checkboxes = [];
+    Object.keys(REAL_CATEGORIES).forEach(function(slot){
+      var card = document.getElementById(slot + 'Card');
+      var label = (card && card.querySelector('h4')) ? card.querySelector('h4').childNodes[0].textContent.trim() : slot;
+      var row = document.createElement('label');
+      row.className = 'multi-attach-item';
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.value = slot;
+      row.appendChild(cb);
+      var span = document.createElement('span');
+      span.textContent = label;
+      row.appendChild(span);
+      checklistWrap.appendChild(row);
+      checkboxes.push(cb);
+    });
+    multiAttachPanel.appendChild(checklistWrap);
+
+    var warningP = document.createElement('p');
+    warningP.className = 'multi-attach-warning';
+    multiAttachPanel.appendChild(warningP);
+
+    var errorP = document.createElement('p');
+    errorP.className = 'multi-attach-error';
+    errorP.hidden = true;
+    multiAttachPanel.appendChild(errorP);
+
+    var actions = document.createElement('div');
+    actions.className = 'quymo-manual-actions';
+    var applyBtn = document.createElement('button');
+    applyBtn.type = 'button';
+    applyBtn.className = 'btn-main';
+    applyBtn.textContent = 'Áp dụng';
+    applyBtn.disabled = true;
+    actions.appendChild(applyBtn);
+    var resultMsg = document.createElement('span');
+    resultMsg.className = 'quymo-manual-msg';
+    actions.appendChild(resultMsg);
+    multiAttachPanel.appendChild(actions);
+
+    function updateWarning(){
+      var n = checkboxes.filter(function(cb){ return cb.checked; }).length;
+      warningP.textContent = n > 0
+        ? 'Việc này sẽ dùng ' + n + ' Bộ hồ sơ (1 cho mỗi hạng mục đã chọn).'
+        : '';
+      applyBtn.disabled = !(n > 0 && fileInput.files[0]);
+    }
+
+    checkboxes.forEach(function(cb){
+      cb.addEventListener('change', function(){
+        var checkedCount = checkboxes.filter(function(c){ return c.checked; }).length;
+        if(checkedCount > MULTI_ATTACH_MAX){
+          cb.checked = false;
+          errorP.textContent = 'Chỉ áp dụng tối đa ' + MULTI_ATTACH_MAX + ' hạng mục cùng lúc qua tính năng này.';
+          errorP.hidden = false;
+          updateWarning();
+          return;
+        }
+        errorP.hidden = true;
+        updateWarning();
+      });
+    });
+
+    fileInput.addEventListener('change', function(){
+      resultMsg.textContent = '';
+      updateWarning();
+    });
+
+    applyBtn.addEventListener('click', function(){
+      if(!currentUser){ window.openAuthModal(); return; }
+      var f = fileInput.files[0];
+      if(!f) return;
+      var err = validateFileSize(f);
+      if(err){
+        resultMsg.textContent = err;
+        resultMsg.style.color = 'var(--red-deep)';
+        return;
+      }
+      var slots = checkboxes.filter(function(cb){ return cb.checked; }).map(function(cb){ return cb.value; });
+      if(!slots.length) return;
+      slots.forEach(function(slot){ attachFileToSlot(slot, f); });
+      resultMsg.textContent = '✓ Đã áp dụng file cho ' + slots.length + ' hạng mục — kiểm tra lại các thẻ bên dưới.';
+      resultMsg.style.color = 'var(--green)';
+    });
+
+    updateWarning();
+  }
+
+  if(multiAttachToggle && multiAttachPanel){
+    multiAttachToggle.addEventListener('click', function(){
+      var willOpen = multiAttachPanel.hidden;
+      if(willOpen && !multiAttachPanel.dataset.built){
+        buildMultiAttachPanel();
+        multiAttachPanel.dataset.built = '1';
+      }
+      multiAttachPanel.hidden = !willOpen;
+      multiAttachToggle.textContent = willOpen ? 'Ẩn' : 'Dùng 1 file cho nhiều hạng mục';
     });
   }
 
