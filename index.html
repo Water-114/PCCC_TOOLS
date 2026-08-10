@@ -39,7 +39,7 @@
   <div class="modal-card">
     <button type="button" class="modal-close" id="authModalClose" aria-label="Đóng">✕</button>
     <h3 id="authModalTitle">Đăng nhập</h3>
-    <p class="section-note" style="margin-top:0">Cần đăng nhập để dùng tính năng AI đọc bản vẽ (2 Bộ hồ sơ miễn phí khi xác thực email, nạp thêm khi cần) hoặc xem trang quản trị.</p>
+    <p class="section-note" style="margin-top:0">Cần đăng nhập để dùng tính năng AI đọc bản vẽ (1 Bộ hồ sơ miễn phí khi xác thực email, nạp thêm khi cần) hoặc xem trang quản trị.</p>
     <form id="authForm">
       <label style="display:block;margin-bottom:10px">
         <span style="font-size:13px;font-weight:600;display:block;margin-bottom:4px">Email</span>
@@ -67,8 +67,8 @@
     <h3>Chú ý trước khi sử dụng</h3>
     <ul style="margin:10px 0 16px;padding-left:20px;font-size:13.5px;line-height:1.7;color:var(--ink-soft)">
       <li>Đề nghị <b>đăng ký tài khoản và xác thực email</b> trước khi sử dụng — đây là app có tính phí do sử dụng API Anthropic thật.</li>
-      <li>Miễn phí <b>2 Bộ hồ sơ</b> đầu tiên cho mỗi tài khoản (cấp khi xác thực email). Mỗi lượt đọc tương đương <b>1 Bộ hồ sơ</b> (tối đa 5 file bản vẽ, tối đa 7 form MĐC của cùng công trình).</li>
-      <li>Nạp <b>100.000đ</b> cho <b>2 lượt đọc bản vẽ</b> (xác nhận thủ công qua chuyển khoản, admin sẽ xác nhận và cấp lượt trong vòng 24h — xem mục "Bộ hồ sơ" bên dưới).</li>
+      <li>Miễn phí <b>1 Bộ hồ sơ</b> đầu tiên cho mỗi tài khoản (cấp khi xác thực email). Mỗi lượt đọc tương đương <b>1 Bộ hồ sơ</b> (tối đa 5 file bản vẽ, tối đa 7 form MĐC của cùng công trình).</li>
+      <li>Nạp <b>100.000đ</b> cho <b>2 lượt đọc bản vẽ</b> (admin sẽ cung cấp lượt trong vòng 24h).</li>
       <li>Đối với bản vẽ <b>dung lượng lớn</b>, nên tách bản vẽ theo từng hạng mục PCCC để có kết quả chính xác hơn.</li>
       <li>Đối với bản vẽ <b>dưới 20MB</b>, có thể dùng chức năng đính 1 file bản vẽ (áp dụng cho nhiều hạng mục cùng lúc).</li>
     </ul>
@@ -831,7 +831,7 @@
     <h2>AI rà soát & kiểm tra hồ sơ thiết kế PCCC</h2>
     <button type="button" class="aiho-guide-toggle" id="aihoGuideToggle">Hướng dẫn</button>
     <div class="aiho-guide-panel" id="aihoGuidePanel" hidden>
-      <p><b>Mẹo:</b> Sau khi bấm link xác thực trong email, mở lại trang web và nhấn <b>F5</b> (làm mới trang) để nhận 2 lượt Bộ hồ sơ miễn phí.</p>
+      <p><b>Mẹo:</b> Sau khi bấm link xác thực trong email, mở lại trang web và nhấn <b>F5</b> (làm mới trang) để nhận 1 lượt Bộ hồ sơ miễn phí.</p>
       <p><b>Cách sử dụng — 3 bước:</b></p>
       <ol>
         <li><b>Bước 1:</b> Nhấp vào hạng mục cần kiểm tra (Báo cháy, Chữa cháy bằng nước, Đèn sự cố/Bình chữa cháy, Điện PCCC, Quy mô...) để đính file bản vẽ PDF/ảnh lên.</li>
@@ -859,8 +859,8 @@
     </div>
 
     <div class="card" id="verifyEmailCta" hidden style="margin-top:14px;background:var(--red-wash);border:1px solid #E3B9BA">
-      <div style="font-family:var(--sans);font-size:17px;font-weight:800;letter-spacing:.02em;text-transform:uppercase;color:var(--red-deep)">Nhận 2 lượt xem hồ sơ miễn phí</div>
-      <p style="margin:8px 0 0;font-size:14px;color:var(--ink)">Nhấp vào đường link xác thực trong email để kích hoạt nhận 2 lượt miễn phí xem hồ sơ.</p>
+      <div style="font-family:var(--sans);font-size:17px;font-weight:800;letter-spacing:.02em;text-transform:uppercase;color:var(--red-deep)">Nhận 1 lượt xem hồ sơ miễn phí</div>
+      <p style="margin:8px 0 0;font-size:14px;color:var(--ink)">Nhấp vào đường link xác thực trong email để kích hoạt nhận 1 lượt miễn phí xem hồ sơ.</p>
       <p style="margin:6px 0 0;font-size:14px;color:var(--ink)">Nạp 100.000đ được cộng thêm 2 lượt xem hồ sơ sau khi admin xác nhận đã nhận được chuyển khoản.</p>
       <div class="actions" style="margin:12px 0 0">
         <button type="button" class="btn-main" id="verifyEmailCtaBtn">Gửi email xác thực</button>

@@ -1,4 +1,4 @@
-"""Batch 5A, sub-bước 1 — test app/services/email_verification.py: cấp đúng 2
+"""Batch 5A, sub-bước 1 — test app/services/email_verification.py: cấp đúng 1
 Bộ hồ sơ lúc xác thực lần đầu, không cấp lại lần 2, token hết hạn/đã dùng bị
 từ chối rõ ràng, tài khoản cũ (chưa từng xác thực) không tự có Bộ hồ sơ."""
 
@@ -26,7 +26,7 @@ def _make_user(app, email="u@pccc.local"):
     return user
 
 
-def test_verify_grants_exactly_2_credits_on_first_success(app):
+def test_verify_grants_exactly_1_credit_on_first_success(app):
     user = _make_user(app)
     token = create_email_verification_token(user.id)
 
@@ -35,21 +35,21 @@ def test_verify_grants_exactly_2_credits_on_first_success(app):
     assert granted is True
     assert verified_user.id == user.id
     assert verified_user.email_verified_at is not None
-    assert credits.credit_balance(user.id) == EMAIL_VERIFICATION_CREDITS == 2
+    assert credits.credit_balance(user.id) == EMAIL_VERIFICATION_CREDITS == 1
 
 
 def test_verifying_again_with_new_token_does_not_grant_credits_twice(app):
     user = _make_user(app)
     token1 = create_email_verification_token(user.id)
     consume_email_verification_token(token1)
-    assert credits.credit_balance(user.id) == 2
+    assert credits.credit_balance(user.id) == 1
 
     # Gia lap nguoi dung tu xac thuc lai lan 2 (token moi, hop le, thuoc dung user)
     token2 = create_email_verification_token(user.id)
     verified_user, granted = consume_email_verification_token(token2)
 
     assert granted is False
-    assert credits.credit_balance(user.id) == 2  # khong cap them, van dung 2
+    assert credits.credit_balance(user.id) == 1  # khong cap them, van dung 1
 
 
 def test_expired_token_rejected_clearly(app):
@@ -73,7 +73,7 @@ def test_used_token_cannot_be_reused(app):
     with pytest.raises(InvalidVerificationToken, match="đã được sử dụng"):
         consume_email_verification_token(token)
 
-    assert credits.credit_balance(user.id) == 2  # van dung 2, khong cap them lan tai su dung
+    assert credits.credit_balance(user.id) == 1  # van dung 1, khong cap them lan tai su dung
 
 
 def test_garbage_token_rejected(app):
@@ -94,7 +94,7 @@ def test_pre_existing_account_has_no_credits_until_it_verifies_itself(app):
     token = create_email_verification_token(old_user.id)
     verified_user, granted = consume_email_verification_token(token)
     assert granted is True
-    assert credits.credit_balance(old_user.id) == 2
+    assert credits.credit_balance(old_user.id) == 1
 
 
 def test_creating_new_token_invalidates_previous_unused_token(app):

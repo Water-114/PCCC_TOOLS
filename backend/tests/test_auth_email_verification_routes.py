@@ -48,7 +48,7 @@ def test_send_verification_email_already_verified_returns_409(client):
     mock_send2.assert_not_called()
 
 
-def test_verify_email_full_flow_grants_2_credits(client):
+def test_verify_email_full_flow_grants_1_credit(client):
     token, user_id = _register_and_login(client, email="verifyroute3@pccc.local")
     with patch("app.routes.auth.mailer.send_email") as mock_send:
         client.post("/api/auth/send-verification-email", headers={"Authorization": f"Bearer {token}"})
@@ -58,8 +58,8 @@ def test_verify_email_full_flow_grants_2_credits(client):
     resp = client.post("/api/auth/verify-email", json={"token": raw_token})
     assert resp.status_code == 200
     data = resp.get_json()
-    assert data["credits_granted"] == 2
-    assert credits.credit_balance(user_id) == 2
+    assert data["credits_granted"] == 1
+    assert credits.credit_balance(user_id) == 1
 
 
 def test_verify_email_second_time_does_not_grant_credits_again(client):
@@ -69,13 +69,13 @@ def test_verify_email_second_time_does_not_grant_credits_again(client):
         body1 = mock_send.call_args[0][2]
     raw_token1 = body1.split("verify-email=")[1].split("\n")[0].strip()
     client.post("/api/auth/verify-email", json={"token": raw_token1})
-    assert credits.credit_balance(user_id) == 2
+    assert credits.credit_balance(user_id) == 1
 
     # Da xac thuc roi -> gui lai email bi chan 409, khong the lay token moi de xac thuc lan 2
     with patch("app.routes.auth.mailer.send_email"):
         resp = client.post("/api/auth/send-verification-email", headers={"Authorization": f"Bearer {token}"})
     assert resp.status_code == 409
-    assert credits.credit_balance(user_id) == 2  # van dung 2
+    assert credits.credit_balance(user_id) == 1  # van dung 1
 
 
 def test_verify_email_missing_token_returns_400(client):

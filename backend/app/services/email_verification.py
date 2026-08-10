@@ -13,7 +13,7 @@ from ..models import EmailVerificationToken
 from . import credits
 
 TOKEN_TTL_HOURS = 24
-EMAIL_VERIFICATION_CREDITS = 2
+EMAIL_VERIFICATION_CREDITS = 1
 
 
 class InvalidVerificationToken(Exception):
