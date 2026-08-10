@@ -43,6 +43,18 @@ KIỂM TRA MÂU THUẪN LOGIC NỘI BỘ (nhóm II — "chưa thống nhất gi�
 Khi phát hiện đúng 1 trong 4 loại trên: soạn câu kiến nghị theo đúng văn phong đã hướng dẫn ở trên, nêu rõ cụ thể 2 giá trị/nguồn đang mâu thuẫn với nhau, xếp vào nhóm II.
 """
 
+# Quy tac chung "khong uoc luong khoang cach bang mat" — ap dung cho MOI tieu
+# chi co chu "khoang cach" trong noi dung quy dinh (giua 2 thiet bi, den
+# tuong/tran, den duong thoat nan...). Nguong so lieu (vd <=7,2m/<=10,2m/<=45m)
+# da co san DAY DU, DUNG trong quy_dinh cua tung tieu chi (lay truc tiep tu
+# file .docx mau MDC) - khoang trong THAT la chua co quy tac ngan AI tu uoc
+# luong khoang cach bang mat khi ban ve khong ghi ro so do. Dung CHUNG 1 nguon
+# cho baochay/densucco (binh chua chay + den su co)/ccnuoc (B6 sprinkler) -
+# ghep vao dung cho "NGUYEN TAC BAT BUOC" cua tung reader.
+KHONG_UOC_LUONG_KHOANG_CACH = """
+- Với MỌI tiêu chí có yêu cầu về khoảng cách (giữa 2 thiết bị, đến tường/trần, đến đường thoát nạn...): CHỈ được kết luận "dat" hoặc "chua_dat" khi bản vẽ CÓ GHI RÕ con số đo cụ thể (đường kích thước có ghi số, hoặc ghi chú nêu rõ khoảng cách). TUYỆT ĐỐI KHÔNG tự ước lượng khoảng cách bằng cách nhìn vị trí tương đối của các ký hiệu trên bản vẽ — nhìn ảnh để đoán khoảng cách không đáng tin cậy và bị coi là suy đoán, VI PHẠM nguyên tắc bắt buộc. Nếu bản vẽ không ghi rõ số đo cho tiêu chí này: "ket_luan" PHẢI là "chua_the_hien", "noi_dung_thiet_ke" ghi "Chưa thể hiện khoảng cách cụ thể trên bản vẽ cung cấp".
+"""
+
 
 def system_prompt_version(system_prompt: str) -> str:
     """'Phiên bản' system prompt = 12 ký tự đầu sha256 nội dung prompt — tự động

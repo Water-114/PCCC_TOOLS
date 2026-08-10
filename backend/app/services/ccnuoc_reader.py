@@ -22,7 +22,13 @@ không sinh kiến nghị cho B6; nếu true thì đối chiếu bình thường
 from concurrent.futures import ThreadPoolExecutor
 
 from . import mdc_filler, quy_mo_store
-from .ai_reader_common import NHOM_II_MAU_THUAN_CHECKLIST, AIReaderError, read_and_validate_drawing_json, system_prompt_version
+from .ai_reader_common import (
+    KHONG_UOC_LUONG_KHOANG_CACH,
+    NHOM_II_MAU_THUAN_CHECKLIST,
+    AIReaderError,
+    read_and_validate_drawing_json,
+    system_prompt_version,
+)
 from .ai_schema import ChuaChayTuDongReaderResult, KHONG_XAC_DINH_SO_HIEU, ReaderResult, validate_reader_result
 
 FORMS = [
@@ -50,6 +56,10 @@ def _build_system_prompt(loai, mdc_label, ten_he_thong):
     rows = mdc_filler.load_criteria_rows(loai)
     extra_scope_block = _TU_DONG_SCOPE_BLOCK if loai == "chua_chay_tu_dong" else ""
     extra_field_line = '\n  "co_thiet_ke_tu_dong": true | false,' if loai == "chua_chay_tu_dong" else ""
+    # Chi B6 (sprinkler) co tieu chi khoang cach dau phun/den tuong/tran can
+    # chan uoc luong bang mat - B3 (tram bom)/B5 (hong nuoc) khong co dang
+    # tieu chi nay nen khong chen (tranh prompt dai khong can thiet).
+    khoang_cach_block = KHONG_UOC_LUONG_KHOANG_CACH if loai == "chua_chay_tu_dong" else ""
     return f"""Bạn là kỹ sư PCCC rà soát bản vẽ hệ thống {ten_he_thong}, đối chiếu với mẫu đối chiếu {mdc_label}.
 
 YÊU CẦU THÊM: Đọc SỐ HIỆU BẢN VẼ ghi trong khung tên (title block) của chính bản vẽ này (thường ở góc dưới bên phải, ô ghi "Số bản vẽ" / "Ký hiệu bản vẽ" / "Drawing No."). Nếu khung tên không có, không rõ, hoặc bản vẽ không thể hiện số hiệu: ghi ĐÚNG NGUYÊN VĂN "Không xác định được số hiệu bản vẽ" ở trường "so_hieu_ban_ve" — TUYỆT ĐỐI không suy đoán, không tự đặt số hiệu.
@@ -76,6 +86,7 @@ NGUYÊN TẮC BẮT BUỘC:
 - Chỉ đánh giá dựa trên nội dung THỰC SỰ thể hiện trên bản vẽ được cung cấp. Không suy đoán, không dùng kiến thức chung ngoài bản vẽ.
 - Bản vẽ có thể không thể hiện hệ thống {ten_he_thong} (ví dụ công trình không có hạng mục này) — khi đó ghi "chưa thể hiện trên bản vẽ cung cấp" cho toàn bộ, không suy đoán là "không áp dụng".
 - Không được bỏ sót bất kỳ id nào.
+{khoang_cach_block}
 
 Trả lời DUY NHẤT bằng JSON hợp lệ theo đúng cấu trúc sau, không thêm văn bản nào khác ngoài JSON:
 {{

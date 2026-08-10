@@ -41,7 +41,13 @@ nghị vào nhóm IV (đề xuất bổ sung hồ sơ) thay vì nhóm I.
 from concurrent.futures import ThreadPoolExecutor
 
 from . import mdc_filler, quy_mo_store
-from .ai_reader_common import NHOM_II_MAU_THUAN_CHECKLIST, AIReaderError, read_and_validate_drawing_json, system_prompt_version
+from .ai_reader_common import (
+    KHONG_UOC_LUONG_KHOANG_CACH,
+    NHOM_II_MAU_THUAN_CHECKLIST,
+    AIReaderError,
+    read_and_validate_drawing_json,
+    system_prompt_version,
+)
 from .ai_schema import KHONG_XAC_DINH_SO_HIEU, ReaderResult, validate_reader_result
 from .phuong_tien import PhuongTienInputError, evaluate_bien_tam_thap, evaluate_loa, evaluate_mat_na
 
@@ -172,6 +178,7 @@ NGUYÊN TẮC BẮT BUỘC:
 - Chỉ đánh giá dựa trên nội dung THỰC SỰ thể hiện trên bản vẽ được cung cấp. Không suy đoán, không dùng kiến thức chung ngoài bản vẽ.
 - Bản vẽ có thể không thể hiện hệ thống {ten_he_thong} (ví dụ công trình không có hạng mục này) — khi đó ghi "chưa thể hiện trên bản vẽ cung cấp" cho toàn bộ, không suy đoán là "không áp dụng".
 - Không được bỏ sót bất kỳ id nào.
+{KHONG_UOC_LUONG_KHOANG_CACH}
 
 Trả lời DUY NHẤT bằng JSON hợp lệ theo đúng cấu trúc sau, không thêm văn bản nào khác ngoài JSON:
 {{
