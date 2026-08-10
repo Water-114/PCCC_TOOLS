@@ -87,7 +87,7 @@ def create_topup_request(user_id: int) -> TopupRequest:
         user_id=user_id,
         reference_code=code,
         amount_vnd=100000,
-        credits_to_grant=5,
+        credits_to_grant=2,
         status="cho_chuyen_khoan",
     )
     db.session.add(row)

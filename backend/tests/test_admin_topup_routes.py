@@ -123,7 +123,7 @@ def test_list_with_status_all_shows_everything_including_draft(client):
 # ---------------------------------------------------------------------------
 # POST .../confirm
 # ---------------------------------------------------------------------------
-def test_admin_confirm_grants_exactly_5_and_updates_status(client):
+def test_admin_confirm_grants_exactly_2_and_updates_status(client):
     admin = _make_admin(email="topupadmin4@pccc.local")
     admin_token = _login(client, admin.email)
     _, user_id = _register_and_login(client, email="tur6@pccc.local")
@@ -136,7 +136,7 @@ def test_admin_confirm_grants_exactly_5_and_updates_status(client):
     assert resp.status_code == 200
     data = resp.get_json()
     assert data["status"] == "da_xac_nhan"
-    assert credits.credit_balance(user_id) == 5
+    assert credits.credit_balance(user_id) == 2
 
 
 def test_admin_confirm_twice_does_not_grant_twice(client):
@@ -146,7 +146,7 @@ def test_admin_confirm_twice_does_not_grant_twice(client):
     row = _make_pending_request(user_id)
 
     client.post(f"/api/admin/topup-requests/{row.id}/confirm", headers={"Authorization": f"Bearer {admin_token}"})
-    assert credits.credit_balance(user_id) == 5
+    assert credits.credit_balance(user_id) == 2
 
     resp2 = client.post(
         f"/api/admin/topup-requests/{row.id}/confirm",
@@ -154,7 +154,7 @@ def test_admin_confirm_twice_does_not_grant_twice(client):
     )
     assert resp2.status_code == 200
     assert resp2.get_json()["status"] == "da_xac_nhan"
-    assert credits.credit_balance(user_id) == 5  # khong cong lan 2
+    assert credits.credit_balance(user_id) == 2  # khong cong lan 2
 
 
 def test_admin_confirm_nonexistent_returns_404(client):

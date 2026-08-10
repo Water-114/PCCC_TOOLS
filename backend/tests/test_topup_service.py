@@ -77,7 +77,7 @@ def test_create_topup_request_defaults_to_cho_chuyen_khoan(app):
     row = topup.create_topup_request(user.id)
     assert row.status == "cho_chuyen_khoan"
     assert row.amount_vnd == 100000
-    assert row.credits_to_grant == 5
+    assert row.credits_to_grant == 2
     assert row.reference_code.startswith("BHS-")
 
 
@@ -141,7 +141,7 @@ def test_confirm_transfer_nonexistent_raises_not_found(app):
 # ---------------------------------------------------------------------------
 # confirm_topup_request (admin) - chi hop le tu 'cho_xac_nhan'
 # ---------------------------------------------------------------------------
-def test_confirm_grants_exactly_5_credits(app):
+def test_confirm_grants_exactly_2_credits(app):
     user = _make_user()
     admin = _make_admin()
     row = _make_pending_request(user.id)
@@ -151,7 +151,7 @@ def test_confirm_grants_exactly_5_credits(app):
     assert confirmed.status == "da_xac_nhan"
     assert confirmed.reviewed_by_admin_id == admin.id
     assert confirmed.reviewed_at is not None
-    assert credits.credit_balance(user.id) == 5
+    assert credits.credit_balance(user.id) == 2
 
 
 def test_confirm_twice_does_not_grant_twice(app):
@@ -160,11 +160,11 @@ def test_confirm_twice_does_not_grant_twice(app):
     row = _make_pending_request(user.id)
 
     topup.confirm_topup_request(row.id, admin.id)
-    assert credits.credit_balance(user.id) == 5
+    assert credits.credit_balance(user.id) == 2
 
     again = topup.confirm_topup_request(row.id, admin.id)
     assert again.status == "da_xac_nhan"
-    assert credits.credit_balance(user.id) == 5  # khong cong lan 2
+    assert credits.credit_balance(user.id) == 2  # khong cong lan 2
 
 
 def test_confirm_still_in_cho_chuyen_khoan_raises(app):
@@ -237,7 +237,7 @@ def test_reject_a_confirmed_request_raises(app):
 
     with pytest.raises(topup.InvalidTopupStatusTransition):
         topup.reject_topup_request(row.id, admin.id)
-    assert credits.credit_balance(user.id) == 5  # van giu nguyen, khong bi dao nguoc
+    assert credits.credit_balance(user.id) == 2  # van giu nguyen, khong bi dao nguoc
 
 
 def test_reject_nonexistent_request_raises_not_found(app):

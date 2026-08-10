@@ -160,7 +160,7 @@ class TopupRequest(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
     reference_code = db.Column(db.String(40), nullable=False, unique=True, index=True)
     amount_vnd = db.Column(db.Integer, nullable=False, default=100000)
-    credits_to_grant = db.Column(db.Integer, nullable=False, default=5)
+    credits_to_grant = db.Column(db.Integer, nullable=False, default=2)
     # 'cho_chuyen_khoan' | 'cho_xac_nhan' | 'da_xac_nhan' | 'tu_choi'
     status = db.Column(db.String(20), nullable=False, default="cho_chuyen_khoan")
     created_at = db.Column(db.DateTime(timezone=True), default=_utcnow, nullable=False)

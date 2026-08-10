@@ -47,7 +47,7 @@ def test_create_request_success_returns_bank_info_and_reference_code(app, client
     data = resp.get_json()
     assert data["reference_code"].startswith("BHS-")
     assert data["amount_vnd"] == 100000
-    assert data["credits_to_grant"] == 5
+    assert data["credits_to_grant"] == 2
     assert data["status"] == "cho_chuyen_khoan"  # nhap - chua vao hang doi admin
     assert data["bank"]["account_number"] == "test-acc-no"
     assert data["bank"]["bank_name"] == "test-bank"
