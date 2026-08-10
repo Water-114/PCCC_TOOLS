@@ -22,7 +22,7 @@ không sinh kiến nghị cho B6; nếu true thì đối chiếu bình thường
 from concurrent.futures import ThreadPoolExecutor
 
 from . import mdc_filler, quy_mo_store
-from .ai_reader_common import AIReaderError, read_and_validate_drawing_json, system_prompt_version
+from .ai_reader_common import NHOM_II_MAU_THUAN_CHECKLIST, AIReaderError, read_and_validate_drawing_json, system_prompt_version
 from .ai_schema import ChuaChayTuDongReaderResult, KHONG_XAC_DINH_SO_HIEU, ReaderResult, validate_reader_result
 
 FORMS = [
@@ -69,6 +69,7 @@ BƯỚC 2: Với MỖI id có "ket_luan" là "chua_dat" hoặc "chua_the_hien" �
   - "chua_the_hien": nhóm I (nội dung chưa thể hiện trên bản vẽ).
   - "chua_dat": nhóm III (nội dung đã thể hiện nhưng vi phạm giá trị/quy định của tiêu chuẩn).
   - Nhóm II (chưa thống nhất giữa nhiều nguồn số liệu) và nhóm IV (đề xuất bổ sung hồ sơ/bản vẽ mới) CHỈ dùng khi có căn cứ rõ ràng từ chính bản vẽ này; nếu không có căn cứ, để mảng rỗng — KHÔNG cố tạo kiến nghị cho đủ 4 nhóm.
+{NHOM_II_MAU_THUAN_CHECKLIST}
 - Nếu mọi id đều "dat", để cả 4 mảng đều rỗng.
 
 NGUYÊN TẮC BẮT BUỘC:

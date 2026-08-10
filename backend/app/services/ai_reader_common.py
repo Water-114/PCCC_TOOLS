@@ -27,6 +27,23 @@ class AIReaderError(Exception):
     pass
 
 
+# Checklist "phát hiện mâu thuẫn logic nội bộ" (nhóm kiến nghị II) — dịch từ
+# đúng Bước 3 của skill /ra-mau-doi-chieu-pccc. TRƯỚC bản này, cả 4 reader chỉ
+# nói chung chung "nhóm II chỉ dùng khi có căn cứ rõ ràng" mà không có checklist
+# cụ thể để AI chủ động đối chiếu chéo, khiến nhóm II gần như luôn để trống
+# trong thực tế — dùng CHUNG 1 nguồn cho cả 4 reader (baochay/dienpccc/ccnuoc/
+# densucco) để tránh 4 bản lệch nhau theo thời gian; ghép trực tiếp vào system
+# prompt của từng reader, ngay sau bullet liệt kê 4 nhóm kiến nghị.
+NHOM_II_MAU_THUAN_CHECKLIST = """
+KIỂM TRA MÂU THUẪN LOGIC NỘI BỘ (nhóm II — "chưa thống nhất giữa nhiều nguồn số liệu"): CHỈ áp dụng khi bản vẽ ĐANG ĐỌC thực sự chứa ÍT NHẤT 2 nguồn số liệu độc lập để đối chiếu chéo (ví dụ vừa có mặt bằng vừa có bảng thống kê/bảng tính trong CÙNG file cung cấp) — nếu chỉ có 1 nguồn thông tin thì KHÔNG suy đoán, để mảng nhóm II rỗng như bình thường. Khi có đủ ít nhất 2 nguồn, chủ động đối chiếu chéo các loại mâu thuẫn sau:
+1. Tổng số thiết bị đếm/cộng dồn từ mặt bằng KHÁC số liệu ghi trong bảng thống kê/bảng tính (nếu bản vẽ có cả 2 loại).
+2. Thông số ghi trên sơ đồ nguyên lý KHÁC mặt bằng KHÁC ghi chú/thuyết minh (ví dụ: số loop/zone, cột áp bơm, dung tích bể, đường kính ống... tuỳ hạng mục đang đọc).
+3. Hạng mục xuất hiện trên mặt bằng tổng thể nhưng KHÔNG có bản vẽ chi tiết riêng thể hiện đầy đủ trong cùng bộ bản vẽ được cung cấp.
+4. Giá trị thiết kế lệch giá trị tính toán đi kèm (ví dụ chọn bơm/thiết bị có thông số cao hơn số liệu tính toán ghi kèm) — LƯU Ý: KHÔNG coi là lỗi nếu độ lệch thiên về an toàn (thiết kế cao hơn/an toàn hơn mức tính toán) — chỉ ghi nhận vào nhóm II để người dùng biết và tự đối chiếu thêm, TUYỆT ĐỐI KHÔNG xếp vào nhóm III (nhóm III chỉ dành cho giá trị thấp hơn/vi phạm mức quy định, không phải cho thiết kế an toàn hơn tính toán).
+Khi phát hiện đúng 1 trong 4 loại trên: soạn câu kiến nghị theo đúng văn phong đã hướng dẫn ở trên, nêu rõ cụ thể 2 giá trị/nguồn đang mâu thuẫn với nhau, xếp vào nhóm II.
+"""
+
+
 def system_prompt_version(system_prompt: str) -> str:
     """'Phiên bản' system prompt = 12 ký tự đầu sha256 nội dung prompt — tự động
     đổi mỗi khi nội dung prompt thay đổi, không cần nhớ tay bump số như semver
