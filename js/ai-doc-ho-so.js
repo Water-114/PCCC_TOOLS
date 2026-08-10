@@ -759,7 +759,7 @@
     function updateWarning(){
       var n = checkboxes.filter(function(cb){ return cb.checked; }).length;
       warningP.textContent = n > 0
-        ? 'Việc này sẽ dùng ' + n + ' Bộ hồ sơ (1 cho mỗi hạng mục đã chọn).'
+        ? 'Việc này sẽ dùng ' + n + '/7 form trong Bộ hồ sơ hiện tại (1 form cho mỗi hạng mục đã chọn).'
         : '';
       applyBtn.disabled = !(n > 0 && fileInput.files[0]);
     }
@@ -813,6 +813,322 @@
       }
       multiAttachPanel.hidden = !willOpen;
       multiAttachToggle.textContent = willOpen ? 'Ẩn' : 'Dùng 1 file cho nhiều hạng mục';
+    });
+  }
+
+  /* ===================================================================
+     "Đính 1 bản vẽ — AI tự nhận diện nhiều hạng mục" (Batch 5A sub-bước 5).
+     KHÁC hẳn "Dùng 1 file cho nhiều hạng mục" ở trên: đây là 1 LƯỢT GỌI AI DUY
+     NHẤT (POST /api/aiho/read-merged) vừa tự xác định bản vẽ thuộc hạng mục
+     nào trong 5 hạng mục AI thật, vừa điền luôn kết quả — không phải đính 1
+     file vào nhiều thẻ để mỗi thẻ tự gọi AI riêng như tính năng kia.
+     Cơ chế xác nhận 2 giai đoạn (đúng thiết kế đã duyệt): /read-merged chỉ giữ
+     chỗ 1 FILE (files_used), CHƯA trừ form nào — người dùng xem kỹ kết quả,
+     có thể bỏ bớt hạng mục không muốn giữ, rồi bấm "Xác nhận" mới gọi
+     /read-merged/confirm để thực sự giữ chỗ form (forms_used) + xuất MDC.
+     Tái dùng renderMdcReal()/renderKienNghiReal()/REAL_CATEGORIES[slot].summarize()
+     đã có — không viết lại logic hiển thị/kết hợp kiến nghị.
+     =================================================================== */
+  var MERGED_MAX_BYTES_IMAGE = 7 * 1024 * 1024;
+  var MERGED_MAX_BYTES_PDF = 20 * 1024 * 1024;
+  var MERGED_FORMS_PER_CALL = {baochay: 1, ccnuoc: 3, densucco: 2, dienpccc: 1, quy_mo: 1};
+
+  var autoDetectToggle = document.getElementById('autoDetectToggle');
+  var autoDetectPanel = document.getElementById('autoDetectPanel');
+
+  function validateMergedFileSize(f){
+    var isPdf = f.type === 'application/pdf';
+    var limitBytes = isPdf ? MERGED_MAX_BYTES_PDF : MERGED_MAX_BYTES_IMAGE;
+    if(f.size > limitBytes){
+      var overMb = (f.size / (1024 * 1024)).toFixed(1);
+      var limitMb = limitBytes / (1024 * 1024);
+      return 'File "' + f.name + '" (' + overMb + ' MB) vượt quá giới hạn ' + limitMb + 'MB cho ' + (isPdf ? 'PDF' : 'ảnh') + ' ở tính năng này.';
+    }
+    return null;
+  }
+
+  // Tom tat nhanh 1 hang muc de hien PREVIEW (TRUOC khi xac nhan) - doc THANG
+  // du lieu tho tu response /read-merged (chua qua finalize_category_result()
+  // ben server, vd ccnuoc/densucco chua gop tong_ket 3/2 mau con lai rieng
+  // tung mau) - chi can du de hien dung trang thai (dat/can bo sung/thieu sot),
+  // KHONG lam lai logic gop kien nghi/tong_ket cua server (se hien day du,
+  // chinh xac o phan renderMdcReal/renderKienNghiReal SAU KHI xac nhan).
+  function summarizeMergedPreview(cat, catData){
+    if(cat === 'quy_mo'){
+      var qm = (catData && catData.quy_mo) || {};
+      var occDef = (typeof OCCS !== 'undefined' ? OCCS : []).filter(function(o){ return o.id === qm.occ; })[0];
+      return {status: 'ok', note: 'Công năng: ' + ((occDef && occDef.label) || qm.occ || 'chưa xác định') + '.'};
+    }
+    var allItems = [];
+    if(catData && catData.items){
+      allItems = catData.items;
+    } else if(catData && catData.forms){
+      Object.keys(catData.forms).forEach(function(k){
+        var f = catData.forms[k];
+        if(!f || f.co_thiet_ke_tu_dong === false) return; // B6 khong thiet ke - khong tinh vao trang thai
+        allItems = allItems.concat(f.items || []);
+      });
+    }
+    var status = 'ok';
+    if(allItems.some(function(it){ return it.ket_luan === 'chua_dat'; })) status = 'bad';
+    else if(allItems.some(function(it){ return it.ket_luan === 'chua_the_hien'; })) status = 'warn';
+    return {status: status, note: (catData && catData.tong_ket) || (allItems.length + ' mục đối chiếu.')};
+  }
+
+  function buildAutoDetectPanel(){
+    autoDetectPanel.innerHTML = '';
+
+    var introP = document.createElement('p');
+    introP.className = 'hint';
+    introP.textContent = 'AI đọc 1 bản vẽ, TỰ nhận diện bản vẽ thuộc (các) hạng mục nào trong 5 hạng mục AI thật, rồi điền luôn kết quả cho từng hạng mục phát hiện được — bạn xem kỹ và có thể bỏ bớt hạng mục trước khi xác nhận trừ. Giới hạn riêng cho tính năng này: ảnh tối đa 7MB, PDF tối đa 20MB.';
+    autoDetectPanel.appendChild(introP);
+
+    var fileField = document.createElement('div');
+    fileField.className = 'field';
+    fileField.style.marginTop = '10px';
+    var fileLabel = document.createElement('label');
+    fileLabel.textContent = 'Chọn 1 file bản vẽ';
+    fileField.appendChild(fileLabel);
+    var fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'application/pdf,image/png,image/jpeg,image/webp';
+    fileField.appendChild(fileInput);
+    autoDetectPanel.appendChild(fileField);
+
+    var errorP = document.createElement('p');
+    errorP.className = 'multi-attach-error';
+    errorP.hidden = true;
+    autoDetectPanel.appendChild(errorP);
+
+    var actions = document.createElement('div');
+    actions.className = 'quymo-manual-actions';
+    var analyzeBtn = document.createElement('button');
+    analyzeBtn.type = 'button';
+    analyzeBtn.className = 'btn-main';
+    analyzeBtn.textContent = 'Phân tích tự động';
+    analyzeBtn.disabled = true;
+    actions.appendChild(analyzeBtn);
+    var statusMsg = document.createElement('span');
+    statusMsg.className = 'quymo-manual-msg';
+    actions.appendChild(statusMsg);
+    autoDetectPanel.appendChild(actions);
+
+    var previewWrap = document.createElement('div');
+    previewWrap.hidden = true;
+    autoDetectPanel.appendChild(previewWrap);
+
+    var resultWrap = document.createElement('div');
+    autoDetectPanel.appendChild(resultWrap);
+
+    fileInput.addEventListener('click', function(e){ e.stopPropagation(); });
+    fileInput.addEventListener('change', function(){
+      errorP.hidden = true;
+      previewWrap.hidden = true;
+      previewWrap.innerHTML = '';
+      resultWrap.innerHTML = '';
+      statusMsg.textContent = '';
+      analyzeBtn.disabled = !fileInput.files[0];
+    });
+
+    function renderConfirmedResults(data){
+      resultWrap.innerHTML = '';
+      var sections = Object.keys(data.results).map(function(cat){
+        return {label: (data.category_labels && data.category_labels[cat]) || cat, data: data.results[cat]};
+      });
+      var wrap = document.createElement('div');
+      wrap.innerHTML = renderMdcReal(sections) + SECTION_DIVIDER + renderKienNghiReal(sections);
+      resultWrap.appendChild(wrap);
+    }
+
+    function renderPreview(sessionId, respData){
+      previewWrap.innerHTML = '';
+      previewWrap.hidden = false;
+      var detection = respData.detection;
+      var detected = detection.detected_categories || [];
+
+      if(!detected.length){
+        var noneP = document.createElement('p');
+        noneP.textContent = 'AI không phát hiện bản vẽ này thuộc hạng mục nào trong 5 hạng mục đã hỗ trợ (báo cháy, chữa cháy bằng nước, đèn sự cố/bình chữa cháy, điện PCCC, quy mô) — vẫn có thể đính riêng vào từng thẻ ở trên nếu bạn chắc chắn.';
+        noneP.style.color = 'var(--ink-soft)';
+        previewWrap.appendChild(noneP);
+        return;
+      }
+
+      var listLabel = document.createElement('p');
+      listLabel.className = 'hint';
+      listLabel.textContent = 'AI phát hiện ' + detected.length + ' hạng mục — bỏ chọn nếu không muốn giữ hạng mục nào trước khi xác nhận:';
+      previewWrap.appendChild(listLabel);
+
+      var checklistWrap = document.createElement('div');
+      checklistWrap.className = 'multi-attach-checklist';
+      var checkboxes = [];
+      detected.forEach(function(cat){
+        var summary = summarizeMergedPreview(cat, detection[cat]);
+
+        var row = document.createElement('label');
+        row.className = 'multi-attach-item';
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = true;
+        cb.value = cat;
+        row.appendChild(cb);
+        var span = document.createElement('span');
+        span.textContent = ((respData.category_labels && respData.category_labels[cat]) || cat) + ' — ';
+        row.appendChild(span);
+        var pill = document.createElement('span');
+        pill.className = 'status-pill status-' + summary.status;
+        pill.textContent = STATUS_LABEL[summary.status];
+        row.appendChild(pill);
+        checklistWrap.appendChild(row);
+
+        var noteP = document.createElement('p');
+        noteP.style.margin = '2px 0 10px 26px';
+        noteP.style.color = 'var(--ink-soft)';
+        noteP.textContent = summary.note;
+        checklistWrap.appendChild(noteP);
+
+        checkboxes.push(cb);
+        cb.addEventListener('change', updateWarn);
+      });
+      previewWrap.appendChild(checklistWrap);
+
+      var warnP = document.createElement('p');
+      warnP.className = 'multi-attach-warning';
+      previewWrap.appendChild(warnP);
+
+      var confirmActions = document.createElement('div');
+      confirmActions.className = 'quymo-manual-actions';
+      var confirmBtn = document.createElement('button');
+      confirmBtn.type = 'button';
+      confirmBtn.className = 'btn-main';
+      confirmBtn.textContent = 'Xác nhận';
+      confirmActions.appendChild(confirmBtn);
+      var confirmMsg = document.createElement('span');
+      confirmMsg.className = 'quymo-manual-msg';
+      confirmActions.appendChild(confirmMsg);
+      previewWrap.appendChild(confirmActions);
+
+      function updateWarn(){
+        var selected = checkboxes.filter(function(cb){ return cb.checked; }).map(function(cb){ return cb.value; });
+        var forms = selected.reduce(function(sum, cat){ return sum + MERGED_FORMS_PER_CALL[cat]; }, 0);
+        warnP.textContent = selected.length
+          ? 'Số Bộ hồ sơ bị trừ sẽ theo đúng số hạng mục AI thực sự phát hiện và điền — xác nhận sẽ dùng ' + forms + '/7 form trong Bộ hồ sơ hiện tại cho ' + selected.length + ' hạng mục đã chọn. Xem kỹ kết quả ở trên trước khi xác nhận.'
+          : 'Chưa chọn hạng mục nào để xác nhận.';
+        confirmBtn.disabled = !selected.length;
+      }
+      updateWarn();
+
+      confirmBtn.addEventListener('click', function(){
+        var selected = checkboxes.filter(function(cb){ return cb.checked; }).map(function(cb){ return cb.value; });
+        if(!selected.length) return;
+        confirmBtn.disabled = true;
+        checkboxes.forEach(function(cb){ cb.disabled = true; });
+        confirmMsg.textContent = 'Đang xác nhận…';
+        confirmMsg.style.color = '';
+        fetch(BACKEND_BASE + '/api/aiho/read-merged/confirm', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken()},
+          body: JSON.stringify({session_id: sessionId, detection: detection, selected_categories: selected})
+        })
+          .then(function(res){ return res.json().then(function(d){ return {status: res.status, data: d}; }); })
+          .then(function(r3){
+            if(r3.status >= 400){
+              confirmBtn.disabled = false;
+              checkboxes.forEach(function(cb){ cb.disabled = false; });
+              confirmMsg.textContent = r3.data.error || 'Không xác nhận được — vui lòng thử lại.';
+              confirmMsg.style.color = 'var(--red-deep)';
+              return;
+            }
+            confirmMsg.textContent = '✓ Đã xác nhận — xem kết quả bên dưới.';
+            confirmMsg.style.color = 'var(--green)';
+            renderConfirmedResults(r3.data);
+          })
+          .catch(function(){
+            confirmBtn.disabled = false;
+            checkboxes.forEach(function(cb){ cb.disabled = false; });
+            confirmMsg.textContent = 'Không kết nối được tới máy chủ — vui lòng thử lại.';
+            confirmMsg.style.color = 'var(--red-deep)';
+          });
+      });
+    }
+
+    analyzeBtn.addEventListener('click', function(){
+      if(!currentUser){ window.openAuthModal(); return; }
+      var f = fileInput.files[0];
+      if(!f) return;
+      var sizeErr = validateMergedFileSize(f);
+      if(sizeErr){
+        errorP.textContent = sizeErr;
+        errorP.hidden = false;
+        return;
+      }
+      errorP.hidden = true;
+      previewWrap.hidden = true;
+      previewWrap.innerHTML = '';
+      resultWrap.innerHTML = '';
+      analyzeBtn.disabled = true;
+      statusMsg.textContent = 'Đang phân tích — có thể mất vài phút…';
+      statusMsg.style.color = '';
+
+      ensureSessionOpen().then(function(r){
+        if(r.status === 401){
+          A.logout();
+          analyzeBtn.disabled = false;
+          statusMsg.textContent = r.data.error || 'Phiên đăng nhập đã hết hạn — vui lòng đăng nhập lại.';
+          statusMsg.style.color = 'var(--red-deep)';
+          window.openAuthModal();
+          return;
+        }
+        if(r.status >= 400){
+          analyzeBtn.disabled = false;
+          statusMsg.textContent = r.data.error || 'Không mở được phiên Bộ hồ sơ — vui lòng thử lại.';
+          statusMsg.style.color = 'var(--red-deep)';
+          return;
+        }
+        var sessionId = r.data.session_id;
+        var form = new FormData();
+        form.append('file', f);
+        form.append('session_id', sessionId);
+        return fetch(BACKEND_BASE + '/api/aiho/read-merged', {
+          method: 'POST',
+          headers: {'Authorization': 'Bearer ' + getToken()},
+          body: form
+        })
+          .then(function(res){ return res.json().then(function(data){ return {status: res.status, data: data}; }); })
+          .then(function(r2){
+            analyzeBtn.disabled = false;
+            if(r2.status === 401){
+              A.logout();
+              statusMsg.textContent = r2.data.error || 'Phiên đăng nhập đã hết hạn — vui lòng đăng nhập lại.';
+              statusMsg.style.color = 'var(--red-deep)';
+              window.openAuthModal();
+              return;
+            }
+            if(r2.status >= 400){
+              statusMsg.textContent = r2.data.error || 'AI đọc bản vẽ báo lỗi — vui lòng thử lại.';
+              statusMsg.style.color = 'var(--red-deep)';
+              return;
+            }
+            statusMsg.textContent = '';
+            renderPreview(sessionId, r2.data);
+          });
+      }).catch(function(){
+        analyzeBtn.disabled = false;
+        statusMsg.textContent = 'Không kết nối được tới máy chủ — vui lòng thử lại.';
+        statusMsg.style.color = 'var(--red-deep)';
+      });
+    });
+  }
+
+  if(autoDetectToggle && autoDetectPanel){
+    autoDetectToggle.addEventListener('click', function(){
+      var willOpen = autoDetectPanel.hidden;
+      if(willOpen && !autoDetectPanel.dataset.built){
+        buildAutoDetectPanel();
+        autoDetectPanel.dataset.built = '1';
+      }
+      autoDetectPanel.hidden = !willOpen;
+      autoDetectToggle.textContent = willOpen ? 'Ẩn' : 'Đính 1 bản vẽ — AI tự nhận diện nhiều hạng mục';
     });
   }
 

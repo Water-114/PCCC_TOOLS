@@ -6,8 +6,9 @@ lọt qua mà không bị phát hiện.
 
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel, Field, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
+from . import mdc_filler
 from .tham_dinh import OCCUPATIONS as _OCCUPATIONS
 
 MAX_NOI_DUNG_LEN = 3000
@@ -154,3 +155,107 @@ def validate_reader_result(data: dict, expected_ids, model_cls=ReaderResult):
         )
 
     return model
+
+
+# ---------------------------------------------------------------------------
+# "Đính 1 bản vẽ — AI tự nhận diện nhiều hạng mục" (merged_reader.py) — validate
+# phần khung ngoài (detected_categories/so_hieu_ban_ve) bằng Pydantic, rồi
+# validate NỘI DUNG từng hạng mục bằng ĐÚNG validate_reader_result()/
+# validate_quy_mo_reader_result() ở trên (tái dùng nguyên vẹn, không viết lại
+# logic kiểm tra id đầy đủ cho từng mẫu).
+# ---------------------------------------------------------------------------
+MergedCategory = Literal["baochay", "ccnuoc", "densucco", "dienpccc", "quy_mo"]
+
+_CCNUOC_SUBFORMS = (("tram_bom", ReaderResult), ("hong_nuoc", ReaderResult), ("chua_chay_tu_dong", ChuaChayTuDongReaderResult))
+_DENSUCCO_SUBFORMS = (("binh_chua_chay", ReaderResult), ("den_su_co", ReaderResult))
+
+
+class MergedTopLevel(BaseModel):
+    """Chỉ validate khung ngoài — nội dung từng hạng mục validate riêng bên dưới."""
+    model_config = ConfigDict(extra="allow")
+    detected_categories: List[MergedCategory] = Field(default_factory=list)
+    so_hieu_ban_ve: str = KHONG_XAC_DINH_SO_HIEU
+
+
+class _MergedResultWrapper:
+    """Không phải Pydantic model thật — chỉ giả lập đúng interface .model_dump()
+    mà read_and_validate_drawing_json()/các hàm read_drawing() của reader khác
+    kỳ vọng ở giá trị trả về của validate_fn(), để tái dùng được callsite hiện
+    có (merged_reader.read_and_detect()) mà không cần đổi chữ ký chung."""
+
+    def __init__(self, data: dict):
+        self._data = data
+
+    def model_dump(self, **_kwargs):
+        return self._data
+
+
+def _validate_sub_or_raise(data: dict, key: str, expected_ids, model_cls) -> dict:
+    sub = data.get(key)
+    if not isinstance(sub, dict):
+        raise SchemaValidationError(f"'{key}' có trong detected_categories nhưng thiếu dữ liệu tương ứng.")
+    model = validate_reader_result(sub, expected_ids, model_cls)
+    return model.model_dump()
+
+
+def validate_merged_reader_result(data: dict, quy_mo_known: bool = False):
+    """quy_mo_known: True nếu phiên ĐÃ có sẵn dữ liệu quy mô (không mời AI phát
+    hiện lại 'quy_mo' nữa — xem merged_reader.build_system_prompt())."""
+    if not isinstance(data, dict):
+        raise SchemaValidationError("Kết quả trả về không phải một JSON object.")
+
+    try:
+        top = MergedTopLevel.model_validate(data)
+    except ValidationError as exc:
+        raise SchemaValidationError(f"JSON trả về không đúng cấu trúc yêu cầu: {exc}") from exc
+
+    allowed = {c for c in ("baochay", "ccnuoc", "densucco", "dienpccc", "quy_mo") if c != "quy_mo" or not quy_mo_known}
+    detected = list(dict.fromkeys(top.detected_categories))  # giữ thứ tự, bỏ trùng
+    invalid = set(detected) - allowed
+    if invalid:
+        raise SchemaValidationError(
+            f"'detected_categories' chứa hạng mục không hợp lệ hoặc không được phép ở lượt này: {sorted(invalid)}."
+        )
+
+    out = {"detected_categories": detected, "so_hieu_ban_ve": top.so_hieu_ban_ve}
+
+    if "baochay" in detected:
+        sub = data.get("baochay")
+        if not isinstance(sub, dict):
+            raise SchemaValidationError("'baochay' có trong detected_categories nhưng thiếu dữ liệu.")
+        ids_thuong = {r["id"] for r in mdc_filler.load_criteria_rows("thuong")}
+        ids_dia_chi = {r["id"] for r in mdc_filler.load_criteria_rows("dia_chi")}
+        expected = ids_dia_chi if sub.get("loai_he_thong") == "dia_chi" else ids_thuong
+        out["baochay"] = validate_reader_result(sub, expected, BaoChayReaderResult).model_dump()
+
+    if "dienpccc" in detected:
+        ids_dien = {r["id"] for r in mdc_filler.load_criteria_rows("dien_pccc")}
+        out["dienpccc"] = _validate_sub_or_raise(data, "dienpccc", ids_dien, ReaderResult)
+
+    if "ccnuoc" in detected:
+        sub = data.get("ccnuoc")
+        if not isinstance(sub, dict) or not isinstance(sub.get("forms"), dict):
+            raise SchemaValidationError("'ccnuoc' có trong detected_categories nhưng thiếu 'forms'.")
+        forms_out = {}
+        for loai, model_cls in _CCNUOC_SUBFORMS:
+            expected = {r["id"] for r in mdc_filler.load_criteria_rows(loai)}
+            forms_out[loai] = _validate_sub_or_raise(sub["forms"], loai, expected, model_cls)
+        out["ccnuoc"] = {"forms": forms_out}
+
+    if "densucco" in detected:
+        sub = data.get("densucco")
+        if not isinstance(sub, dict) or not isinstance(sub.get("forms"), dict):
+            raise SchemaValidationError("'densucco' có trong detected_categories nhưng thiếu 'forms'.")
+        forms_out = {}
+        for loai, model_cls in _DENSUCCO_SUBFORMS:
+            expected = {r["id"] for r in mdc_filler.load_criteria_rows(loai)}
+            forms_out[loai] = _validate_sub_or_raise(sub["forms"], loai, expected, model_cls)
+        out["densucco"] = {"forms": forms_out}
+
+    if "quy_mo" in detected:
+        sub = data.get("quy_mo")
+        if not isinstance(sub, dict):
+            raise SchemaValidationError("'quy_mo' có trong detected_categories nhưng thiếu dữ liệu.")
+        out["quy_mo"] = validate_quy_mo_reader_result(sub).model_dump()
+
+    return _MergedResultWrapper(out)

@@ -8,6 +8,7 @@ from ..models import AIHO_API_NAME, UsageLog, count_usage_today
 from ..providers.base import ProviderNotConfigured
 from ..providers.factory import get_provider
 from ..services import (
+    ai_schema,
     baochay_reader,
     ccnuoc_reader,
     credits,
@@ -16,6 +17,7 @@ from ..services import (
     ho_so_session,
     kien_nghi_docx,
     mdc_filler,
+    merged_reader,
     quy_mo_store,
     quymo_reader,
 )
@@ -25,6 +27,18 @@ bp = Blueprint("aiho", __name__, url_prefix="/api/aiho")
 
 ALLOWED_TYPES = {"application/pdf", "image/png", "image/jpeg", "image/webp"}
 MAX_BYTES = 15 * 1024 * 1024  # 15MB, khớp ghi chú trên giao diện
+
+# Gioi han rieng cho /read-merged ("Dinh 1 ban ve - AI tu nhan dien nhieu hang
+# muc") — phan biet anh/PDF thay vi 1 con so chung nhu MAX_BYTES o tren, vi gioi
+# han THAT cua Anthropic Messages API khac nhau ro ret giua 2 loai (da xac nhan
+# truc tiep tu docs chinh thuc, khong doan): anh toi da 10MB SAU KHI encode
+# base64 (rieng cho tung anh) -> file goc phai <= ~7.5MB, chon 7MB de co bien;
+# PDF toi da 32MB cho CA request (base64 + JSON + system prompt gop rat dai cua
+# tinh nang nay) -> file goc phai nho hon nhieu de con cho prompt, chon 20MB.
+# CHI ap dung cho route nay - 5 route doc tung hang muc rieng le van giu nguyen
+# MAX_BYTES=15MB nhu cu (khong doi hanh vi da co).
+MERGED_MAX_BYTES_IMAGE = 7 * 1024 * 1024
+MERGED_MAX_BYTES_PDF = 20 * 1024 * 1024
 
 # file.mimetype la Content-Type client tu khai trong multipart request - gia mao
 # duoc de dang (khong lien quan gi toi noi dung file that). Kiem tra them byte dau
@@ -242,76 +256,261 @@ def close_ho_so_session():
     })
 
 
+def _build_baochay_mdc(result):
+    loai = result.get("loai_he_thong") if result.get("loai_he_thong") in ("thuong", "dia_chi") else "thuong"
+    return [_build_mdc_file(loai, "Báo cháy tự động", result.get("items", []))]
+
+
+def _build_dienpccc_mdc(result):
+    return [_build_mdc_file("dien_pccc", "Điện PCCC", result.get("items", []))]
+
+
+def _build_forms_mdc(result):
+    """Dung chung cho ccnuoc VA densucco — ca 2 cung tra ve result["forms"]
+    {loai: {label, mdc_label, items}} tu read_drawing() cua reader tuong ung
+    (hoac merged_reader.finalize_category_result() da dung lai dung shape nay)."""
+    files = []
+    for loai, form_data in (result.get("forms") or {}).items():
+        label = form_data.get("mdc_label", "") + " — " + form_data.get("label", loai)
+        if "error" in form_data:
+            files.append({"loai": loai, "label": label, "error": form_data["error"]})
+        else:
+            files.append(_build_mdc_file(loai, label, form_data.get("items", [])))
+    return files
+
+
+def _build_quymo_mdc(result):
+    items = quy_mo_store.build_form_a_items(
+        result.get("quy_mo") or {},
+        a2_bao_chay=result.get("bang_a2_bao_chay"),
+        a4_bao_chay=result.get("bang_a4_bao_chay"),
+        a2_sprinkler=result.get("bang_a2_sprinkler"),
+        a4_sprinkler=result.get("bang_a4_sprinkler"),
+    )
+    # Ghi lai vao result["items"] (cung hinh dang {id, noi_dung_thiet_ke,
+    # ket_luan} nhu baochay/dienpccc) - de frontend dung CHUNG itemsForMdcFile()
+    # tinh dung so "da dien N muc doi chieu" cho the Quy mo, khong can sua rieng.
+    result["items"] = items
+    return [_build_mdc_file("quy_mo", "Quy mô công trình", items)]
+
+
+# loai (khoa REAL_CATEGORIES/merged_reader) -> ham build MDC tuong ung — dung
+# chung boi ca 5 route rieng le (duoi day) VA route /read-merged/confirm.
+_BUILD_MDC_BY_CATEGORY = {
+    "baochay": _build_baochay_mdc,
+    "dienpccc": _build_dienpccc_mdc,
+    "ccnuoc": _build_forms_mdc,
+    "densucco": _build_forms_mdc,
+    "quy_mo": _build_quymo_mdc,
+}
+
+
 @bp.post("/read-baochay")
 @login_required
 def read_baochay():
-    def build_mdc_files(result):
-        loai = result.get("loai_he_thong") if result.get("loai_he_thong") in ("thuong", "dia_chi") else "thuong"
-        return [_build_mdc_file(loai, "Báo cháy tự động", result.get("items", []))]
-    return _handle_read_request(baochay_reader.read_drawing, build_mdc_files, forms_per_call=1)
+    return _handle_read_request(baochay_reader.read_drawing, _build_baochay_mdc, forms_per_call=1)
 
 
 @bp.post("/read-dienpccc")
 @login_required
 def read_dienpccc():
-    def build_mdc_files(result):
-        return [_build_mdc_file("dien_pccc", "Điện PCCC", result.get("items", []))]
-    return _handle_read_request(dienpccc_reader.read_drawing, build_mdc_files, forms_per_call=1)
+    return _handle_read_request(dienpccc_reader.read_drawing, _build_dienpccc_mdc, forms_per_call=1)
 
 
 @bp.post("/read-ccnuoc")
 @login_required
 def read_ccnuoc():
-    def build_mdc_files(result):
-        files = []
-        for loai, form_data in (result.get("forms") or {}).items():
-            label = form_data.get("mdc_label", "") + " — " + form_data.get("label", loai)
-            if "error" in form_data:
-                files.append({"loai": loai, "label": label, "error": form_data["error"]})
-            else:
-                files.append(_build_mdc_file(loai, label, form_data.get("items", [])))
-        return files
-    return _handle_read_request(ccnuoc_reader.read_drawing, build_mdc_files, forms_per_call=3)
+    return _handle_read_request(ccnuoc_reader.read_drawing, _build_forms_mdc, forms_per_call=3)
 
 
 @bp.post("/read-densucco")
 @login_required
 def read_densucco():
-    def build_mdc_files(result):
-        files = []
-        for loai, form_data in (result.get("forms") or {}).items():
-            label = form_data.get("mdc_label", "") + " — " + form_data.get("label", loai)
-            if "error" in form_data:
-                files.append({"loai": loai, "label": label, "error": form_data["error"]})
-            else:
-                files.append(_build_mdc_file(loai, label, form_data.get("items", [])))
-        return files
-    return _handle_read_request(densucco_reader.read_drawing, build_mdc_files, forms_per_call=2)
+    return _handle_read_request(densucco_reader.read_drawing, _build_forms_mdc, forms_per_call=2)
 
 
 @bp.post("/read-quymo")
 @login_required
 def read_quymo():
-    def build_mdc_files(result):
-        items = quy_mo_store.build_form_a_items(
-            result.get("quy_mo") or {},
-            a2_bao_chay=result.get("bang_a2_bao_chay"),
-            a4_bao_chay=result.get("bang_a4_bao_chay"),
-            a2_sprinkler=result.get("bang_a2_sprinkler"),
-            a4_sprinkler=result.get("bang_a4_sprinkler"),
-        )
-        # Ghi lai vao result["items"] (cung hinh dang {id, noi_dung_thiet_ke,
-        # ket_luan} nhu baochay/dienpccc) - de frontend dung CHUNG itemsForMdcFile()
-        # tinh dung so "da dien N muc doi chieu" cho the Quy mo, khong can sua rieng.
-        result["items"] = items
-        return [_build_mdc_file("quy_mo", "Quy mô công trình", items)]
-
     def on_success(session, result):
         quy_mo = result.get("quy_mo")
         if quy_mo:
             quy_mo_store.save_quy_mo(session.id, quy_mo, source="ai")
 
-    return _handle_read_request(quymo_reader.read_drawing, build_mdc_files, forms_per_call=1, on_success=on_success)
+    return _handle_read_request(quymo_reader.read_drawing, _build_quymo_mdc, forms_per_call=1, on_success=on_success)
+
+
+@bp.post("/read-merged")
+@login_required
+def read_merged():
+    """"Đính 1 bản vẽ — AI tự nhận diện nhiều hạng mục" (Batch 5A sub-bước 5),
+    BƯỚC 1/2 (xem/preview): 1 lượt gọi AI DUY NHẤT vừa xác định bản vẽ thuộc
+    (các) hạng mục nào trong 5 hạng mục AI thật hiện có, vừa điền luôn kết quả
+    đầy đủ. CHỈ giữ chỗ 1 file (files_used +1) — CHƯA trừ form nào (forms_used
+    giữ nguyên) vì số form cần thiết chỉ biết được SAU khi có kết quả AI. Người
+    dùng xem kỹ kết quả rồi mới gọi /read-merged/confirm để thực sự giữ chỗ
+    form + xuất file MĐC — xem module-docstring merged_reader.py."""
+    user = g.current_user
+
+    try:
+        session_id = int(request.form.get("session_id"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Thiếu hoặc sai session_id (phiên Bộ hồ sơ) — gọi /api/aiho/session/open trước khi đọc bản vẽ."}), 400
+
+    try:
+        session = ho_so_session.get_open_session_for_user(user.id, session_id)
+    except ho_so_session.SessionNotFound as exc:
+        return jsonify({"error": str(exc)}), 404
+    except ho_so_session.SessionNotOpen as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    file = request.files.get("file")
+    if not file:
+        return jsonify({"error": "Thiếu file bản vẽ (field 'file')."}), 400
+
+    media_type = file.mimetype
+    if media_type not in ALLOWED_TYPES:
+        return jsonify({"error": f"Định dạng '{media_type}' không hỗ trợ — chỉ nhận PDF, PNG, JPEG, WEBP."}), 400
+
+    data = file.read()
+    limit_bytes = MERGED_MAX_BYTES_PDF if media_type == "application/pdf" else MERGED_MAX_BYTES_IMAGE
+    if len(data) > limit_bytes:
+        limit_mb = limit_bytes // (1024 * 1024)
+        loai_file = "PDF" if media_type == "application/pdf" else "ảnh"
+        return jsonify({"error": f"File {loai_file} vượt quá {limit_mb}MB (giới hạn riêng cho tính năng này)."}), 400
+
+    if not _sniff_magic_bytes(data, media_type):
+        return jsonify({"error": "Nội dung file không khớp với định dạng khai báo — file có thể bị hỏng hoặc sai định dạng thật."}), 400
+
+    limit = user.effective_quota()
+    used_today = count_usage_today(user.id, AIHO_API_NAME)
+    if used_today >= limit:
+        return jsonify({
+            "error": f"Đã đạt hạn mức {limit} lượt gọi AI/ngày cho tính năng này — thử lại vào ngày mai.",
+            "quota": {"limit": limit, "used_today": used_today, "remaining_today": 0},
+        }), 429
+
+    provider_name = request.form.get("provider")
+    try:
+        provider = get_provider(provider_name)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    # Giai doan 1: chi giu cho 1 FILE (chac chan ngay tu dau) - KHONG giu cho
+    # form nao ca (forms_delta=0), vi so form can thiet phu thuoc AI phat hien
+    # duoc bao nhieu hang muc, chi biet SAU khi co ket qua.
+    try:
+        ho_so_session.reserve_slot(session, 1, 0)
+    except ho_so_session.SessionCapExceeded as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    quy_mo = quy_mo_store.get_quy_mo(session.id)
+
+    try:
+        result = merged_reader.read_and_detect(data, media_type, provider, quy_mo=quy_mo)
+    except ProviderNotConfigured as exc:
+        return jsonify({"error": str(exc), "provider": provider.name}), 503
+    except AIReaderError as exc:
+        db.session.add(UsageLog(user_id=user.id, api_name=AIHO_API_NAME, status="error"))
+        db.session.commit()
+        return jsonify({"error": str(exc)}), 502
+    except Exception:
+        db.session.add(UsageLog(user_id=user.id, api_name=AIHO_API_NAME, status="error"))
+        db.session.commit()
+        current_app.logger.exception("Loi goi provider '%s' (read-merged)", provider.name)
+        return jsonify({"error": f"Lỗi gọi máy chủ AI ('{provider.name}') — vui lòng thử lại sau."}), 502
+
+    db.session.add(UsageLog(user_id=user.id, api_name=AIHO_API_NAME, status="success"))
+    db.session.commit()
+    ho_so_session.mark_success(session)
+
+    detected = result.get("detected_categories", [])
+    forms_needed = sum(merged_reader.CATEGORY_FORMS_PER_CALL[c] for c in detected)
+
+    return jsonify({
+        "provider": provider.name,
+        "detection": result,
+        "category_labels": {c: merged_reader.CATEGORY_LABELS[c] for c in detected},
+        "forms_needed": forms_needed,
+        "ho_so": {
+            "session_id": session.id,
+            "files_used": session.files_used,
+            "forms_used": session.forms_used,
+            "max_files": ho_so_session.MAX_FILES_PER_SESSION,
+            "max_forms": ho_so_session.MAX_FORMS_PER_SESSION,
+        },
+    })
+
+
+@bp.post("/read-merged/confirm")
+@login_required
+def read_merged_confirm():
+    """BƯỚC 2/2 (xác nhận) của /read-merged — KHÔNG gọi AI lần nào nữa (dữ liệu
+    "detection" được client gửi lại NGUYÊN VẸN từ response của /read-merged).
+    Chỉ tới đây mới thực sự giữ chỗ form (forms_used) — đúng đủ số form của các
+    hạng mục người dùng CHỌN xác nhận (selected_categories — có thể là tập con
+    của detected_categories nếu người dùng bỏ bớt hạng mục sau khi xem kết
+    quả), rồi mới xuất file MĐC. Re-validate lại "detection" bằng đúng
+    ai_schema.validate_merged_reader_result() (không tin dữ liệu client gửi
+    lên mà không kiểm tra lại, dù đây vốn là echo lại đúng response server đã
+    trả — phòng trường hợp bị sửa/hỏng khi gửi lại)."""
+    user = g.current_user
+    payload = request.get_json(silent=True) or {}
+
+    try:
+        session_id = int(payload.get("session_id"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Thiếu hoặc sai session_id."}), 400
+
+    try:
+        session = ho_so_session.get_open_session_for_user(user.id, session_id)
+    except ho_so_session.SessionNotFound as exc:
+        return jsonify({"error": str(exc)}), 404
+    except ho_so_session.SessionNotOpen as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    detection = payload.get("detection")
+    selected = payload.get("selected_categories")
+    if not isinstance(selected, list) or not selected:
+        return jsonify({"error": "Thiếu 'selected_categories' (danh sách hạng mục cần xác nhận)."}), 400
+
+    quy_mo_known = bool(quy_mo_store.get_quy_mo(session.id))
+    try:
+        validated = ai_schema.validate_merged_reader_result(detection, quy_mo_known=quy_mo_known).model_dump()
+    except ai_schema.SchemaValidationError as exc:
+        return jsonify({"error": f"Dữ liệu kết quả AI gửi lên không hợp lệ — vui lòng phân tích lại: {exc}"}), 400
+
+    detected = set(validated.get("detected_categories", []))
+    selected = list(dict.fromkeys(selected))  # bo trung, giu thu tu
+    not_detected = [c for c in selected if c not in detected]
+    if not_detected:
+        return jsonify({"error": f"Hạng mục sau không có trong kết quả AI đã phát hiện, không thể xác nhận: {not_detected}."}), 400
+
+    forms_needed = sum(merged_reader.CATEGORY_FORMS_PER_CALL[c] for c in selected)
+    try:
+        ho_so_session.reserve_slot(session, 0, forms_needed)
+    except ho_so_session.SessionCapExceeded as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    results = {}
+    for cat in selected:
+        finalized = merged_reader.finalize_category_result(cat, validated)
+        finalized["mdc_docx_files"] = _BUILD_MDC_BY_CATEGORY[cat](finalized)
+        if cat == "quy_mo":
+            quy_mo_store.save_quy_mo(session.id, finalized.get("quy_mo") or {}, source="ai_merged")
+        results[cat] = finalized
+
+    return jsonify({
+        "results": results,
+        "category_labels": {c: merged_reader.CATEGORY_LABELS[c] for c in selected},
+        "ho_so": {
+            "session_id": session.id,
+            "files_used": session.files_used,
+            "forms_used": session.forms_used,
+            "max_files": ho_so_session.MAX_FILES_PER_SESSION,
+            "max_forms": ho_so_session.MAX_FORMS_PER_SESSION,
+        },
+    })
 
 
 @bp.post("/quymo-manual")
