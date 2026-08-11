@@ -27,6 +27,11 @@ TEMPLATE_PATHS = {
     "binh_chua_chay": TEMPLATES_DIR / "B12_binh_chua_chay.docx",
     "den_su_co": TEMPLATES_DIR / "B13_den_su_co.docx",
     "quy_mo": TEMPLATES_DIR / "A_quy_mo.docx",
+    "bot_co_dinh": TEMPLATES_DIR / "B7_bot_co_dinh.docx",
+    "khi_hoa_long": TEMPLATES_DIR / "B8_khi_hoa_long.docx",
+    "khi_nen": TEMPLATES_DIR / "B9_khi_nen.docx",
+    "khi_co2": TEMPLATES_DIR / "B10_khi_co2.docx",
+    "sol_khi": TEMPLATES_DIR / "B11_sol_khi.docx",
 }
 TEMPLATE_FILENAMES = {
     "thuong": "B1_MDC_bao_chay_thuong.docx",
@@ -38,6 +43,11 @@ TEMPLATE_FILENAMES = {
     "binh_chua_chay": "B12_MDC_binh_chua_chay.docx",
     "den_su_co": "B13_MDC_den_su_co.docx",
     "quy_mo": "A_MDC_quy_mo.docx",
+    "bot_co_dinh": "B7_MDC_bot_co_dinh.docx",
+    "khi_hoa_long": "B8_MDC_khi_hoa_long.docx",
+    "khi_nen": "B9_MDC_khi_nen.docx",
+    "khi_co2": "B10_MDC_khi_co2.docx",
+    "sol_khi": "B11_MDC_sol_khi.docx",
 }
 
 COL_DOI_CHIEU = 1

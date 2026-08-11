@@ -51,6 +51,17 @@ class BaoChayReaderResult(ReaderResult):
     ly_do_nhan_dien: str = ""
 
 
+class KhiBotSolKhiReaderResult(ReaderResult):
+    """Rieng cho khibotsolkhi_reader.py (B8-B11: chua chay bang khi/sol-khi —
+    B7 bot co dinh CO Y khong nam trong pham vi nay, xem docstring dau file
+    khibotsolkhi_reader.py) - AI phai tu xac dinh DUNG 1 trong 4 he thong
+    (khi_hoa_long/khi_nen/khi_co2/sol_khi) truoc khi doi chieu, giong het
+    pattern loai_he_thong cua BaoChayReaderResult (thuong/dia_chi) - 4 nhanh
+    thay vi 2."""
+    he_thong: Literal["khi_hoa_long", "khi_nen", "khi_co2", "sol_khi"]
+    ly_do_nhan_dien: str = ""
+
+
 class ChuaChayTuDongReaderResult(ReaderResult):
     """Riêng cho mẫu B6 (chữa cháy tự động bằng nước/bọt) trong ccnuoc_reader.py
     — AI phải tự xác định công trình CÓ thiết kế hệ sprinkler/drencher hay

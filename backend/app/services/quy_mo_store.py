@@ -322,6 +322,15 @@ _DAN_CHIEU_ITEMS = {
     25: "B6 (chữa cháy tự động bằng nước)",
     28: "B5 (họng nước chữa cháy trong nhà)",
     34: "B3 (trạm bơm cấp nước chữa cháy)",
+    # id 36/37: Form A chỉ có 1 cặp dòng chung "hệ thống chữa cháy bằng khí" cho
+    # CẢ 4 hạng mục AI đọc riêng biệt (B8/B9/B10/B11, xem khibotsolkhi_reader.py)
+    # — liệt kê đủ cả 4, người dùng tự chọn đúng form đã đối chiếu cho công trình
+    # này (giống cách id=13 liệt kê B1/B2 cùng lúc). id=38 (B7 — bọt) KHÔNG dẫn
+    # chiếu ở đây — B7 tạm quay lại "chưa có reader" (_KHONG_THIET_KE_ITEMS bên
+    # dưới), vì owner quyết định tách B7 ra khỏi khibotsolkhi_reader.py, làm
+    # riêng ở đợt việc sau.
+    36: "B8 (khí hóa lỏng)/B9 (khí nén)/B10 (khí CO2)/B11 (sol-khí)",
+    37: "B8 (khí hóa lỏng)/B9 (khí nén)/B10 (khí CO2)/B11 (sol-khí)",
     43: "B13 (đèn chiếu sáng sự cố & chỉ dẫn thoát nạn)",
     46: "B13 (loa thông báo & hướng dẫn thoát nạn)",
     50: "B12 (bình chữa cháy xách tay)",
@@ -343,12 +352,19 @@ _CHUA_XAC_DINH_ITEMS = {
     61: "Địa điểm, nơi quản lý, bảo quản phương tiện chữa cháy cơ giới, nếu có trang bị xe (Thông tư 36/2025/TT-BCA)",
 }
 
-# TODO(B8-B11): chua co AI doc ban ve that cho chua chay tu dong bang khi/bot/
-# bot (Bao chi 5A mo rong). Tam ghi "Khong thiet ke" ca cum — quay lai sua khi
-# co reader that cho nhom nay.
+# id=38 (B7 — bọt cố định bể xăng dầu): reader gộp khibotsolkhi_reader.py CỐ
+# Ý chỉ còn B8-B11 (owner tách B7 ra làm riêng ở đợt việc sau) — tạm quay lại
+# "chưa có công cụ AI đọc bản vẽ" như trước khi có B7-B11, đến khi có reader
+# riêng cho B7.
+#
+# id 51/52 (bình bột/bình khí tự động treo GẮN TẠI CHỖ, quy mô nhỏ) là hạng mục
+# KHÁC với B7-B11 (hệ thống chữa cháy khí/bọt/sol-khí cho CẢ khu vực bảo vệ,
+# quy mô lớn hơn hẳn) dù tên gọi dễ gây nhầm "sol-khí"/"khí" giống nhau — đã có
+# xử lý riêng ở B12 (densucco_reader.py id 14,15/17-22, "khong_ap_dung" khi
+# không thiết kế). KHÔNG gộp/dẫn chiếu 51/52 sang B7-B11 — giữ nguyên "Không
+# thiết kế" như cũ (đúng yêu cầu owner: cân nhắc đổi cấu trúc này cần xác nhận
+# riêng).
 _KHONG_THIET_KE_ITEMS = {
-    36: "hệ thống chữa cháy bằng khí",
-    37: "hệ thống chữa cháy bằng khí (yêu cầu kỹ thuật)",
     38: "hệ thống chữa cháy bằng bọt",
     51: "bình bột chữa cháy tự động kích hoạt loại treo",
     52: "bình khí, bình sol-khí chữa cháy tự động kích hoạt",
@@ -378,7 +394,7 @@ def _build_static_items() -> list:
     for row_id, label in _KHONG_THIET_KE_ITEMS.items():
         items.append({
             "id": row_id,
-            "noi_dung_thiet_ke": f"Không thiết kế {label} — chưa có công cụ AI đọc bản vẽ (B8-B11), tạm ghi không thiết kế.",
+            "noi_dung_thiet_ke": f"Không thiết kế {label} — chưa có công cụ AI đọc bản vẽ riêng cho hạng mục này, tạm ghi không thiết kế.",
             "ket_luan": "khong_ap_dung",
         })
     return items

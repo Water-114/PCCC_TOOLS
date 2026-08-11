@@ -14,6 +14,7 @@ from ..services import (
     credits,
     densucco_reader,
     dienpccc_reader,
+    khibotsolkhi_reader,
     ho_so_session,
     kien_nghi_docx,
     mdc_filler,
@@ -279,6 +280,12 @@ def _build_forms_mdc(result):
     return files
 
 
+def _build_khibot_mdc(result):
+    he_thong = result.get("he_thong") if result.get("he_thong") in khibotsolkhi_reader.HE_THONG_LIST else "khi_hoa_long"
+    label = khibotsolkhi_reader.HE_THONG_META[he_thong]["ten"].capitalize()
+    return [_build_mdc_file(he_thong, label, result.get("items", []))]
+
+
 def _build_quymo_mdc(result):
     items = quy_mo_store.build_form_a_items(
         result.get("quy_mo") or {},
@@ -302,6 +309,7 @@ _BUILD_MDC_BY_CATEGORY = {
     "ccnuoc": _build_forms_mdc,
     "densucco": _build_forms_mdc,
     "quy_mo": _build_quymo_mdc,
+    "khibot": _build_khibot_mdc,
 }
 
 
@@ -338,6 +346,12 @@ def read_quymo():
             quy_mo_store.save_quy_mo(session.id, quy_mo, source="ai")
 
     return _handle_read_request(quymo_reader.read_drawing, _build_quymo_mdc, forms_per_call=1, on_success=on_success)
+
+
+@bp.post("/read-khibot")
+@login_required
+def read_khibot():
+    return _handle_read_request(khibotsolkhi_reader.read_drawing, _build_khibot_mdc, forms_per_call=1)
 
 
 @bp.post("/read-merged")

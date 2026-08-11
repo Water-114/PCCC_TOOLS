@@ -60,11 +60,28 @@ def test_build_form_a_items_ai_answered_rows_use_provided_text(app):
     assert by_id[19]["noi_dung_thiet_ke"] == "Tủ điện phòng bơm."
 
 
-def test_build_form_a_items_khong_thiet_ke_cluster_marked_khong_ap_dung(app):
+def test_build_form_a_items_b8_b11_khi_now_dan_chieu_real_reader(app):
+    """id 36/37 tung tam ghi "Khong thiet ke" (chua co AI doc ban ve B8-B11)
+    - sau khi co khibotsolkhi_reader.py that, phai chuyen sang dan chieu nhu
+    cac hang muc B khac (13, 25, 28...), khong con khong_ap_dung nua. id=38
+    (B7 - bot) KHONG nam trong pham vi nay - owner tach B7 ra rieng, lam sau."""
     with app.app_context():
         items = quy_mo_store.build_form_a_items({"occ": "chungcu"})
     by_id = {i["id"]: i for i in items}
-    for row_id in (36, 37, 38, 51, 52):
+    for row_id in (36, 37):
+        assert by_id[row_id]["ket_luan"] == "dat", row_id
+        assert "Đã đối chiếu chi tiết" in by_id[row_id]["noi_dung_thiet_ke"], row_id
+        assert "B8" in by_id[row_id]["noi_dung_thiet_ke"], row_id
+
+
+def test_build_form_a_items_khong_thiet_ke_cluster_marked_khong_ap_dung(app):
+    """id 38 (B7 - bot co dinh, tam chua co reader vi owner tach rieng lam sau)
+    va id 51/52 (binh bot/binh khi tu dong treo GAN TAI CHO, khac pham vi
+    B8-B11) - ca 3 deu van giu "khong thiet ke" nhu cu."""
+    with app.app_context():
+        items = quy_mo_store.build_form_a_items({"occ": "chungcu"})
+    by_id = {i["id"]: i for i in items}
+    for row_id in (38, 51, 52):
         assert by_id[row_id]["ket_luan"] == "khong_ap_dung", row_id
         assert "Không thiết kế" in by_id[row_id]["noi_dung_thiet_ke"]
 

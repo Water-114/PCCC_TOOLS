@@ -349,6 +349,25 @@
         else if(allItems.some(function(it){ return it.ket_luan === 'chua_the_hien'; })) status = 'warn';
         return {status: status, note: data.tong_ket || ''};
       }
+    },
+    khibot: {
+      endpoint: '/api/aiho/read-khibot',
+      label: 'Chữa cháy bằng khí',
+      estimatedSeconds: 90, // 1 lan goi AI, AI tu phan loai 1 trong 4 he (B8-B11) roi chi doi chieu dung nhanh do — it tieu chi hon bao chay/ccnuoc
+      summarize: function(data){
+        var items = data.items || [];
+        var status = 'ok';
+        if(items.some(function(it){ return it.ket_luan === 'chua_dat'; })) status = 'bad';
+        else if(items.some(function(it){ return it.ket_luan === 'chua_the_hien'; })) status = 'warn';
+        var HE_THONG_LABEL = {
+          khi_hoa_long: 'khí hóa lỏng',
+          khi_nen: 'khí nén/khí trơ',
+          khi_co2: 'CO₂',
+          sol_khi: 'Sol-khí'
+        };
+        var heLabel = HE_THONG_LABEL[data.he_thong] || data.he_thong || 'chưa xác định';
+        return {status: status, note: 'AI nhận diện: hệ ' + heLabel + '. ' + (data.tong_ket || '')};
+      }
     }
   };
 

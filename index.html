@@ -920,14 +920,15 @@
         <input type="file" id="ccnuocFileInput" accept="application/pdf,image/png,image/jpeg,image/webp" hidden>
       </button>
 
-      <button type="button" class="drop-card" data-slot="cckhi" data-file="CK-solkhi-phong-dien.pdf · 1.4 MB">
+      <button type="button" class="drop-card" data-slot="khibot" id="khibotCard">
         <div class="drop-icon">CCK</div>
         <div class="drop-body">
-          <h4>Chữa cháy bằng khí <span class="soon-badge">Sắp có</span></h4>
-          <p class="hint">Sol-khí, CO₂, FM200/Novec, IG — thường cho phòng kỹ thuật/điện</p>
+          <h4>Chữa cháy bằng khí <span class="real-badge">AI thật</span></h4>
+          <p class="hint">Sol-khí, CO₂, khí hóa lỏng (FM200/Novec), khí trơ (IG) — AI tự nhận diện, đối chiếu MĐC B8–B11</p>
           <span class="drop-meta">PDF, ảnh scan · tối đa 15MB · cần đăng nhập</span>
-          <span class="drop-status">○ Chưa đính kèm</span>
+          <span class="drop-status" id="khibotStatus">○ Chưa đính kèm</span>
         </div>
+        <input type="file" id="khibotFileInput" accept="application/pdf,image/png,image/jpeg,image/webp" hidden>
       </button>
 
       <button type="button" class="drop-card" data-slot="capnuocngoai" data-file="CN-ngoai-nha-tru-nuoc.pdf · 1.2 MB">
