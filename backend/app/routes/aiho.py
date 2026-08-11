@@ -10,6 +10,7 @@ from ..providers.factory import get_provider
 from ..services import (
     ai_schema,
     baochay_reader,
+    botcodinh_reader,
     ccnuoc_reader,
     credits,
     densucco_reader,
@@ -286,6 +287,10 @@ def _build_khibot_mdc(result):
     return [_build_mdc_file(he_thong, label, result.get("items", []))]
 
 
+def _build_botcodinh_mdc(result):
+    return [_build_mdc_file("bot_co_dinh", "Chữa cháy bằng bọt cố định", result.get("items", []))]
+
+
 def _build_quymo_mdc(result):
     items = quy_mo_store.build_form_a_items(
         result.get("quy_mo") or {},
@@ -310,6 +315,7 @@ _BUILD_MDC_BY_CATEGORY = {
     "densucco": _build_forms_mdc,
     "quy_mo": _build_quymo_mdc,
     "khibot": _build_khibot_mdc,
+    "botcodinh": _build_botcodinh_mdc,
 }
 
 
@@ -352,6 +358,12 @@ def read_quymo():
 @login_required
 def read_khibot():
     return _handle_read_request(khibotsolkhi_reader.read_drawing, _build_khibot_mdc, forms_per_call=1)
+
+
+@bp.post("/read-botcodinh")
+@login_required
+def read_botcodinh():
+    return _handle_read_request(botcodinh_reader.read_drawing, _build_botcodinh_mdc, forms_per_call=1)
 
 
 @bp.post("/read-merged")

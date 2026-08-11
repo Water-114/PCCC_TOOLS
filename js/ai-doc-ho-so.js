@@ -368,6 +368,18 @@
         var heLabel = HE_THONG_LABEL[data.he_thong] || data.he_thong || 'chưa xác định';
         return {status: status, note: 'AI nhận diện: hệ ' + heLabel + '. ' + (data.tong_ket || '')};
       }
+    },
+    botcodinh: {
+      endpoint: '/api/aiho/read-botcodinh',
+      label: 'Chữa cháy bằng bọt cố định',
+      estimatedSeconds: 60, // 1 mau duy nhat (B7, 15 tieu chi), khong co buoc AI phan loai — nhanh hon khibot
+      summarize: function(data){
+        var items = data.items || [];
+        var status = 'ok';
+        if(items.some(function(it){ return it.ket_luan === 'chua_dat'; })) status = 'bad';
+        else if(items.some(function(it){ return it.ket_luan === 'chua_the_hien'; })) status = 'warn';
+        return {status: status, note: data.tong_ket || ''};
+      }
     }
   };
 

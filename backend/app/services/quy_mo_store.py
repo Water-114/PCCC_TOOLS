@@ -325,12 +325,12 @@ _DAN_CHIEU_ITEMS = {
     # id 36/37: Form A chỉ có 1 cặp dòng chung "hệ thống chữa cháy bằng khí" cho
     # CẢ 4 hạng mục AI đọc riêng biệt (B8/B9/B10/B11, xem khibotsolkhi_reader.py)
     # — liệt kê đủ cả 4, người dùng tự chọn đúng form đã đối chiếu cho công trình
-    # này (giống cách id=13 liệt kê B1/B2 cùng lúc). id=38 (B7 — bọt) KHÔNG dẫn
-    # chiếu ở đây — B7 tạm quay lại "chưa có reader" (_KHONG_THIET_KE_ITEMS bên
-    # dưới), vì owner quyết định tách B7 ra khỏi khibotsolkhi_reader.py, làm
-    # riêng ở đợt việc sau.
+    # này (giống cách id=13 liệt kê B1/B2 cùng lúc).
     36: "B8 (khí hóa lỏng)/B9 (khí nén)/B10 (khí CO2)/B11 (sol-khí)",
     37: "B8 (khí hóa lỏng)/B9 (khí nén)/B10 (khí CO2)/B11 (sol-khí)",
+    # id=38: B7 (bọt cố định) nay đã có reader riêng (botcodinh_reader.py) —
+    # dẫn chiếu như mọi hạng mục B khác.
+    38: "B7 (chữa cháy bằng bọt cố định cho bể chứa xăng dầu)",
     43: "B13 (đèn chiếu sáng sự cố & chỉ dẫn thoát nạn)",
     46: "B13 (loa thông báo & hướng dẫn thoát nạn)",
     50: "B12 (bình chữa cháy xách tay)",
@@ -352,11 +352,6 @@ _CHUA_XAC_DINH_ITEMS = {
     61: "Địa điểm, nơi quản lý, bảo quản phương tiện chữa cháy cơ giới, nếu có trang bị xe (Thông tư 36/2025/TT-BCA)",
 }
 
-# id=38 (B7 — bọt cố định bể xăng dầu): reader gộp khibotsolkhi_reader.py CỐ
-# Ý chỉ còn B8-B11 (owner tách B7 ra làm riêng ở đợt việc sau) — tạm quay lại
-# "chưa có công cụ AI đọc bản vẽ" như trước khi có B7-B11, đến khi có reader
-# riêng cho B7.
-#
 # id 51/52 (bình bột/bình khí tự động treo GẮN TẠI CHỖ, quy mô nhỏ) là hạng mục
 # KHÁC với B7-B11 (hệ thống chữa cháy khí/bọt/sol-khí cho CẢ khu vực bảo vệ,
 # quy mô lớn hơn hẳn) dù tên gọi dễ gây nhầm "sol-khí"/"khí" giống nhau — đã có
@@ -365,7 +360,6 @@ _CHUA_XAC_DINH_ITEMS = {
 # thiết kế" như cũ (đúng yêu cầu owner: cân nhắc đổi cấu trúc này cần xác nhận
 # riêng).
 _KHONG_THIET_KE_ITEMS = {
-    38: "hệ thống chữa cháy bằng bọt",
     51: "bình bột chữa cháy tự động kích hoạt loại treo",
     52: "bình khí, bình sol-khí chữa cháy tự động kích hoạt",
 }

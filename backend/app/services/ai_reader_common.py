@@ -56,6 +56,28 @@ KHONG_UOC_LUONG_KHOANG_CACH = """
 """
 
 
+def exclusive_alternative_block(ten_nhom, pairs, ghi_chu=""):
+    """Dung chung cho cac reader co tieu chi dang "nhieu lua chon THAY THE LAN
+    NHAU" (bản vẽ chỉ dùng ĐÚNG 1 lựa chọn thật, không có chuyện "không dùng
+    cái nào cả" — khác hẳn tuỳ chọn "có thể không thiết kế"). pairs: list
+    [(ids_tuple, ten_lua_chon), ...]. Lựa chọn KHÔNG khớp thực tế bản vẽ ->
+    "khong_ap_dung" cho tất cả id thuộc lựa chọn đó. Dùng ở khibotsolkhi_reader.py
+    (B8: HFC-227ea vs FK-5-1-12) và botcodinh_reader.py (B7: mái cố định vs
+    mái nổi/phao trong) — chuyển ra đây (Batch 5A mở rộng B7) để tránh trùng
+    lặp khi có ≥2 module cùng cần logic này."""
+    lines = [f'YÊU CẦU RIÊNG CHO {ten_nhom}: đây là các lựa chọn THAY THẾ LẪN NHAU — bản vẽ chỉ dùng ĐÚNG 1 lựa chọn trong số sau (không phải "tuỳ chọn có thể bỏ trống" — luôn có 1 lựa chọn thật được dùng). Xác định rõ bản vẽ THẬT SỰ dùng lựa chọn nào rồi mới đối chiếu:']
+    for ids, ten in pairs:
+        ids_str = ", ".join(str(i) for i in ids)
+        lines.append(
+            f'- id={ids_str} ({ten}): nếu bản vẽ dùng đúng {ten}, đối chiếu BÌNH THƯỜNG theo hướng dẫn chung. '
+            f'Nếu bản vẽ dùng lựa chọn KHÁC (không phải {ten}): TẤT CẢ id trong nhóm này "ket_luan": "khong_ap_dung", '
+            f'"noi_dung_thiet_ke": "Bản vẽ không dùng {ten}" — KHÔNG tạo kiến nghị cho các id này.'
+        )
+    if ghi_chu:
+        lines.append(ghi_chu)
+    return "\n".join(lines) + "\n"
+
+
 def system_prompt_version(system_prompt: str) -> str:
     """'Phiên bản' system prompt = 12 ký tự đầu sha256 nội dung prompt — tự động
     đổi mỗi khi nội dung prompt thay đổi, không cần nhớ tay bump số như semver

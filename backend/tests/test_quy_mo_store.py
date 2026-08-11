@@ -64,7 +64,8 @@ def test_build_form_a_items_b8_b11_khi_now_dan_chieu_real_reader(app):
     """id 36/37 tung tam ghi "Khong thiet ke" (chua co AI doc ban ve B8-B11)
     - sau khi co khibotsolkhi_reader.py that, phai chuyen sang dan chieu nhu
     cac hang muc B khac (13, 25, 28...), khong con khong_ap_dung nua. id=38
-    (B7 - bot) KHONG nam trong pham vi nay - owner tach B7 ra rieng, lam sau."""
+    (B7 - bot co dinh) nay cung da co reader rieng (botcodinh_reader.py) -
+    dan chieu tuong tu, xac nhan o test rieng ben duoi."""
     with app.app_context():
         items = quy_mo_store.build_form_a_items({"occ": "chungcu"})
     by_id = {i["id"]: i for i in items}
@@ -74,14 +75,24 @@ def test_build_form_a_items_b8_b11_khi_now_dan_chieu_real_reader(app):
         assert "B8" in by_id[row_id]["noi_dung_thiet_ke"], row_id
 
 
-def test_build_form_a_items_khong_thiet_ke_cluster_marked_khong_ap_dung(app):
-    """id 38 (B7 - bot co dinh, tam chua co reader vi owner tach rieng lam sau)
-    va id 51/52 (binh bot/binh khi tu dong treo GAN TAI CHO, khac pham vi
-    B8-B11) - ca 3 deu van giu "khong thiet ke" nhu cu."""
+def test_build_form_a_items_b7_now_dan_chieu_real_reader(app):
+    """id=38 (B7 - bot co dinh be xang dau) nay da co botcodinh_reader.py rieng
+    - chuyen tu "khong thiet ke" sang dan chieu nhu cac hang muc B khac."""
     with app.app_context():
         items = quy_mo_store.build_form_a_items({"occ": "chungcu"})
     by_id = {i["id"]: i for i in items}
-    for row_id in (38, 51, 52):
+    assert by_id[38]["ket_luan"] == "dat"
+    assert "Đã đối chiếu chi tiết" in by_id[38]["noi_dung_thiet_ke"]
+    assert "B7" in by_id[38]["noi_dung_thiet_ke"]
+
+
+def test_build_form_a_items_khong_thiet_ke_cluster_marked_khong_ap_dung(app):
+    """id 51/52 (binh bot/binh khi tu dong treo GAN TAI CHO, khac pham vi
+    B7-B11) - van giu "khong thiet ke" nhu cu."""
+    with app.app_context():
+        items = quy_mo_store.build_form_a_items({"occ": "chungcu"})
+    by_id = {i["id"]: i for i in items}
+    for row_id in (51, 52):
         assert by_id[row_id]["ket_luan"] == "khong_ap_dung", row_id
         assert "Không thiết kế" in by_id[row_id]["noi_dung_thiet_ke"]
 

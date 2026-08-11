@@ -38,6 +38,7 @@ from .ai_reader_common import (
     KHONG_UOC_LUONG_KHOANG_CACH,
     NHOM_II_MAU_THUAN_CHECKLIST,
     AIReaderError,
+    exclusive_alternative_block,
     read_and_validate_drawing_json,
     system_prompt_version,
 )
@@ -67,26 +68,8 @@ def _fmt_rows(rows):
     )
 
 
-def _exclusive_alternative_block(ten_nhom, pairs, ghi_chu=""):
-    """pairs: list [(ids_tuple, ten_lua_chon), ...] — các lựa chọn THAY THẾ LẪN
-    NHAU (khác hẳn "tuỳ chọn có thể không thiết kế" của densucco_reader —
-    ở đây LUÔN có đúng 1 lựa chọn được dùng thật, không có chuyện "không dùng
-    cái nào cả"). Lựa chọn KHÔNG khớp thực tế bản vẽ -> khong_ap_dung."""
-    lines = [f'YÊU CẦU RIÊNG CHO {ten_nhom}: đây là các lựa chọn THAY THẾ LẪN NHAU — bản vẽ chỉ dùng ĐÚNG 1 lựa chọn trong số sau (không phải "tuỳ chọn có thể bỏ trống" — luôn có 1 lựa chọn thật được dùng). Xác định rõ bản vẽ THẬT SỰ dùng lựa chọn nào rồi mới đối chiếu:']
-    for ids, ten in pairs:
-        ids_str = ", ".join(str(i) for i in ids)
-        lines.append(
-            f'- id={ids_str} ({ten}): nếu bản vẽ dùng đúng {ten}, đối chiếu BÌNH THƯỜNG theo hướng dẫn chung. '
-            f'Nếu bản vẽ dùng lựa chọn KHÁC (không phải {ten}): TẤT CẢ id trong nhóm này "ket_luan": "khong_ap_dung", '
-            f'"noi_dung_thiet_ke": "Bản vẽ không dùng {ten}" — KHÔNG tạo kiến nghị cho các id này.'
-        )
-    if ghi_chu:
-        lines.append(ghi_chu)
-    return "\n".join(lines) + "\n"
-
-
 # --- B8: 2 cap loai tru HFC-227ea (id 2,21) vs FK-5-1-12 (id 3,22) ---
-_B8_BLOCK = _exclusive_alternative_block(
+_B8_BLOCK = exclusive_alternative_block(
     "id=2, id=21 và id=3, id=22 (loại khí hóa lỏng dùng thực tế)",
     [
         ((2, 21), "HFC-227ea (FM200)"),
