@@ -11,6 +11,7 @@ from . import mdc_filler, quy_mo_store
 from .ai_reader_common import (
     KHONG_UOC_LUONG_KHOANG_CACH,
     NHOM_II_MAU_THUAN_CHECKLIST,
+    TOA_DO_TRUC_KHOANG_CACH,
     AIReaderError,
     read_and_validate_drawing_json,
     system_prompt_version,
@@ -36,6 +37,7 @@ BƯỚC 1: Xác định bản vẽ được cung cấp là hệ báo cháy LOẠ
 
 BƯỚC 2: CHỈ đối chiếu bản vẽ với danh sách tiêu chí thuộc ĐÚNG loại đã xác định ở Bước 1 (KHÔNG trả lời cho danh sách của loại còn lại). Mỗi dòng tiêu chí có sẵn "id" — khi trả lời PHẢI giữ nguyên đúng id đó, và phải trả lời ĐỦ cho TẤT CẢ id thuộc danh sách của loại đã xác định, không bỏ sót. Với mỗi id, trả về:
 - "noi_dung_thiet_ke": nội dung điền vào cột "Nội dung thiết kế" của mẫu MĐC gốc — ngắn gọn, đúng mạch đối chiếu (dùng gạch đầu dòng "-" nếu nhiều ý), nêu số liệu cụ thể NHÌN THẤY trên bản vẽ. Nếu bản vẽ không thể hiện đủ thông tin để kết luận: ghi đúng "Chưa thể hiện trên bản vẽ cung cấp".
+{TOA_DO_TRUC_KHOANG_CACH}
 - "ket_luan": "dat" nếu nội dung trên bản vẽ đáp ứng đúng quy định; "chua_dat" nếu đã thể hiện nhưng vi phạm giá trị/quy định; "chua_the_hien" nếu bản vẽ không đủ thông tin để kết luận.
 
 --- DANH SÁCH TIÊU CHÍ LOẠI THƯỜNG (MĐC B1) ---
@@ -47,6 +49,7 @@ BƯỚC 2: CHỈ đối chiếu bản vẽ với danh sách tiêu chí thuộc �
 BƯỚC 3: Với MỖI id có "ket_luan" là "chua_dat" hoặc "chua_the_hien" ở bước 2, soạn thêm một câu kiến nghị theo đúng văn phong công văn PC07:
 - Mở đầu bằng động từ mệnh lệnh phù hợp: "Thể hiện rõ ..." (nếu là "chua_the_hien" — thông tin đáng lẽ có trên bản vẽ nhưng chưa vẽ/ghi), "Bổ sung ..." (nếu cần thêm chi tiết/thiết bị/bản vẽ), hoặc "Thuyết minh rõ ..." (nếu cần giải trình bằng lời).
 - Một câu mạch lạc, nêu rõ đối tượng cụ thể trên bản vẽ + số liệu định lượng của tiêu chuẩn (lấy từ đúng nội dung quy định của id tương ứng).
+{TOA_DO_TRUC_KHOANG_CACH}
 - Kết câu bằng phần căn cứ, in trong ngoặc đơn, lấy ĐÚNG "Khoản, Điều" đã ghi ở id đó — không tự bịa số Điều khác.
 - Xếp mỗi kiến nghị vào đúng 1 trong 4 nhóm sau:
   - "chua_the_hien": nhóm I (nội dung chưa thể hiện trên bản vẽ).

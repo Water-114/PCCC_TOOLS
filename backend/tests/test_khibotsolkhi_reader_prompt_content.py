@@ -104,6 +104,13 @@ def test_shared_rules_reused_not_duplicated_per_branch():
     assert SYSTEM_PROMPT.count(KHONG_UOC_LUONG_KHOANG_CACH.strip()[:40]) == 1
 
 
+def test_toa_do_truc_khoang_cach_present_twice():
+    """TOA_DO_TRUC_KHOANG_CACH duoc chen 2 lan trong phan chung (dung cho ca 4
+    nhanh he_thong) - 1 lan o BUOC 2 (noi_dung_thiet_ke) va 1 lan o BUOC 3
+    (cau kien nghi)."""
+    assert SYSTEM_PROMPT.count("tại vị trí trục") == 2
+
+
 def test_4_branches_each_have_own_criteria_list_header():
     for he_thong in HE_THONG_LIST:
         assert f'NẾU he_thong = "{he_thong}"' in SYSTEM_PROMPT

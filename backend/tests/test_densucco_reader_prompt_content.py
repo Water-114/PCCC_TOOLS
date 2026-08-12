@@ -96,6 +96,14 @@ def test_tt1_congcong_set_referenced_matches_phuong_tien_source():
     assert "khachsan" in TT1_CONGCONG
 
 
+def test_toa_do_truc_khoang_cach_present_twice_in_both_forms():
+    """TOA_DO_TRUC_KHOANG_CACH (ai_reader_common.py) duoc chen 2 lan trong moi
+    prompt - 1 lan o BUOC 1 (noi_dung_thiet_ke, cot 3 bang MDC) va 1 lan o
+    BUOC 2 (cau kien nghi)."""
+    assert BINH_PROMPT.count("tại vị trí trục") == 2
+    assert DEN_PROMPT.count("tại vị trí trục") == 2
+
+
 def test_special_blocks_do_not_appear_in_wrong_prompt():
     """Block dac thu cua B12 khong duoc lot sang B13 va nguoc lai."""
     assert "YÊU CẦU RIÊNG CHO id=4, 7, 8, 9, 10, 11" not in DEN_PROMPT

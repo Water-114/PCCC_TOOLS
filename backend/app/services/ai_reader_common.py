@@ -55,6 +55,18 @@ KHONG_UOC_LUONG_KHOANG_CACH = """
 - Với MỌI tiêu chí có yêu cầu về khoảng cách (giữa 2 thiết bị, đến tường/trần, đến đường thoát nạn...): CHỈ được kết luận "dat" hoặc "chua_dat" khi bản vẽ CÓ GHI RÕ con số đo cụ thể (đường kích thước có ghi số, hoặc ghi chú nêu rõ khoảng cách). TUYỆT ĐỐI KHÔNG tự ước lượng khoảng cách bằng cách nhìn vị trí tương đối của các ký hiệu trên bản vẽ — nhìn ảnh để đoán khoảng cách không đáng tin cậy và bị coi là suy đoán, VI PHẠM nguyên tắc bắt buộc. Nếu bản vẽ không ghi rõ số đo cho tiêu chí này: "ket_luan" PHẢI là "chua_the_hien", "noi_dung_thiet_ke" ghi "Chưa thể hiện khoảng cách cụ thể trên bản vẽ cung cấp".
 """
 
+# Toa do truc ket cau (chu doc A,B,C.../so ngang 1,2,3...) cho thiet bi VI PHAM
+# khoang cach ("chua_dat", so do THAT tu KHONG_UOC_LUONG_KHOANG_CACH o tren, khong
+# phai uoc luong) - de dinh vi nhanh tren ban ve. Xuat hien o CA 2 cho trong moi
+# system prompt: (1) BUOC 1, ngay sau dong sinh "noi_dung_thiet_ke" - vi day la
+# noi dung dien vao cot 3 "Noi dung thiet ke" cua chinh bang doi chieu MDC .docx,
+# KHONG chi o kien nghi; (2) BUOC 2/3, ngay sau dong mo ta doi tuong trong cau
+# kien nghi. Dung chung cho 5 reader da co KHONG_UOC_LUONG_KHOANG_CACH: baochay,
+# densucco, ccnuoc (CHI B6 chua_chay_tu_dong), khibotsolkhi, botcodinh.
+TOA_DO_TRUC_KHOANG_CACH = """
+- Riêng với tiêu chí về khoảng cách có "ket_luan" là "chua_dat": NẾU bản vẽ có lưới trục kết cấu (ký hiệu chữ dọc A, B, C... và số ngang 1, 2, 3... ghi ở khung/mép bản vẽ), xác định vị trí ô lưới hoặc giao điểm trục gần nhất chứa (các) thiết bị vi phạm — ghi thêm vào CẢ "noi_dung_thiet_ke" (ngay sau số liệu đo được) LẪN câu kiến nghị tương ứng (ngay sau phần mô tả đối tượng, trước phần căn cứ Điều/Khoản) — định dạng "tại vị trí trục (X-Y, N-M)" nếu thiết bị nằm giữa 2 trục dọc X-Y và 2 trục ngang N-M, hoặc "gần giao trục X-N" nếu nằm sát 1 giao điểm cụ thể. NẾU bản vẽ KHÔNG có lưới trục kết cấu rõ ràng (không ghi nhãn chữ/số trục nào): bỏ qua yêu cầu này, KHÔNG tự suy đoán hoặc đặt tên trục giả định.
+"""
+
 
 def exclusive_alternative_block(ten_nhom, pairs, ghi_chu=""):
     """Dung chung cho cac reader co tieu chi dang "nhieu lua chon THAY THE LAN

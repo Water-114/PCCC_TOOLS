@@ -37,6 +37,7 @@ from . import mdc_filler, quy_mo_store
 from .ai_reader_common import (
     KHONG_UOC_LUONG_KHOANG_CACH,
     NHOM_II_MAU_THUAN_CHECKLIST,
+    TOA_DO_TRUC_KHOANG_CACH,
     AIReaderError,
     exclusive_alternative_block,
     read_and_validate_drawing_json,
@@ -167,6 +168,7 @@ Nêu rõ dấu hiệu nhận biết đã dùng trong "ly_do_nhan_dien".
 
 BƯỚC 2 — CHỈ đối chiếu bản vẽ với danh sách tiêu chí thuộc ĐÚNG hệ thống đã xác định ở Bước 1 (KHÔNG trả lời cho danh sách của 3 hệ còn lại). Mỗi dòng tiêu chí có sẵn "id" — khi trả lời PHẢI giữ nguyên đúng id đó, và phải trả lời ĐỦ cho TẤT CẢ id thuộc hệ đã xác định, không bỏ sót. Với mỗi id, trả về:
 - "noi_dung_thiet_ke": nội dung điền vào cột "Nội dung thiết kế" — ngắn gọn, đúng mạch đối chiếu (dùng gạch đầu dòng "-" nếu nhiều ý), nêu số liệu cụ thể NHÌN THẤY trên bản vẽ. Nếu bản vẽ không thể hiện đủ thông tin: ghi đúng "Chưa thể hiện trên bản vẽ cung cấp".
+{TOA_DO_TRUC_KHOANG_CACH}
 - "ket_luan": "dat" | "chua_dat" | "chua_the_hien" | "khong_ap_dung" (CHỈ dùng "khong_ap_dung" cho đúng các id có hướng dẫn riêng bên dưới chỉ định rõ — KHÔNG tự ý dùng cho id khác).
 
 {chr(10).join(he_thong_blocks)}
@@ -174,6 +176,7 @@ BƯỚC 2 — CHỈ đối chiếu bản vẽ với danh sách tiêu chí thuộ
 BƯỚC 3 — Với MỖI id có "ket_luan" là "chua_dat" hoặc "chua_the_hien" ở Bước 2, soạn thêm một câu kiến nghị theo đúng văn phong công văn PC07:
 - Mở đầu bằng động từ mệnh lệnh phù hợp: "Thể hiện rõ ..." (chua_the_hien), "Bổ sung ..." (thiếu chi tiết/thiết bị/bản vẽ), hoặc "Thuyết minh rõ ..." (cần giải trình).
 - Một câu mạch lạc, nêu rõ đối tượng cụ thể trên bản vẽ + số liệu định lượng của tiêu chuẩn (lấy từ đúng nội dung quy định của id tương ứng).
+{TOA_DO_TRUC_KHOANG_CACH}
 - Kết câu bằng phần căn cứ trong ngoặc đơn, lấy ĐÚNG Khoản/Điều đã ghi ở id đó — không tự bịa số Điều khác (riêng id=22 của B8, xem lưu ý sửa lỗi đánh máy ở trên).
 - Xếp mỗi kiến nghị vào đúng 1 trong 4 nhóm sau:
   - "chua_the_hien": nhóm I (nội dung chưa thể hiện trên bản vẽ).

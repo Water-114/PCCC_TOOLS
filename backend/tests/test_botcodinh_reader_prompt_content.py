@@ -68,6 +68,21 @@ def test_shared_checklist_reused_not_duplicated():
     assert SYSTEM_PROMPT.count(NHOM_II_MAU_THUAN_CHECKLIST.strip()[:40]) == 1
 
 
+def test_khong_uoc_luong_khoang_cach_rule_present():
+    """id=7 va id=9 cua MDC B7 co nhac 'khoang cach' (lang phun theo chu vi be)
+    - phai co quy tac chan AI tu uoc luong khoang cach bang mat khi ban ve
+    khong ghi ro so do (dung chung voi baochay/densucco/ccnuoc/khibotsolkhi_reader.py)."""
+    from app.services.ai_reader_common import KHONG_UOC_LUONG_KHOANG_CACH
+    assert SYSTEM_PROMPT.count(KHONG_UOC_LUONG_KHOANG_CACH.strip()[:40]) == 1
+    assert "KHÔNG tự ước lượng khoảng cách" in SYSTEM_PROMPT
+
+
+def test_toa_do_truc_khoang_cach_present_twice():
+    """TOA_DO_TRUC_KHOANG_CACH duoc chen 2 lan - 1 lan o BUOC 1 (noi_dung_thiet_ke,
+    cot 3 bang MDC .docx) va 1 lan o BUOC 2 (cau kien nghi)."""
+    assert SYSTEM_PROMPT.count("tại vị trí trục") == 2
+
+
 def test_criteria_list_contains_all_15_ids():
     for i in _EXPECTED_IDS_LIST:
         assert f"id={i} |" in SYSTEM_PROMPT

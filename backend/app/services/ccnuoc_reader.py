@@ -25,6 +25,7 @@ from . import mdc_filler, quy_mo_store
 from .ai_reader_common import (
     KHONG_UOC_LUONG_KHOANG_CACH,
     NHOM_II_MAU_THUAN_CHECKLIST,
+    TOA_DO_TRUC_KHOANG_CACH,
     AIReaderError,
     read_and_validate_drawing_json,
     system_prompt_version,
@@ -60,12 +61,16 @@ def _build_system_prompt(loai, mdc_label, ten_he_thong):
     # chan uoc luong bang mat - B3 (tram bom)/B5 (hong nuoc) khong co dang
     # tieu chi nay nen khong chen (tranh prompt dai khong can thiet).
     khoang_cach_block = KHONG_UOC_LUONG_KHOANG_CACH if loai == "chua_chay_tu_dong" else ""
+    # Toa do truc chi co y nghia cho tieu chi khoang cach that su ton tai (B6) -
+    # dung chung 1 dieu kien voi khoang_cach_block o tren.
+    toa_do_truc_block = TOA_DO_TRUC_KHOANG_CACH if loai == "chua_chay_tu_dong" else ""
     return f"""Bạn là kỹ sư PCCC rà soát bản vẽ hệ thống {ten_he_thong}, đối chiếu với mẫu đối chiếu {mdc_label}.
 
 YÊU CẦU THÊM: Đọc SỐ HIỆU BẢN VẼ ghi trong khung tên (title block) của chính bản vẽ này (thường ở góc dưới bên phải, ô ghi "Số bản vẽ" / "Ký hiệu bản vẽ" / "Drawing No."). Nếu khung tên không có, không rõ, hoặc bản vẽ không thể hiện số hiệu: ghi ĐÚNG NGUYÊN VĂN "Không xác định được số hiệu bản vẽ" ở trường "so_hieu_ban_ve" — TUYỆT ĐỐI không suy đoán, không tự đặt số hiệu.
 {extra_scope_block}
 BƯỚC 1: Với MỖI dòng tiêu chí dưới đây (mỗi dòng có sẵn "id" — khi trả lời PHẢI giữ nguyên đúng id đó, và phải trả lời ĐỦ cho TẤT CẢ id, không bỏ sót), đối chiếu với bản vẽ và trả về:
 - "noi_dung_thiet_ke": nội dung điền vào cột "Nội dung thiết kế" của mẫu MĐC gốc — ngắn gọn, đúng mạch đối chiếu (dùng gạch đầu dòng "-" nếu nhiều ý), nêu số liệu cụ thể NHÌN THẤY trên bản vẽ. Nếu bản vẽ không thể hiện đủ thông tin để kết luận: ghi đúng "Chưa thể hiện trên bản vẽ cung cấp".
+{toa_do_truc_block}
 - "ket_luan": "dat" nếu nội dung trên bản vẽ đáp ứng đúng quy định; "chua_dat" nếu đã thể hiện nhưng vi phạm giá trị/quy định; "chua_the_hien" nếu bản vẽ không đủ thông tin để kết luận.
 
 --- DANH SÁCH TIÊU CHÍ ({mdc_label} — {ten_he_thong}) ---
@@ -74,6 +79,7 @@ BƯỚC 1: Với MỖI dòng tiêu chí dưới đây (mỗi dòng có sẵn "id
 BƯỚC 2: Với MỖI id có "ket_luan" là "chua_dat" hoặc "chua_the_hien" ở bước 1, soạn thêm một câu kiến nghị theo đúng văn phong công văn PC07:
 - Mở đầu bằng động từ mệnh lệnh phù hợp: "Thể hiện rõ ..." (nếu là "chua_the_hien" — thông tin đáng lẽ có trên bản vẽ nhưng chưa vẽ/ghi), "Bổ sung ..." (nếu cần thêm chi tiết/thiết bị/bản vẽ), hoặc "Thuyết minh rõ ..." (nếu cần giải trình bằng lời).
 - Một câu mạch lạc, nêu rõ đối tượng cụ thể trên bản vẽ + số liệu định lượng của tiêu chuẩn (lấy từ đúng nội dung quy định của id tương ứng).
+{toa_do_truc_block}
 - Kết câu bằng phần căn cứ, in trong ngoặc đơn, lấy ĐÚNG "Khoản, Điều" đã ghi ở id đó — không tự bịa số Điều khác.
 - Xếp mỗi kiến nghị vào đúng 1 trong 4 nhóm sau:
   - "chua_the_hien": nhóm I (nội dung chưa thể hiện trên bản vẽ).
