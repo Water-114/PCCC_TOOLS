@@ -1,7 +1,9 @@
-"""Xác thực email (Batch 5A, sub-bước 1): sinh token một lần có hạn sử dụng,
-xác nhận token cấp đúng 2 Bộ hồ sơ cho tài khoản xác thực lần đầu. Tài khoản
-đã đăng ký trước Batch 5A (chưa từng xác thực) KHÔNG tự có Bộ hồ sơ — phải tự
-xác thực lại y như người dùng mới, không có logic migrate/backfill riêng.
+"""Xác thực email: sinh token một lần có hạn sử dụng, xác nhận token cấp đúng
+1 Bộ hồ sơ dùng thử cho tài khoản xác thực lần đầu (EMAIL_VERIFICATION_CREDITS
+— giảm từ 2 xuống 1, xem commit "Giam Bo ho so mien phi dang ky tu 2 xuong 1").
+Tài khoản đã đăng ký trước khi có tính năng này (chưa từng xác thực) KHÔNG tự
+có Bộ hồ sơ — phải tự xác thực lại y như người dùng mới, không có logic
+migrate/backfill riêng.
 """
 
 import hashlib

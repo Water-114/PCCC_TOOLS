@@ -1,9 +1,5 @@
-# Node / frontend
+# Node
 node_modules/
-frontend/node_modules/
-frontend/dist/
-frontend/.vite/
-frontend/*.local
 
 # Python / backend test artifacts
 backend/.pytest_cache/
@@ -18,7 +14,6 @@ backend/app.db
 
 # Env secrets (never commit)
 .env
-frontend/.env
 backend/.env
 *.env.local
 

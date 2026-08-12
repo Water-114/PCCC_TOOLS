@@ -1,6 +1,8 @@
 """Test cho /api/tham-dinh/evaluate (backend/app/services/tham_dinh.py).
 
-Lưu ý: route này hiện chỉ được frontend/ (MVP React đã đóng băng) gọi tới —
+Lưu ý: route này trước đây chỉ được frontend/ (MVP React) gọi tới — frontend/
+đã bị gỡ khỏi source (Batch 7A), nên route này hiện KHÔNG còn caller nào
+trong source; giữ lại phòng khi có client khác gọi API trực tiếp.
 index.html production tự đánh giá 100% ở client (js/tuvan-so-bo.js, hàm
 evalThamDinh — đã có validate input tốt hơn route backend này).
 

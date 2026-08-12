@@ -46,7 +46,14 @@ class Config:
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
     GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 
-    FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
+    # Dung cho 2 viec: (1) CORS cho cac nhom route auth/admin/aiho/feedback/topup
+    # tren production (xem app/__init__.py), (2) dung link xac thuc email
+    # (routes/auth.py). Production tren Render la 1 service Flask duy nhat phuc
+    # vu ca API lan static UI cung origin nen gia tri that duoc dat qua bien moi
+    # truong o Render Dashboard; mac dinh local duoi day tro thang toi Flask dev
+    # server (http://127.0.0.1:5000, xem README) — KHONG con tro toi Vite (5173)
+    # vi frontend/ (React MVP rieng) da bi go khoi source.
+    FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://127.0.0.1:5000")
 
     SECRET_KEY = os.getenv("SECRET_KEY", "doi-chuoi-nay-truoc-khi-dung-that-o-production")
     SQLALCHEMY_DATABASE_URI = _normalize_db_url(os.getenv("DATABASE_URL", f"sqlite:///{os.path.join(_BASE_DIR, 'app.db')}"))

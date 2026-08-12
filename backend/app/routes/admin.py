@@ -117,7 +117,7 @@ def users():
 @bp.patch("/users/<int:user_id>/quota")
 @admin_required
 def set_user_quota(user_id):
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if not user:
         return jsonify({"error": "Không tìm thấy tài khoản."}), 404
 
@@ -155,7 +155,7 @@ def adjust_user_credits(user_id):
     co cot so du rieng, luon tinh lai tu SUM(delta), xem services/credits.py).
     BAT BUOC ghi ly do (note) - day la tien/luot that, can dau vet ro ai chinh,
     khi nao, vi sao."""
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if not user:
         return jsonify({"error": "Không tìm thấy tài khoản."}), 404
 

@@ -8,7 +8,7 @@ Mỗi batch phải được triển khai độc lập, test/review xong rồi d�
 
 **Công việc**
 
-- Xác định root static UI là production UI; đánh dấu `frontend/` là MVP đóng băng trong README.
+- Xác định root static UI là production UI; đánh dấu `frontend/` là MVP đóng băng trong README (từ Batch 7A: `frontend/` đã bị gỡ hẳn khỏi source, không còn tồn tại trong repo).
 - Thêm pytest, cấu trúc `backend/tests/`, fixture Flask test client và database test tách biệt.
 - Thêm test cho health, auth input cơ bản, water calculator và thẩm định.
 - Thêm script kiểm tra JS root, lint frontend và kiểm tra migration.
@@ -56,7 +56,9 @@ Xem `docs/01-target-architecture.md` mục "Trạng thái hiện tại".
 
 - ~~Tạo Render PostgreSQL staging~~ → Tạo Render PostgreSQL **production**
   (`pccc-trolynghiepvu-db`, region Oregon) qua Dashboard — **đã xong**, trạng
-  thái Available. Chưa cấu hình `DATABASE_URL` trên web service.
+  thái Available. `DATABASE_URL` sau đó đã được owner cấu hình trên web
+  service — xem xác nhận ở Batch 5, mục "Tiến độ — `DATABASE_URL` production
+  + migration thật".
 - Review migration Alembic hiện có, thêm index cần thiết cho usage query —
   **đã xong** (composite index `ix_usage_log_user_api_created`).
 - Tối ưu query admin: pagination, tránh N+1 `count_usage_today`, giới hạn
@@ -66,24 +68,32 @@ Xem `docs/01-target-architecture.md` mục "Trạng thái hiện tại".
   **đã xong**, xem [docs/04-migration-runbook.md](04-migration-runbook.md).
 - Bổ sung `.env.example` hoàn chỉnh theo local/production — **đã xong**.
 
-**Gate kiểm tra — TRẠNG THÁI: CHƯA PASS, còn lại cho giai đoạn deploy sau**
+**Gate kiểm tra — TRẠNG THÁI: đã PASS phần lõi (xem xác nhận ở Batch 5), 2 gate
+review vận hành vẫn còn treo**
 
 - [x] `flask db upgrade` / `downgrade` / `upgrade` lại chạy đúng trên SQLite
       local (diễn tập rollback) — đã xác nhận trong Batch 2.
-- [ ] `flask db upgrade` chạy trên `pccc-trolynghiepvu-db` (Postgres production)
-      lúc còn rỗng — **chưa thực hiện**, chờ owner xác nhận từng bước theo
-      `docs/04-migration-runbook.md`.
-- [ ] Smoke test register/login/quota/admin/feedback trên PostgreSQL
-      production thật (sau khi gắn `DATABASE_URL` và migrate) — **chưa
-      thực hiện**.
-- [ ] Restart web service không làm mất dữ liệu (chỉ kiểm chứng được sau khi
-      `DATABASE_URL` đã trỏ Postgres) — **chưa thực hiện**.
+- [x] `flask db upgrade` chạy trên `pccc-trolynghiepvu-db` (Postgres production)
+      — **owner xác nhận trực tiếp 2026-08-02** (`flask db current` =
+      `4ca63b0c73f2`, xem Batch 5). **Lưu ý (Batch 7A):** migration head
+      trong source hiện tại đã tiến thêm 1 bước, `4503ab6017ba` ("add
+      ho_so_session_quy_mo") — Claude Code không có quyền truy cập Render
+      Shell nên KHÔNG thể tự xác nhận production đã chạy migration này hay
+      chưa; owner cần tự kiểm tra (`flask db current` trên Render Shell) và
+      chạy `flask db upgrade` nếu còn thiếu, trước khi deploy thêm thay đổi
+      schema mới.
+- [x] Smoke test register/login/quota/admin/feedback trên PostgreSQL
+      production thật — **owner xác nhận một phần 2026-08-02** (đăng ký, xác
+      thực email SMTP thật, đăng nhập, AI thật, nạp tiền + admin xác nhận —
+      xem Batch 5). Chưa phải UAT hình thức đầy đủ (đo p50/p95, ký xác nhận).
+- [ ] Restart web service không làm mất dữ liệu — **chưa có xác nhận riêng**.
 - [ ] Review backup, quyền truy cập database và rollback migration trước khi
-      deploy thật — **chưa thực hiện**.
+      deploy thật — **chưa có xác nhận riêng**.
 
-Bốn gate còn lại là điều kiện bắt buộc trước khi coi Batch 2 là "deploy
-readiness" thật sự, không chỉ là "code readiness". Không tự ý đánh dấu pass
-các gate này nếu chưa thực sự chạy trên `pccc-trolynghiepvu-db`.
+2 gate còn lại (restart không mất dữ liệu, review backup/rollback) là điều
+kiện nên làm trước khi coi vận hành production là "đã diễn tập đầy đủ" —
+không chặn các batch nghiệp vụ tiếp theo (owner đã `APPROVE DEPLOY
+PRODUCTION` 2026-08-02, xem Batch 5), nhưng vẫn nên đóng khi có dịp.
 
 ## Batch 3 — Canonical API và rule engine — **HOÀN THÀNH**
 
@@ -688,7 +698,8 @@ chưa có UI/HTML thật):**
   dẫn) — 3 việc này đều nằm ngoài phạm vi sub-bước này theo đúng yêu cầu.
 
 **Tiến độ — Sub-bước 4 (UI thật cho luồng "Bộ hồ sơ" — chỉ sửa root
-`index.html`/`js/*.js`, KHÔNG đụng `frontend/` vì đó là MVP đóng băng):**
+`index.html`/`js/*.js`, KHÔNG đụng `frontend/` vì đó là MVP đóng băng — từ
+Batch 7A: `frontend/` đã bị gỡ hẳn khỏi source):**
 
 - **Khu vực "Bộ hồ sơ" trong tab "AI kiểm tra hồ sơ"** (`index.html` — section
   mới `#topupSection`, đặt ngay đầu tab, trước "BƯỚC 1"): số dư hiện tại, nút
@@ -739,7 +750,8 @@ chưa có UI/HTML thật):**
   đúng/mới nhất vì lấy trực tiếp từ `/api/auth/me`/`/api/topup/ledger` — chỉ
   riêng cái card đó giữ nguyên nội dung lúc hiện ra, không polling.
 - **KHÔNG làm** (đúng phạm vi sub-bước 4): không đổi `backend/`; không đụng
-  `frontend/` (MVP đóng băng); chưa làm feedback bonus (5 góp ý +1 lượt).
+  `frontend/` (MVP đóng băng — từ Batch 7A: đã bị gỡ hẳn khỏi source); chưa
+  làm feedback bonus (5 góp ý +1 lượt).
 
 **Tiến độ — Sub-bước 5 (feedback bonus — 5 góp ý hoàn thành +1 lượt hướng dẫn,
 sub-bước cuối cùng của Batch 5A):**
@@ -866,10 +878,21 @@ sót của sub-bước 4, không phải sub-bước 5):**
 
 **Chính sách nghiệp vụ (owner quyết định, giữ nguyên khi triển khai)**
 
-- Tài khoản xác thực email lần đầu được đúng **2 Bộ hồ sơ** dùng thử.
+> **Cập nhật Batch 7A (2026-08-12):** 2 con số dưới đây đã được owner đổi
+> SAU KHI Batch 5A viết xong đoạn này — số Bộ hồ sơ dùng thử miễn phí giảm từ
+> 2 xuống **1** (commit "Giam Bo ho so mien phi dang ky tu 2 xuong 1"), số Bộ
+> hồ sơ nạp 100k giảm từ 5 xuống **2** (commit "Doi gia nap: 100.000d duoc 2
+> Bo ho so (truoc la 5)"). Đoạn dưới đây được sửa lại theo đúng chính sách
+> hiện hành; các đoạn "Tiến độ"/"Vá lỗi production" phía trên vẫn giữ nguyên
+> số liệu tại đúng thời điểm chúng được viết (lịch sử triển khai), không hồi
+> tố.
+
+- Tài khoản xác thực email lần đầu được đúng **1 Bộ hồ sơ** dùng thử.
 - Thay quota theo ngày bằng số dư **"Bộ hồ sơ còn lại"** (bỏ hẳn khái niệm
-  hạn mức/ngày hiện tại cho luồng AI đọc bản vẽ).
-- Nạp **100.000 VNĐ** được cộng **5 Bộ hồ sơ**, chỉ sau khi admin xác nhận
+  hạn mức/ngày hiện tại cho luồng AI đọc bản vẽ) — cộng thêm 1 lớp hạn mức phụ
+  `AIHO_DAILY_QUOTA` (mặc định 5 lượt gọi AI/ngày/tài khoản) để chặn chi phí,
+  không thay thế số dư Bộ hồ sơ.
+- Nạp **100.000 VNĐ** được cộng **2 Bộ hồ sơ**, chỉ sau khi admin xác nhận
   đã nhận được chuyển khoản thật.
 - Một Bộ hồ sơ = tối đa **5 file bản vẽ** của cùng một công trình/cùng một
   phiên bản, tối đa **7 form MĐC**.
@@ -877,10 +900,10 @@ sót của sub-bước 4, không phải sub-bước 5):**
   chuyển khoản" chỉ chuyển đơn sang trạng thái **chờ xác nhận**, không tự
   động cộng Bộ hồ sơ.
 - Chỉ **admin** xem giao dịch ngân hàng thật và bấm xác nhận thủ công mới
-  cộng +5 Bộ hồ sơ vào tài khoản.
-- Có **ledger/lịch sử** đầy đủ: cấp 2 lượt lúc xác thực email, trừ 1 lượt
-  lúc dùng, hoàn lại lượt khi lỗi kỹ thuật (AI/hệ thống lỗi, không phải lỗi
-  người dùng), cộng 5 lượt lúc admin xác nhận chuyển khoản.
+  cộng +2 Bộ hồ sơ vào tài khoản.
+- Có **ledger/lịch sử** đầy đủ: cấp 1 Bộ hồ sơ lúc xác thực email, trừ 1 Bộ
+  hồ sơ lúc dùng, hoàn lại khi lỗi kỹ thuật (AI/hệ thống lỗi, không phải lỗi
+  người dùng), cộng 2 Bộ hồ sơ lúc admin xác nhận chuyển khoản.
 - Email xác thực dùng **liên kết một lần** (one-time link/token có hạn sử
   dụng) — không gửi mật khẩu qua email trong bất kỳ trường hợp nào.
 - **Chưa** tích hợp payOS, VNPAY, webhook hay bất kỳ hình thức tự động đọc
@@ -907,7 +930,8 @@ sót của sub-bước 4, không phải sub-bước 5):**
   chi tiết ở "Tiến độ" phía trên. Bảng yêu cầu nạp tiền mới có schema, CHƯA
   có route dùng tới.
 - [x] Xác thực email: sinh token một lần, gửi email, endpoint xác nhận, tự động
-  cấp 2 Bộ hồ sơ khi xác thực thành công lần đầu — **sub-bước 1**.
+  cấp Bộ hồ sơ khi xác thực thành công lần đầu (ban đầu 2, sau đổi còn **1** —
+  xem ghi chú Batch 7A ở "Chính sách nghiệp vụ" phía trên) — **sub-bước 1**.
 - [x] Đổi luồng quota AI đọc bản vẽ: kiểm tra/trừ theo "Bộ hồ sơ còn lại" thay
   vì đếm lượt/ngày; giữ nguyên cơ chế giữ-chỗ nguyên tử đã có ở Batch 1 (áp
   dụng cho đơn vị "Bộ hồ sơ" — qua khái niệm "phiên" gộp nhiều lần gọi AI —
@@ -924,8 +948,9 @@ sót của sub-bước 4, không phải sub-bước 5):**
   như policy gốc, đã tự bấm thử trên trình duyệt thật (xem "Tiến độ — Sub-bước
   4").
 - [x] Route + trang admin: danh sách yêu cầu nạp đang chờ, xác nhận thủ công
-  (cộng 5 Bộ hồ sơ + ghi ledger), từ chối — **sub-bước 3 (route) + sub-bước 4
-  (UI trong tab Quản trị)**, nút khoá ngay lúc bấm tránh double-click.
+  (cộng Bộ hồ sơ theo `credits_to_grant` của yêu cầu, ban đầu 5, sau đổi còn
+  **2** + ghi ledger), từ chối — **sub-bước 3 (route) + sub-bước 4 (UI trong
+  tab Quản trị)**, nút khoá ngay lúc bấm tránh double-click.
 - [x] Trang xem số dư Bộ hồ sơ còn lại + lịch sử ledger — **sub-bước 3
   (route) + sub-bước 4 (UI trong tab AI kiểm tra hồ sơ)**.
 - [x] Feedback bonus: đủ 5 góp ý hoàn thành (giới hạn theo số phiên Bộ hồ sơ
@@ -934,7 +959,8 @@ sót của sub-bước 4, không phải sub-bước 5):**
 
 **Gate kiểm tra**
 
-- [x] Test: xác thực email cấp đúng 2 Bộ hồ sơ, không cấp lại lần 2 nếu xác
+- [x] Test: xác thực email cấp đúng 1 Bộ hồ sơ (ban đầu khoá test ở 2, cập
+  nhật theo chính sách mới — xem ghi chú Batch 7A), không cấp lại lần 2 nếu xác
   thực lại — **sub-bước 1**: `test_email_verification_service.py` +
   `test_auth_email_verification_routes.py` (17 test), cộng test riêng cho
   token hết hạn/token dùng 1 lần/tài khoản cũ chưa xác thực (không nằm trong

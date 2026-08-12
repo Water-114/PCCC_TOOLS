@@ -1,11 +1,16 @@
-"""Số dư "Bộ hồ sơ" (Batch 5A) — không có cột số dư riêng, LUÔN tính từ
-SUM(delta) của credit_ledger để tránh 2 nguồn dữ liệu lệch nhau.
+"""Số dư "Bộ hồ sơ" — không có cột số dư riêng, LUÔN tính từ SUM(delta) của
+credit_ledger để tránh 2 nguồn dữ liệu lệch nhau.
 
-Sub-bước 1 chỉ tạo được giao dịch loại CREDIT_REASON_EMAIL_VERIFICATION (cấp 2
-lúc xác thực email lần đầu) — các loại còn lại khai báo sẵn hằng số để dùng
-đúng tên khi làm các sub-bước sau (trừ lúc dùng AI, hoàn lúc lỗi kỹ thuật, cộng
-lúc admin xác nhận nạp tiền, thưởng góp ý đủ 5 Bộ hồ sơ) — CHƯA có luồng nào
-tạo ra giao dịch các loại đó ở sub-bước này.
+Các loại giao dịch (CREDIT_REASON_*) đều đang có luồng thật tạo ra:
+- EMAIL_VERIFICATION: cấp 1 Bộ hồ sơ dùng thử lúc xác thực email lần đầu
+  (services/email_verification.py).
+- USAGE_DEDUCTION: trừ 1 Bộ hồ sơ lúc mở phiên đọc bản vẽ (services/ho_so_session.py).
+- REFUND_TECHNICAL_ERROR: hoàn lại lúc lỗi kỹ thuật (không phải lỗi người dùng).
+- TOPUP_CONFIRMED: cộng 2 Bộ hồ sơ khi admin xác nhận đã nhận chuyển khoản
+  100.000đ (services/topup.py).
+- FEEDBACK_BONUS: cộng 1 Bộ hồ sơ mỗi khi đủ 5 góp ý hoàn thành
+  (services/feedback_bonus.py).
+- ADMIN_ADJUSTMENT: admin điều chỉnh thủ công (routes/admin.py).
 """
 
 from ..extensions import db

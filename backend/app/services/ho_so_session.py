@@ -111,7 +111,7 @@ def get_open_session_for_user(user_id: int, session_id: int) -> HoSoSession:
     """Dung o dau moi lan goi 1 hang muc AI - xac nhan session_id thuoc dung user
     va dang 'open'. Neu phien vua het han (qua SESSION_TIMEOUT_MINUTES): tu dong
     dong no (lazy) roi bao loi ro rang, khong am tham xu ly tiep."""
-    session = HoSoSession.query.get(session_id)
+    session = db.session.get(HoSoSession, session_id)
     if session is None or session.user_id != user_id:
         raise SessionNotFound("Không tìm thấy phiên Bộ hồ sơ — vui lòng bắt đầu phân tích lại.")
     if session.status != "open":
@@ -183,7 +183,7 @@ def close_session(user_id: int, session_id: int) -> HoSoSession:
     """Dong 1 phien - idempotent (goi lai voi phien da dong truoc do khong loi,
     tra ve nguyen trang thai hien tai) vi client co the goi close 2 lan (vd retry
     mang)."""
-    session = HoSoSession.query.get(session_id)
+    session = db.session.get(HoSoSession, session_id)
     if session is None or session.user_id != user_id:
         raise SessionNotFound("Không tìm thấy phiên Bộ hồ sơ.")
     if session.status != "open":

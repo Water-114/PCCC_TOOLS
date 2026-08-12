@@ -9,8 +9,10 @@ from .extensions import db
 # tất cả cùng tính vào 1 hạn mức "N lượt/ngày" duy nhất, không tách riêng theo hạng mục.
 AIHO_API_NAME = "aiho_analysis"
 
-# Quota riêng cho /api/ai/comment (diễn giải kết quả tính nước — MVP frontend/) —
-# tách khỏi AIHO_API_NAME vì đây là tính năng khác, không liên quan tới đọc bản vẽ.
+# Quota riêng cho /api/ai/comment (diễn giải kết quả tính nước — trước đây chỉ
+# MVP frontend/ React gọi tới, frontend/ đã bị gỡ khỏi source ở Batch 7A nên
+# route hiện không còn caller nào trong source) — tách khỏi AIHO_API_NAME vì
+# đây là tính năng khác, không liên quan tới đọc bản vẽ.
 AI_COMMENT_API_NAME = "ai_comment"
 
 
@@ -32,7 +34,7 @@ class User(db.Model):
     # Batch 5A: null nghĩa là CHƯA từng xác thực email — kể cả tài khoản đã đăng
     # ký từ trước Batch 5A (theo hệ thống lượt/ngày cũ). KHÔNG có migration
     # backfill nào set cột này — tài khoản cũ phải tự xác thực lại y như người
-    # dùng mới để nhận 2 Bộ hồ sơ, đúng quyết định của owner. Chỉ được set 1 LẦN
+    # dùng mới để nhận 1 Bộ hồ sơ, đúng quyết định của owner. Chỉ được set 1 LẦN
     # (xem services/email_verification.py) — lần xác thực lại sau đó (nếu có)
     # không set lại/không cấp thêm Bộ hồ sơ.
     email_verified_at = db.Column(db.DateTime(timezone=True), nullable=True)

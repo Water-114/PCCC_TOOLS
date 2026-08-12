@@ -7,6 +7,7 @@ from functools import wraps
 from flask import current_app, g, jsonify, request
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
+from .extensions import db
 from .models import User
 
 TOKEN_MAX_AGE = 60 * 60 * 24 * 7  # 7 ngay
@@ -25,7 +26,7 @@ def verify_token(token: str):
         data = _serializer().loads(token, max_age=TOKEN_MAX_AGE)
     except (BadSignature, SignatureExpired):
         return None
-    return User.query.get(data.get("uid"))
+    return db.session.get(User, data.get("uid"))
 
 
 def extract_token():

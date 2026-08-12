@@ -16,22 +16,22 @@ Render Web Service
 Render PostgreSQL
 ```
 
-Lý do: source hiện tại đã phục vụ `index.html`, `css/` và `js/` từ Flask; giữ cùng origin sẽ tránh một lớp CORS, biến môi trường frontend và reverse proxy không cần thiết. Xem `backend/app/__init__.py` và `render.yaml`.
+Lý do: source phục vụ `index.html`, `css/` và `js/` từ chính Flask (`backend/app/static/`); giữ cùng origin sẽ tránh một lớp CORS, biến môi trường frontend và reverse proxy không cần thiết. Xem `backend/app/__init__.py` và `render.yaml`.
 
 ## Thành phần và trách nhiệm
 
 | Thành phần | Trách nhiệm | Không làm |
 |---|---|---|
-| Static UI (`index.html`, `js/`, `css/`) | Nhập liệu, hiển thị, upload, UX | Không quyết định rule pháp lý cuối cùng, không giữ secret |
+| Static UI (`backend/app/static/index.html`, `js/`, `css/`) | Nhập liệu, hiển thị, upload, UX | Không quyết định rule pháp lý cuối cùng, không giữ secret |
 | Flask API | Validation, auth, rate limit, rule engine, quota, AI gateway | Không tin client-side validation |
 | PostgreSQL | User, usage, feedback, dữ liệu job/kết quả tối thiểu | Không lưu API key hoặc file bản vẽ dạng BLOB |
 | Claude/Gemini | Trích xuất/đối chiếu có cấu trúc từ bản vẽ | Không là nguồn sự thật pháp lý |
 
 ## Quyết định frontend
 
-- Trong các batch đầu, **root static UI là frontend chính thức**.
-- `frontend/` React/Vite được đóng băng: không thêm tính năng mới và không deploy độc lập.
-- Chỉ lập kế hoạch migration sang React/TypeScript sau khi API contract, rule engine và test ổn định. Migration này là một dự án riêng, không xen vào batch an toàn/vận hành.
+- **`backend/app/static/` là frontend production chính thức và duy nhất** — Flask phục vụ trực tiếp cùng origin với API (route `/`, `/css/<path>`, `/js/<path>`, xem `backend/app/__init__.py`).
+- MVP React/Vite (`frontend/`) từng chạy song song (đóng băng, không nhận tính năng mới) đã được **gỡ khỏi source** (Batch 7A) — không được Render build, không được `index.html` import. Lịch sử code vẫn còn trong git nếu cần tham khảo lại.
+- Chỉ lập kế hoạch migration sang React/TypeScript nếu thật sự cần, sau khi API contract, rule engine và test ổn định — dự án riêng, không xen vào batch an toàn/vận hành, và không mặc định coi git history của `frontend/` cũ là điểm khởi đầu.
 
 ## Quyết định database
 
@@ -40,12 +40,11 @@ Lý do: source hiện tại đã phục vụ `index.html`, `css/` và `js/` từ
 - Web service dùng connection pool có giới hạn, `pool_pre_ping`, và không chạy migration đồng thời bởi nhiều instance.
 - Giai đoạn đầu chỉ dùng **một database production duy nhất**, không tạo staging riêng — quyết định của chủ dự án (giữ kiến trúc đơn giản, tiết kiệm chi phí ở giai đoạn này). Nếu sau này cần staging, tạo bổ sung theo đúng quy trình batch, không tự ý thêm.
 
-### Trạng thái hiện tại (cập nhật sau Batch 2, chưa qua release gate)
+### Trạng thái hiện tại (cập nhật Batch 7A — 2026-08-12)
 
-- Render PostgreSQL production đã được owner tạo thủ công qua Dashboard: **`pccc-trolynghiepvu-db`** (region Oregon/US West, cùng region với web service `PCCC-TROLYNGHIEPVU`), trạng thái **Available**.
-- Batch 2 mới hoàn tất phần **code** (pool config, tối ưu query, health check, index, tách migration khỏi startup) và **migration đã diễn tập trên SQLite local** (upgrade/downgrade/upgrade lại) — xem [runbook migration](04-migration-runbook.md).
-- **Chưa gắn `DATABASE_URL` vào web service, chưa chạy `flask db upgrade` trên `pccc-trolynghiepvu-db`, chưa smoke test trên Postgres thật.** Ba việc này là release gate bắt buộc của giai đoạn deploy kế tiếp (xem `docs/02-implementation-batches.md` mục Batch 2 — Gate kiểm tra), chỉ thực hiện khi owner xác nhận rõ ràng từng bước.
-- Web service hiện vẫn chạy SQLite (ephemeral) như trước Batch 2 — production chưa có gì thay đổi thực tế.
+- Render PostgreSQL production: **`pccc-trolynghiepvu-db`** (region Oregon/US West, cùng region với web service `PCCC-TROLYNGHIEPVU`), đã được owner nâng lên gói **Basic-256mb** (không còn ở gói Free hết hạn) — xác nhận đang là database thật đang phục vụ production.
+- Kể từ Batch 5A, production đã chạy nhiều tính năng phụ thuộc schema mới (xác thực email, số dư Bộ hồ sơ, nạp tiền thủ công, thưởng góp ý) — đây là bằng chứng gián tiếp rằng `DATABASE_URL` đã gắn vào web service và các migration liên quan đã được áp dụng tại một thời điểm nào đó trên Postgres thật.
+- **Claude Code KHÔNG có quyền truy cập Render Shell nên không thể tự xác nhận** database production hiện có đang ở đúng migration head mới nhất khớp với `backend/migrations/versions/` trong source hay không — theo đúng quy tắc "không khẳng định khi không có bằng chứng trực tiếp". **Đây là việc owner cần tự kiểm tra thủ công** trước khi deploy bất kỳ thay đổi schema mới nào: mở Render Shell cho `PCCC-TROLYNGHIEPVU`, chạy `flask db current` rồi so với `flask db heads`, xem thêm [runbook migration](04-migration-runbook.md).
 
 Supabase là lựa chọn thay thế hợp lệ khi cần đồng thời PostgreSQL, Storage private hoặc Auth managed; nó **không bắt buộc** cho kiến trúc này. Nếu thay đổi sang Supabase sau này, vẫn giữ Flask là API quyết định nghiệp vụ.
 

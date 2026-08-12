@@ -77,10 +77,10 @@ def me():
 
 def _verification_email_content(token: str) -> tuple[str, str]:
     verify_url = f"{current_app.config['FRONTEND_ORIGIN']}/?verify-email={token}"
-    subject = "Xác thực email — Tư vấn PCCC"
+    subject = "Xác thực email — Hướng dẫn PCCC"
     body = (
         "Chào anh/chị,\n\n"
-        "Vui lòng bấm vào liên kết dưới đây để xác thực email và nhận 2 Bộ hồ sơ dùng thử:\n"
+        "Vui lòng bấm vào liên kết dưới đây để xác thực email và nhận 1 Bộ hồ sơ dùng thử:\n"
         f"{verify_url}\n\n"
         f"Liên kết có hiệu lực trong {email_verification.TOKEN_TTL_HOURS} giờ.\n"
         "Nếu anh/chị không yêu cầu xác thực, vui lòng bỏ qua email này."

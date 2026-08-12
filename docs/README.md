@@ -17,7 +17,7 @@
 
 ## Phạm vi hiện tại
 
-Sản phẩm production hiện tại là `index.html` cùng `css/` và `js/`, được Flask phục vụ ở production. `frontend/` là MVP React/Vite tách rời, chưa phải giao diện production. Không được thêm tính năng song song vào cả hai frontend.
+Sản phẩm production là `backend/app/static/index.html` cùng `css/` và `js/`, được Flask phục vụ trực tiếp cùng origin với API — đây là frontend duy nhất trong source. MVP React/Vite từng chạy song song (`frontend/`) đã bị gỡ khỏi source (Batch 7A); lịch sử code vẫn còn trong git nếu cần tham khảo lại.
 
 Các quy tắc PCCC và kết quả AI có độ nhạy cảm chuyên môn cao. AI chỉ hỗ trợ đọc/trích xuất/tổng hợp; kết luận pháp lý hoặc kỹ thuật phải do rule-based code có nguồn, version và kiểm thử xác định.
 

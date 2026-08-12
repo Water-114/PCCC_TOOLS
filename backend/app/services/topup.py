@@ -102,7 +102,7 @@ def confirm_transfer(request_id: int, user_id: int) -> TopupRequest:
     không lộ sự tồn tại của yêu cầu người khác). Idempotent: gọi lại khi đã
     qua khỏi 'cho_chuyen_khoan' (kể cả đã bị admin xử lý) thì trả về nguyên
     trạng, không lỗi."""
-    row = TopupRequest.query.get(request_id)
+    row = db.session.get(TopupRequest, request_id)
     if row is None or row.user_id != user_id:
         raise TopupRequestNotFound("Không tìm thấy yêu cầu nạp.")
     if row.status != "cho_chuyen_khoan":
@@ -117,7 +117,7 @@ def confirm_topup_request(request_id: int, admin_user_id: int) -> TopupRequest:
     ledger thêm (không cộng 2 lần). Chỉ hợp lệ khi đang 'cho_xac_nhan' — yêu
     cầu còn 'cho_chuyen_khoan' (user chưa xác nhận đã chuyển khoản) hoặc đã
     'tu_choi' đều bị từ chối xác nhận rõ ràng."""
-    row = TopupRequest.query.get(request_id)
+    row = db.session.get(TopupRequest, request_id)
     if row is None:
         raise TopupRequestNotFound("Không tìm thấy yêu cầu nạp.")
     if row.status == "da_xac_nhan":
@@ -145,7 +145,7 @@ def reject_topup_request(request_id: int, admin_user_id: int) -> TopupRequest:
     đang 'cho_xac_nhan' — yêu cầu còn 'cho_chuyen_khoan' hoặc đã 'da_xac_nhan'
     đều bị từ chối thao tác rõ ràng (không tự đảo ngược 1 xác nhận đã cộng
     Bộ hồ sơ)."""
-    row = TopupRequest.query.get(request_id)
+    row = db.session.get(TopupRequest, request_id)
     if row is None:
         raise TopupRequestNotFound("Không tìm thấy yêu cầu nạp.")
     if row.status == "tu_choi":

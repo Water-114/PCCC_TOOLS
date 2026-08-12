@@ -14,19 +14,23 @@
 
 ## Lệnh kiểm tra mục tiêu
 
-Các lệnh chính xác được thêm vào README khi Batch 0 hoàn thành. Chuẩn kỳ vọng:
+Các lệnh chính xác nằm trong README. Chuẩn kỳ vọng (cập nhật Batch 7A — sau
+khi hợp nhất frontend production vào `backend/app/static/` và gỡ MVP
+React/Vite `frontend/` khỏi source):
 
 ```powershell
 cd backend
 python -m pytest
 flask db upgrade
 
-cd ../frontend
-npm run lint
-npm run build
+cd ..
+npm run lint   # oxlint backend/app/static/js/
 ```
 
-Root static UI cần có thêm script kiểm tra cú pháp tất cả file trong `js/`. Test không được gọi provider AI trả phí mặc định; provider phải được mock.
+Test không được gọi provider AI trả phí mặc định; provider phải được mock.
+Không còn bước `npm run build` (không có framework nào build static UI —
+`backend/app/static/index.html`/`css/`/`js/` được Flask phục vụ trực tiếp,
+không qua bước biên dịch).
 
 ## Checklist review sau mỗi batch
 

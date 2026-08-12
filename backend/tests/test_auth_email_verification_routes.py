@@ -1,5 +1,5 @@
 """Batch 5A, sub-bước 1 — test route /api/auth/send-verification-email và
-/api/auth/verify-email: cấp đúng 2 Bộ hồ sơ lần đầu, không cấp lại lần 2, token
+/api/auth/verify-email: cấp đúng 1 Bộ hồ sơ lần đầu, không cấp lại lần 2, token
 hết hạn/không hợp lệ bị từ chối rõ ràng. KHÔNG gửi email thật (mock mailer.send_email)."""
 
 from datetime import timedelta

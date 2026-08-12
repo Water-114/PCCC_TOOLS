@@ -9,9 +9,9 @@ from sqlalchemy import text
 from .config import Config
 from .extensions import db, limiter
 
-# Thư mục gốc của repo (chứa index.html, css/, js/) — 2 cấp trên package app/ này
-# (backend/app/__init__.py -> backend/app -> backend -> gốc repo).
-_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+# Thư mục chứa giao diện production (index.html, css/, js/) — cùng cấp với
+# package app/ này, trong app/static/ (hợp nhất từ thư mục gốc repo, Batch 7A).
+_STATIC_ROOT = os.path.join(os.path.dirname(__file__), "static")
 
 # Render tự set biến này cho mọi service chạy trên nền tảng của họ — dùng làm
 # tín hiệu đáng tin cậy để biết "đang chạy production" mà không cần thêm biến
@@ -150,15 +150,15 @@ def create_app(config_overrides=None):
     # để tránh vô tình lộ file khác trong repo (vd. backend/.env).
     @app.get("/")
     def serve_index():
-        return send_from_directory(_REPO_ROOT, "index.html")
+        return send_from_directory(_STATIC_ROOT, "index.html")
 
     @app.get("/css/<path:filename>")
     def serve_css(filename):
-        return send_from_directory(os.path.join(_REPO_ROOT, "css"), filename)
+        return send_from_directory(os.path.join(_STATIC_ROOT, "css"), filename)
 
     @app.get("/js/<path:filename>")
     def serve_js(filename):
-        return send_from_directory(os.path.join(_REPO_ROOT, "js"), filename)
+        return send_from_directory(os.path.join(_STATIC_ROOT, "js"), filename)
 
     @app.cli.command("create-admin")
     @click.argument("email")

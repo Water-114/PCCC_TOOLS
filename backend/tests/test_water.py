@@ -1,6 +1,8 @@
 """Test cho /api/water/calculate (backend/app/services/water_calculator.py).
 
-Lưu ý: route này hiện chỉ được frontend/ (MVP React đã đóng băng) gọi tới —
+Lưu ý: route này trước đây chỉ được frontend/ (MVP React) gọi tới — frontend/
+đã bị gỡ khỏi source (Batch 7A), nên route này hiện KHÔNG còn caller nào
+trong source; giữ lại phòng khi có client khác gọi API trực tiếp.
 index.html production tính nước 100% ở client (js/cong-cu-tinh-toan.js).
 
 Batch 1 đã sửa 3 lỗi validation từng được Batch 0 ghi nhận baseline (NaN lọt

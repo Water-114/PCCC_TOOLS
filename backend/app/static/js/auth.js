@@ -173,7 +173,7 @@ document.addEventListener('DOMContentLoaded', function(){
       if(wasRegister){
         A.sendVerificationEmail().then(function(vr){
           if(vr.ok){
-            showAuthGlobalMsg('Đã gửi email xác thực tới ' + email + ' — kiểm tra hộp thư (kể cả Spam) để nhận 2 Bộ hồ sơ dùng thử.', false);
+            showAuthGlobalMsg('Đã gửi email xác thực tới ' + email + ' — kiểm tra hộp thư (kể cả Spam) để nhận 1 Bộ hồ sơ dùng thử.', false);
           } else {
             showAuthGlobalMsg(vr.data.error || 'Không gửi được email xác thực — vui lòng thử lại sau bằng nút "Gửi lại email xác thực".', true);
           }
@@ -203,7 +203,7 @@ document.addEventListener('DOMContentLoaded', function(){
         // lien tuc; chi mo lai khi that su that bai (nhanh else ben duoi) hoac
         // khi doi sang tai khoan khac (xem verifyEmailCtaShownFor o updateAuthUI).
         verifyEmailCtaBtn.textContent = 'Đã gửi email xác thực';
-        showVerifyEmailCtaMsg('Đã gửi email xác thực tới ' + (user ? user.email : '') + ' — kiểm tra hộp thư (kể cả Spam) để nhận 2 Bộ hồ sơ dùng thử.', false);
+        showVerifyEmailCtaMsg('Đã gửi email xác thực tới ' + (user ? user.email : '') + ' — kiểm tra hộp thư (kể cả Spam) để nhận 1 Bộ hồ sơ dùng thử.', false);
       } else {
         verifyEmailCtaBtn.disabled = false;
         showVerifyEmailCtaMsg(vr.data.error || 'Không gửi được email xác thực — vui lòng thử lại sau.', true);

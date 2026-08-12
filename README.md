@@ -6,18 +6,26 @@ APP HƯỚNG DẪN VẤN ĐÁP PCCC
 
 Tài liệu triển khai theo kiến trúc đơn giản (Render Web Service + PostgreSQL managed), các batch test/review và prompt handoff cho Claude nằm tại [docs/README.md](docs/README.md). Đọc bộ tài liệu này trước khi thực hiện thay đổi lớn hoặc deploy.
 
-Dự án gồm 2 phần chạy song song:
+## Kiến trúc
 
-- **`index.html`** (thư mục gốc) — trang chính đang dùng thật, đầy đủ 5 mục: Hướng dẫn thiết kế và lập phiếu hướng dẫn sơ bộ, Công cụ tính toán, **AI kiểm tra hồ sơ** (đã gắn AI thật cho hạng mục "Báo cháy tự động", có đăng nhập + giới hạn lượt/ngày), Thư viện pháp luật, AI trợ lý.
-- **`admin.html`** (thư mục gốc) — trang quản trị riêng: đăng nhập bằng tài khoản `role=admin`, xem thống kê tổng số tài khoản/lượt gọi API/góp ý, danh sách user kèm lượt còn lại, bảng góp ý.
-- **`backend/`** — Flask API phục vụ cả 2 trang trên: tính nước chữa cháy, AI gateway (Claude/Gemini), đăng nhập/đăng ký, AI đọc bản vẽ báo cháy (có giới hạn quota), góp ý, thống kê quản trị. Có database SQLite (`backend/app.db`, không commit) qua SQLAlchemy + Flask-Migrate.
-- **`frontend/`** — React + Vite, một MVP tách riêng (2 tính năng: tính nước chữa cháy, diện thẩm định Phụ lục III) — **đã đóng băng**: không nhận tính năng mới, không deploy độc lập, chỉ giữ lại để tham khảo. `index.html` (root static UI) là giao diện production chính thức duy nhất.
+Một service Flask duy nhất phục vụ cả API lẫn giao diện — không còn frontend tách riêng:
 
-## Đăng nhập & giới hạn lượt dùng (tính năng AI đọc bản vẽ)
+- **`backend/app/static/`** — giao diện production duy nhất (`index.html` + `css/` + `js/`), gồm 5 mục chính: Hướng dẫn thiết kế và lập phiếu hướng dẫn sơ bộ, Công cụ tính toán, **AI kiểm tra hồ sơ** (đọc bản vẽ bằng AI thật, có đăng nhập + số dư "Bộ hồ sơ"), Thư viện pháp luật, AI trợ lý. Trang **Quản trị** (đăng nhập bằng tài khoản `role=admin`: thống kê tài khoản/lượt gọi API/góp ý, xác nhận nạp tiền...) nằm trong **cùng `index.html`** (tab riêng), không phải trang HTML tách biệt.
+- **`backend/`** — Flask API + phục vụ luôn static UI ở trên: tính nước chữa cháy, AI gateway (Claude/Gemini), đăng nhập/đăng ký + xác thực email, AI đọc bản vẽ (nhiều hạng mục PCCC, có quản lý số dư "Bộ hồ sơ"), nạp tiền thủ công, góp ý + thưởng góp ý, thống kê quản trị. Database qua SQLAlchemy + Flask-Migrate (SQLite cho dev local, PostgreSQL cho production).
 
-Chỉ tính năng "AI đọc bản vẽ" (hạng mục Báo cháy tự động, trong tab "AI kiểm tra hồ sơ") yêu cầu đăng nhập — các công cụ khác dùng tự do. Mỗi tài khoản được **5 lượt/ngày** (đổi số ở `AIHO_DAILY_QUOTA` trong `backend/.env`, cần khởi động lại backend sau khi đổi). Đăng ký mở tự do (email + mật khẩu ≥ 6 ký tự).
+Trước đây có một MVP React + Vite (`frontend/`) chạy song song — đã đóng băng và **gỡ khỏi source** (không được Render build, không được `index.html` import). Lịch sử code vẫn còn trong git nếu cần tham khảo lại; không thêm framework/hosting mới để thay thế.
 
-Tạo tài khoản admin đầu tiên (để dùng `admin.html`):
+## Chính sách "Bộ hồ sơ" (tính năng AI đọc bản vẽ)
+
+Chỉ tính năng **AI kiểm tra hồ sơ** yêu cầu đăng nhập — các công cụ khác (tính nước, phiếu hướng dẫn sơ bộ...) dùng tự do. Số dư được tính bằng đơn vị **"Bộ hồ sơ"** (không dùng "credit"/"lượt đọc" khi nói với người dùng):
+
+- Mỗi tài khoản được **01 Bộ hồ sơ dùng thử** một lần, cấp ngay sau khi xác thực email lần đầu (đăng ký mở tự do: email + mật khẩu ≥ 6 ký tự).
+- Nạp **100.000đ** được cộng **02 Bộ hồ sơ**, chỉ sau khi admin xác nhận đã nhận được chuyển khoản thủ công (không tích hợp cổng thanh toán tự động).
+- Góp ý cho **05 Bộ hồ sơ hoàn thành** được cộng thêm **01 Bộ hồ sơ**.
+- Một Bộ hồ sơ = tối đa 5 file bản vẽ, tối đa 7 form MĐC của cùng một công trình/phiên.
+- Ngoài số dư Bộ hồ sơ, còn một hạn mức phụ **`AIHO_DAILY_QUOTA`** (mặc định 5 lượt gọi AI/ngày/tài khoản, đổi ở `backend/.env`, cần khởi động lại backend sau khi đổi) — lớp chặn chi phí bổ sung, không thay thế số dư Bộ hồ sơ.
+
+Tạo tài khoản admin đầu tiên (để dùng tab **Quản trị** trong `index.html`):
 ```bash
 cd backend
 source venv/Scripts/activate
@@ -26,7 +34,7 @@ flask create-admin <email> <mat_khau>
 ```
 Chạy lại lệnh này với email đã có sẵn để đổi mật khẩu/nâng quyền admin cho tài khoản đó.
 
-## Chạy backend (Flask)
+## Chạy backend (Flask) — phục vụ cả API và giao diện
 
 ```bash
 cd backend
@@ -36,14 +44,14 @@ pip install -r requirements.txt
 cp .env.example .env           # rồi điền ANTHROPIC_API_KEY / GEMINI_API_KEY nếu đã có
 export FLASK_APP=app:create_app
 flask db upgrade                # tạo/migrate database (chỉ cần chạy khi có migration mới)
-python run.py                  # chạy tại http://localhost:5000
+python run.py                  # chạy tại http://127.0.0.1:5000
 ```
 
-Chưa có API key vẫn chạy được — các endpoint tính toán hoạt động bình thường, riêng `/api/ai/comment` và `/api/aiho/read-baochay` sẽ trả lỗi rõ ràng "Chưa cấu hình ... API_KEY" thay vì crash (vẫn tính 1 lượt quota vì đã thực sự cố gọi AI).
+Chưa có API key vẫn chạy được — các endpoint tính toán hoạt động bình thường, riêng `/api/ai/comment` và các route `/api/aiho/read-*` sẽ trả lỗi rõ ràng "Chưa cấu hình ... API_KEY" thay vì crash (không tính vào số dư Bộ hồ sơ vì chưa thực sự gọi AI).
 
-Mở `index.html`/`admin.html` qua server tĩnh (không mở trực tiếp bằng `file://`) để các lệnh gọi API chạy đúng, ví dụ: `python -m http.server 8080` tại thư mục gốc, rồi truy cập `http://127.0.0.1:8080/index.html`.
+Mở **http://127.0.0.1:5000/** — Flask phục vụ trực tiếp `index.html`/`css/`/`js/` từ `backend/app/static/`, không cần server tĩnh riêng, không mở bằng `file://`.
 
-## Chạy test (Batch 0 — baseline)
+## Chạy test (backend)
 
 ```bash
 cd backend
@@ -53,26 +61,17 @@ venv/Scripts/pytest -v                    # không đụng backend/app.db thật
 
 Chi tiết phạm vi test: [backend/tests/README.md](backend/tests/README.md).
 
-Lint cho `js/*.js` (root static UI — tách biệt hoàn toàn `frontend/`):
+Lint cho giao diện (`backend/app/static/js/*.js`):
 
 ```bash
 npm install
 npm run lint
 ```
 
-## Chạy frontend (React + Vite)
-
-```bash
-cd frontend
-npm install
-cp .env.example .env   # VITE_API_BASE_URL, mặc định http://localhost:5000
-npm run dev            # chạy tại http://localhost:5173
-```
-
 ## Khuyến nghị trước khi dùng làm demo công khai / thương mại hoá
 
 - Không commit `.env`/API key/`app.db` (đã gitignore) — khi deploy thật dùng secret manager của platform và đổi `SECRET_KEY` thật.
-- Quota (5 lượt/ngày) mới chặn tính năng AI đọc bản vẽ — `/api/ai/comment` (bên MVP React) chưa có giới hạn, cân nhắc thêm nếu public.
+- Thông tin tài khoản ngân hàng nhận chuyển khoản (`BANK_ACCOUNT_NUMBER`/`BANK_ACCOUNT_NAME`/`BANK_NAME`) chỉ cấu hình qua biến môi trường, không hardcode/commit dưới bất kỳ hình thức nào.
 - Dùng số liệu mẫu khi demo công khai, không dùng dữ liệu hồ sơ khách hàng thật.
 - Trước khi thương mại hoá: chuyển dần các bảng tra QCVN/TCVN khác thành rule-based code thay vì để AI tự suy luận, để đảm bảo độ tin cậy cho hồ sơ pháp lý.
-- SQLite hiện đủ dùng cho quy mô demo — khi nhiều người dùng thật hơn, đổi `DATABASE_URL` sang Postgres/Supabase (không cần sửa code, chỉ đổi connection string).
+- SQLite chỉ dùng cho local development/test. Production dùng Render PostgreSQL (`pccc-trolynghiepvu-db`, qua `DATABASE_URL` — không cần sửa code, chỉ đổi connection string, xem `docs/01-target-architecture.md`).
