@@ -12,6 +12,7 @@ STATIC_ROOT = os.path.join(os.path.dirname(__file__), "..", "app", "static")
 
 ALL_JS_FILES = [
     "ai-doc-ho-so.js",
+    "ai-giang-day.js",
     "auth.js",
     "cong-cu-tinh-toan.js",
     "nav.js",

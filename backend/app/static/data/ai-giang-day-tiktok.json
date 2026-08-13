@@ -1,0 +1,290 @@
+[
+  {
+    "stt": 1,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7654590061102566664",
+    "tieu_de": "Hướng dẫn an toàn PCCC Nhà ở kết hợp sản xuất kinh doanh",
+    "chuyen_de": null,
+    "ghi_chu": null,
+    "video_id": "7654590061102566664"
+  },
+  {
+    "stt": 2,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7602400645076749576",
+    "tieu_de": "Trung tâm xử lý tín hiệu theo logic Cause & Effect",
+    "chuyen_de": "Báo cháy tự động",
+    "ghi_chu": "Trong hệ thống báo cháy địa chỉ, khi đầu báo cháy hoặc nút nhấn khẩn phát hiện cháy, tín hiệu được truyền về trung tâm báo cháy qua mạch loop. Trung tâm xử lý tín hiệu theo logic Cause & Effect, sau đó phát lệnh đến các mô-đun điều khiển để kích hoạt chuông, còi, liên động thang máy, quạt hút khói, cửa ngăn cháy… Đồng thời, các mô-đun giám sát tiếp nhận và phản hồi trạng thái của sprinkler, bơm chữa cháy, van, mực nước… giúp trung tâm theo dõi và điều hành hệ thống.",
+    "video_id": "7602400645076749576"
+  },
+  {
+    "stt": 3,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7602399260780285191",
+    "tieu_de": "Trung tâm báo cháy địa chỉ",
+    "chuyen_de": "Báo cháy tự động",
+    "ghi_chu": null,
+    "video_id": "7602399260780285191"
+  },
+  {
+    "stt": 4,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7602025997793299730",
+    "tieu_de": "Các MODULE trong hệ thống báo cháy địa chỉ",
+    "chuyen_de": "Báo cháy tự động",
+    "ghi_chu": "🔹 1. Mô-đun giám sát (Input Module)\n• Nhận tín hiệu tiếp điểm khô từ thiết bị bên ngoài\n• Dùng cho: nút nhấn khẩn, công tắc dòng chảy, van giám sát, tiếp điểm trạng thái\n🔹 2. Mô-đun điều khiển (Output / Relay Module)\n• Xuất tiếp điểm điều khiển theo lệnh từ trung tâm\n• Dùng để: điều khiển quạt, thang máy, van điện, hệ thống liên động\n🔹 3. Mô-đun giám sát & điều khiển kết hợp\n• Vừa nhận tín hiệu trạng thái, vừa điều khiển thiết bị\n• Áp dụng cho: thiết bị có cả báo trạng thái và điều khiển\n🔹 4. Mô-đun cách ly (Isolator Module)\n• Cô lập đoạn loop bị chập, bảo vệ phần còn lại của hệ thống\n• Giúp hệ báo cháy vẫn hoạt động khi có sự cố dây\n🔹 5. Mô-đun giao tiếp thiết bị thường",
+    "video_id": "7602025997793299730"
+  },
+  {
+    "stt": 5,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7601769771712974088",
+    "tieu_de": "Lựa chọn hệ thông Báo cháy thường hay báo cháy địa chỉ",
+    "chuyen_de": "Báo cháy tự động",
+    "ghi_chu": "🔥 1. Nguyên lý làm việc\n🔹 Báo cháy thường Làm việc theo vùng (zone); Khi có cháy → chỉ biết khu vực/zone, không biết đầu báo nào; Trung tâm nhận tín hiệu đóng/mở mạch\n🔹 Báo cháy địa chỉ: Làm việc theo địa chỉ từng thiết bị; Khi có cháy → xác định chính xác đầu báo/module; Trung tâm giao tiếp số, truyền – nhận dữ liệu\n_____\n📍 2. Khả năng xác định vị trí cháy\n🔹 Báo cháy thường: Xác định mức độ thô; Phải kiểm tra từng đầu báo trong zone; Mất thời gian khi công trình lớn;\n🔹 Báo cháy địa chỉ: Xác định chính xác vị trí cháy; Hiển thị tên, địa chỉ, khu vực, tầng; Phù hợp chỉ huy chữa cháy & CNCH",
+    "video_id": "7601769771712974088"
+  },
+  {
+    "stt": 6,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7601762985819868424",
+    "tieu_de": "Bố trí đâu báo cháy khi có dầm",
+    "chuyen_de": "Báo cháy tự động",
+    "ghi_chu": "Vùng 1–2–3–4 theo Điều 5.9.1.1.6 TCVN 7568-14\n1. Vùng 1: d ≤ 0,3 m (Dầm nông)\n◦ Điều kiện: Bất kể chiều cao trần, chỉ cần độ sâu dầm không quá 30 cm.\n◦ Cách bố trí: Coi như trần phẳng, bố trí đầu báo theo quy định chung mà không cần quan tâm đến vị trí dầm.\n2. Vùng 2: h < 2 m và d > 0,3 m (Trần thấp + Dầm sâu)\n◦ Điều kiện: Trần rất thấp và dầm sâu.\n◦ Cách bố trí: Bắt buộc lắp dưới các dầm để bắt khói tốt hơn, tránh vùng \"túi khí chết\" trong ô dầm do đối lưu kém.\n3. Vùng 3: 2 m ≤ h ≤ 4 m và d ≥ 0,3 m (Trần trung bình + Dầm sâu)\n◦ Cách bố trí: Phụ thuộc vào diện tích ô giữa dầm:\n▪ Nếu diện tích ô < 4 m²: Lắp dưới dầm.\n▪ Nếu diện tích ô ≥ 4 m²: Phải có ít nhất 1 đầu báo trong mỗi ô giữa dầm.\n4. Vùng 4: h > 4 m và d ≥ 0,3 m (Trần cao + Dầm sâu)\n◦ Cách bố trí: Phụ thuộc vào diện tích ô giữa dầm:",
+    "video_id": "7601762985819868424"
+  },
+  {
+    "stt": 7,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7600905364036472072",
+    "tieu_de": "Đầu báo cháy khói 5.9.1.1.4 Khoảng cách đến tường, vách ngăn lỗ mở cấp không khí",
+    "chuyen_de": null,
+    "ghi_chu": null,
+    "video_id": "7600905364036472072"
+  },
+  {
+    "stt": 8,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7600784484761439495",
+    "tieu_de": "5.9.1.1.6 Vị trí của các đầu báo cháy khói trên các bề mặt phẳng có các dầm",
+    "chuyen_de": null,
+    "ghi_chu": null,
+    "video_id": "7600784484761439495"
+  },
+  {
+    "stt": 9,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7600775391132798216",
+    "tieu_de": "5.8.2.4.3 Thiết bị chỉ thị cho đầu báo cháy TCVN 7568-14",
+    "chuyen_de": null,
+    "ghi_chu": null,
+    "video_id": "7600775391132798216"
+  },
+  {
+    "stt": 10,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7600757333941308690",
+    "tieu_de": "tìm hiểu về hệ thống báo cháy",
+    "chuyen_de": null,
+    "ghi_chu": null,
+    "video_id": "7600757333941308690"
+  },
+  {
+    "stt": 11,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7600749624374119698",
+    "tieu_de": "các điểm lưu ý trong lắp đặt đầu báo cháy",
+    "chuyen_de": null,
+    "ghi_chu": null,
+    "video_id": "7600749624374119698"
+  },
+  {
+    "stt": 15,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7599249139024579847",
+    "tieu_de": "các loại van trong hệ thống chữa cháy",
+    "chuyen_de": "Chữa cháy",
+    "ghi_chu": null,
+    "video_id": "7599249139024579847"
+  },
+  {
+    "stt": 16,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7599272770194640146",
+    "tieu_de": "Cụm van báo động (Alarm Valve) vs Cụm van điều khiển vùng (Zone Control Valve)",
+    "chuyen_de": "Chữa cháy",
+    "ghi_chu": "Cụm van báo động (Alarm Valve): Khi có đầu phun vỡ, van này sẽ mở ra và kích hoạt tín hiệu báo cháy tổng cho toàn bộ hệ thống.\nCụm van điều khiển vùng (Zone Control Valve): quản lý, cô lập và định vị đám cháy cho từng khu vực hoặc từng tầng cụ thể. Nó giúp xác định chính xác vị trí cháy và cho phép khóa nước riêng lẻ để bảo trì mà không làm gián đoạn các khu vực khác",
+    "video_id": "7599272770194640146"
+  },
+  {
+    "stt": 17,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7599241553978100999",
+    "tieu_de": "Công tắc dòng chảy",
+    "chuyen_de": "Chữa cháy",
+    "ghi_chu": "Công tắc dòng chảy là thiết bị dùng để phát hiện sự chuyển động của nước trong đường ống sprinkler. Khi xảy ra cháy, đầu phun hoạt động làm nước chảy trong ống, công tắc dòng chảy sẽ tác động và truyền tín hiệu báo cháy về trung tâm báo cháy, giúp xác định khu vực có sự cố",
+    "video_id": "7599241553978100999"
+  },
+  {
+    "stt": 18,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7599158856446528776",
+    "tieu_de": "Khớp nối Dn65 vs Họng tiếp nước DN65",
+    "chuyen_de": "Chữa cháy",
+    "ghi_chu": null,
+    "video_id": "7599158856446528776"
+  },
+  {
+    "stt": 19,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7596155944506051847",
+    "tieu_de": "Hệ thống chữa cháy tự động cho bếp",
+    "chuyen_de": "Chữa cháy",
+    "ghi_chu": null,
+    "video_id": "7596155944506051847"
+  },
+  {
+    "stt": 20,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7595171867326008583",
+    "tieu_de": "Nguyên lý hoạt động chính của sprinkle",
+    "chuyen_de": "Chữa cháy",
+    "ghi_chu": null,
+    "video_id": "7595171867326008583"
+  },
+  {
+    "stt": 21,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7594988870119263506",
+    "tieu_de": "Câu tạo  hệ thống sprinkler",
+    "chuyen_de": "Chữa cháy",
+    "ghi_chu": null,
+    "video_id": "7594988870119263506"
+  },
+  {
+    "stt": 22,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7594604956116618503",
+    "tieu_de": "Hệ thống chữa cháy tự động dạng xả tràn (deluge system)",
+    "chuyen_de": "Chữa cháy",
+    "ghi_chu": "hệ thống chữa cháy tự động dạng xả tràn (deluge system): tất cả đầu phun nước mở đồng thời. ngăn chặn cháy lan trong toàn bộ tòa nhà.\n(deluge system khác với Pre-action system nhé!)",
+    "video_id": "7594604956116618503"
+  },
+  {
+    "stt": 23,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7594603357482814738",
+    "tieu_de": "Hệ thống chữa cháy tự động trước Pre-action",
+    "chuyen_de": "Chữa cháy",
+    "ghi_chu": "hệ thống chữa cháy tự động trước là hệ thống chữa cháy tự động bằng nước, trong đó việc cấp nước chỉ được thực hiện sau khi có tín hiệu xác nhận cháy từ hệ thống báo cháy.",
+    "video_id": "7594603357482814738"
+  },
+  {
+    "stt": 24,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7594386516453920007",
+    "tieu_de": "Kho kệ cao tầng TCVN 14496:2025 - p2",
+    "chuyen_de": "Chữa cháy",
+    "ghi_chu": null,
+    "video_id": "7594386516453920007"
+  },
+  {
+    "stt": 25,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7594215553082871058",
+    "tieu_de": "VAN GIÁM SÁT, VAN BÁO ĐỘNG, VAN ĐIỆN TỪ",
+    "chuyen_de": "Chữa cháy",
+    "ghi_chu": "HÂN BIỆT VAN GIÁM SÁT, VAN BÁO ĐỘNG, VAN ĐIỆN TỪ TRONG HTCC. BẮT BUỘC PHẢI THỂ HIỆN TRONG HS THIẾT KẾ PCCC",
+    "video_id": "7594215553082871058"
+  },
+  {
+    "stt": 26,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7593586672378432776",
+    "tieu_de": "VAN TRONG HTCC",
+    "chuyen_de": "Chữa cháy",
+    "ghi_chu": null,
+    "video_id": "7593586672378432776"
+  },
+  {
+    "stt": 27,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7590389483137240338",
+    "tieu_de": "TCVN 14496:2025",
+    "chuyen_de": "Chữa cháy",
+    "ghi_chu": null,
+    "video_id": "7590389483137240338"
+  },
+  {
+    "stt": 28,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7590379180848598290",
+    "tieu_de": "TCVN 14496:2025 - P6",
+    "chuyen_de": null,
+    "ghi_chu": "PHẦN 6 TCVN 14496:2025 HỆ THỐNG CCTĐ NHIỀU TẦNG ĐẦU PHUN SPRINKLER CHO KHO",
+    "video_id": "7590379180848598290"
+  },
+  {
+    "stt": 29,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7588837114544950536",
+    "tieu_de": "Hệ thống cấp nước ngoài nhà:",
+    "chuyen_de": null,
+    "ghi_chu": "Hệ thống cấp nước ngoài nhà: Giảm 99% đối tượng phải trang bị (Đối tượng phụ lục C QCVN 10 đã giảm đáng kể so với PLC TCVN 3890) chuyển trách nhiệm sang chính quyền/chủ đầu tư hạ tầng đô thị, giúp tiết kiệm lớn cho chủ đầu tư công trình độc lập (Điều 19 NĐ105)",
+    "video_id": "7588837114544950536"
+  },
+  {
+    "stt": 30,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7596145105732472072",
+    "tieu_de": "Cách vận hành an toàn của LPG trung tâm theo QCVN 10, TCVN 744",
+    "chuyen_de": "An toàn",
+    "ghi_chu": null,
+    "video_id": "7596145105732472072"
+  },
+  {
+    "stt": 31,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7595060218912951560",
+    "tieu_de": "thiết kế LPG trung tâm",
+    "chuyen_de": "An toàn",
+    "ghi_chu": null,
+    "video_id": "7595060218912951560"
+  },
+  {
+    "stt": 32,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7593141975134653704",
+    "tieu_de": "Tìm hiểu Luật PCCC",
+    "chuyen_de": "An toàn",
+    "ghi_chu": null,
+    "video_id": "7593141975134653704"
+  },
+  {
+    "stt": 33,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7592746732312726802",
+    "tieu_de": "Tìm hiểu Luật PCCC p1",
+    "chuyen_de": "An toàn",
+    "ghi_chu": null,
+    "video_id": "7592746732312726802"
+  },
+  {
+    "stt": 34,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7590923289103486215",
+    "tieu_de": "QCVN 10:2025/BCA",
+    "chuyen_de": "An toàn",
+    "ghi_chu": null,
+    "video_id": "7590923289103486215"
+  },
+  {
+    "stt": 35,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7590921586006412552",
+    "tieu_de": "Chatbot của Phòng PC07",
+    "chuyen_de": "An toàn",
+    "ghi_chu": null,
+    "video_id": "7590921586006412552"
+  },
+  {
+    "stt": 36,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7590708622024297746",
+    "tieu_de": "Talkshow về trang bị, bố trí hệ thống, thiết bị chữa cháy tự động QCVN10:2025",
+    "chuyen_de": "An toàn",
+    "ghi_chu": null,
+    "video_id": "7590708622024297746"
+  },
+  {
+    "stt": 37,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7590572654629899528",
+    "tieu_de": "QCVN 10:2025/BCA - NỘI DUNG 2",
+    "chuyen_de": "An toàn",
+    "ghi_chu": "NỘI DUNG 2 : MỘT SỐ LOẠI HÌNH NHÀ, CÔNG TRÌNH, GIAN PHÒNG QUY ĐỊNH TRONG QUY CHUẨN VÀ NHÀ, CÔNG TRÌNH CÓ CÔNG NĂNG TƯƠNG TỰ CHƯA ĐƯỢC QUY ĐỊNH TRONG QUY CHUẨN",
+    "video_id": "7590572654629899528"
+  },
+  {
+    "stt": 38,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7590561440008834322",
+    "tieu_de": "QCVN 10:2025/BCA - NỘI DUNG 1",
+    "chuyen_de": "An toàn",
+    "ghi_chu": "CÁCH XÁC ĐỊNH SỐ TẦNG, CHIỀU CAO, KHỐI TÍCH, DIỆN TÍCH CỦA GIAN PHÒNG, NHÀ, CÔNG TRÌNH",
+    "video_id": "7590561440008834322"
+  },
+  {
+    "stt": 39,
+    "tiktok_url": "https://www.tiktok.com/@mr.fire87/video/7587203718056168722",
+    "tieu_de": "QCVN 10:2025/BCA",
+    "chuyen_de": null,
+    "ghi_chu": "QCVN 10:2025/BCA hiệu lực có từ 30/12/2025, là một khung pháp lý kỹ thuật mới, hiệu quả hơn và giảm nhiều quy định so quy định TCVN 3890 đồng thời vẫn bảo đảm an toàn PCCC",
+    "video_id": "7587203718056168722"
+  }
+]

@@ -1099,9 +1099,70 @@
 <div class="wrap">
   <header class="gas-head">
     <div class="eyebrow2" style="color:var(--amber)">AI giảng dạy PCCC</div>
-    <h2>AI giảng dạy PCCC <span class="soon-badge">Sắp có</span></h2>
-    <p>Đang phát triển.</p>
+    <h2>AI giảng dạy PCCC <span class="soon-badge">Demo giao diện</span></h2>
+    <p><b>Đây là bản demo bố cục</b> — toàn bộ dữ liệu bên dưới (video, checklist, kết quả rà lỗi) là mẫu minh hoạ, chưa kết nối CSDL/TikTok/AI thật.</p>
   </header>
+
+  <div class="subnav-inner agd-subnav">
+    <button class="subtab active" data-agdtab="thuvienbaigiang" type="button">Thư viện bài giảng PCCC</button>
+    <button class="subtab" data-agdtab="huongdanbanve" type="button">Hướng dẫn bố cục bản vẽ thẩm định</button>
+    <button class="subtab" data-agdtab="hotrokiemtra" type="button">Hỗ trợ kiểm tra chỉnh sửa bản vẽ</button>
+  </div>
+
+  <!-- ===== Tab con 1 — Thư viện bài giảng PCCC ===== -->
+  <div class="agd-panel active" id="agd-thuvienbaigiang">
+    <div class="lib-tabs bg-filter-tabs" role="tablist"></div>
+
+    <div class="baigiang-grid" id="baigiangGrid"></div>
+
+    <div class="baigiang-empty" id="baigiangEmpty" hidden>Chưa có bài giảng nào trong chuyên đề này.</div>
+  </div>
+
+  <!-- ===== Tab con 2 — Hướng dẫn bố cục bản vẽ thẩm định (accordion 3 tầng) ===== -->
+  <div class="agd-panel" id="agd-huongdanbanve" hidden>
+    <div class="bv-layout">
+      <div class="bv-sidebar" id="bvSidebar">
+        <button class="bv-side-item" data-bv="thongtincongtrinh" type="button">1. Bản vẽ thông tin công trình</button>
+        <button class="bv-side-item active" data-bv="baochay" type="button">2. Bản vẽ thiết kế hệ thống báo cháy</button>
+        <button class="bv-side-item" data-bv="ccnuoc" type="button">3. Bản vẽ thiết kế hệ thống chữa cháy bằng nước</button>
+        <button class="bv-side-item" data-bv="ccbot" type="button">4. Bản vẽ thiết kế hệ thống chữa cháy bằng bọt</button>
+        <button class="bv-side-item" data-bv="cckhi" type="button">5. Bản vẽ chữa cháy bằng khí</button>
+        <button class="bv-side-item" data-bv="densucco" type="button">6. Bản vẽ thiết kế đèn CSSC, đèn Exit, sơ đồ thoát nạn, bình chữa cháy</button>
+        <button class="bv-side-item" data-bv="dienpccc" type="button">7. Bản vẽ thiết kế điện PCCC</button>
+      </div>
+
+      <div class="bv-content">
+        <div id="bvPageList" class="bv-page-list"><!-- render bởi js/ai-giang-day.js --></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Tab con 3 — Hỗ trợ kiểm tra chỉnh sửa bản vẽ ===== -->
+  <div class="agd-panel" id="agd-hotrokiemtra" hidden>
+    <div class="note blue">Demo giao diện — tái sử dụng đúng bố cục khu upload + kết quả rà lỗi của tab "AI kiểm tra bản vẽ hệ thống PCCC". Bản demo này KHÔNG gọi AI thật, dữ liệu kết quả bên dưới là mẫu.</div>
+
+    <button type="button" class="drop-card" style="max-width:420px;margin:16px 0">
+      <div class="drop-icon">BV</div>
+      <div class="drop-body">
+        <h4>Đính bản vẽ cần rà lỗi</h4>
+        <p class="hint">PDF, ảnh scan — demo, chưa xử lý file thật ở bước này</p>
+        <span class="drop-status">○ Chưa đính kèm</span>
+      </div>
+    </button>
+
+    <div class="hk-result-list">
+      <div class="hk-result-item">
+        <div class="hk-result-text"><span class="badge b-warn">Chưa đạt</span> Khoảng cách giữa 2 đầu báo khói tại vị trí trục (A-B, 7-8) là 8 m, vượt quá bán kính bảo vệ tối đa 7,2 m. <i>(Căn cứ Bảng, TCVN 7568-14:2025.)</i></div>
+        <button type="button" class="hk-disagree-btn" data-ma-muc="B1-04">Không đồng ý với nhận định này</button>
+      </div>
+      <div class="hk-result-item">
+        <div class="hk-result-text"><span class="badge b-na">Chưa thể hiện</span> Bản vẽ chưa ghi rõ số lượng module điều khiển chuông báo cháy (CM) tại khối B. <i>(Căn cứ TCVN 7568-14:2025.)</i></div>
+        <button type="button" class="hk-disagree-btn" data-ma-muc="B1-09">Không đồng ý với nhận định này</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/ai-giang-day.js"></script>
 </div>
 </section>
 

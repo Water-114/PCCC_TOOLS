@@ -88,6 +88,10 @@ def create_app(config_overrides=None):
             "font-src 'self' https://fonts.gstatic.com; "
             "img-src 'self' data:; "
             "connect-src *; "
+            # Tab "AI giảng dạy" nhúng video bài giảng qua TikTok Player Embed
+            # (https://www.tiktok.com/player/v1/...) — chỉ mở đúng domain TikTok
+            # cần cho iframe player, không mở rộng ra domain khác.
+            "frame-src https://www.tiktok.com; "
             "frame-ancestors 'none'; "
             "base-uri 'self'; "
             "form-action 'self'"
@@ -159,6 +163,14 @@ def create_app(config_overrides=None):
     @app.get("/js/<path:filename>")
     def serve_js(filename):
         return send_from_directory(os.path.join(_STATIC_ROOT, "js"), filename)
+
+    @app.get("/data/<path:filename>")
+    def serve_data(filename):
+        return send_from_directory(os.path.join(_STATIC_ROOT, "data"), filename)
+
+    @app.get("/img/<path:filename>")
+    def serve_img(filename):
+        return send_from_directory(os.path.join(_STATIC_ROOT, "img"), filename)
 
     @app.cli.command("create-admin")
     @click.argument("email")
