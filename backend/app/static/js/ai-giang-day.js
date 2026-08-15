@@ -121,22 +121,29 @@
 
   /* =====================================================================
      Tab con 2 — "Hướng dẫn bố cục bản vẽ thẩm định"
-     - Mục "2. Báo cháy": đọc DỮ LIỆU THẬT từ data/ai-giang-day-baochay.json
-       (xuất sẵn từ sheet NOI_DUNG_BAN_VE, lọc he_thong = B1 hoặc B2 — xem
-       cách xuất trong lịch sử trò chuyện, KHÔNG lọc kiểu "chứa B1" vì sẽ
-       dính nhầm B12), hiển thị dạng master/detail (cột trái danh sách gom
-       nhóm theo loai_ban_ve, cột phải chi tiết + ảnh thật).
-     - 6 mục còn lại: accordion 3 tầng với dữ liệu placeholder "Đang cập
+     - Mục "2. Báo cháy" và "3. Chữa cháy bằng nước": đọc DỮ LIỆU THẬT từ
+       data/ai-giang-day-{key}.json (xuất sẵn từ sheet NOI_DUNG_BAN_VE, lọc
+       he_thong chứa ĐÚNG token B1/B2 hoặc B3/B5/B6 — so khớp theo token
+       tách bằng "/", KHÔNG lọc kiểu "chứa chuỗi" vì sẽ dính nhầm token khác
+       vd "B12"), hiển thị dạng master/detail dùng CHUNG (cột trái danh
+       sách gom nhóm theo loai_ban_ve, cột phải chi tiết + ảnh thật) —
+       tổng quát hoá qua MASTER_DETAIL_SECTIONS thay vì viết riêng từng bộ
+       hàm cho mỗi mục.
+     - 5 mục còn lại: accordion 3 tầng với dữ liệu placeholder "Đang cập
        nhật…" (chưa có nguồn thật).
      ===================================================================== */
   var bvSidebar = document.getElementById("bvSidebar");
   var bvPageList = document.getElementById("bvPageList");
   if(!bvSidebar || !bvPageList) return;
 
-  var IMG_BASE = "img/ai-giang-day/bao-chay/";
-  var BAOCHAY_DATA_URL = "data/ai-giang-day-baochay.json";
-  var baochayRowsCache = null;
-  var baochaySelectedIdx = 0;
+  // key (khớp data-bv trên sidebar) -> nguồn dữ liệu thật + thư mục ảnh gốc.
+  var MASTER_DETAIL_SECTIONS = {
+    baochay: { dataUrl: "data/ai-giang-day-baochay.json", imgBase: "img/ai-giang-day/bao-chay/" },
+    ccnuoc: { dataUrl: "data/ai-giang-day-ccnuoc.json", imgBase: "img/ai-giang-day/ccnuoc/" }
+  };
+  var masterDetailCache = {};       // key -> rows (cache theo section, tránh fetch lại)
+  var masterDetailSelectedIdx = {}; // key -> idx đang chọn (mỗi section nhớ riêng)
+  var currentMasterDetailKey = null; // section master/detail đang hiện - chặn ket qua fetch cu de lai sau khi da doi sang muc khac
 
   function placeholderTrang(title){
     return { title: title, placeholder: true };
@@ -145,9 +152,6 @@
   var BV_DATA = {
     thongtincongtrinh: {
       pages: [placeholderTrang("Mặt bằng tổng thể công trình"), placeholderTrang("Bảng thống kê diện tích, số tầng"), placeholderTrang("Mặt cắt kiến trúc tổng thể")]
-    },
-    ccnuoc: {
-      pages: [placeholderTrang("Mặt bằng họng nước trong nhà"), placeholderTrang("Mặt bằng trạm bơm"), placeholderTrang("Sơ đồ nguyên lý chữa cháy nước")]
     },
     ccbot: {
       pages: [placeholderTrang("Mặt bằng bọt cố định"), placeholderTrang("Chi tiết lăng phun bọt")]
@@ -163,7 +167,7 @@
     }
   };
 
-  // ---- Accordion 3 tầng (6 mục còn placeholder) ----
+  // ---- Accordion 3 tầng (5 mục còn placeholder) ----
   function renderPage(page, idx){
     return (
       '<div class="bv-page-item" data-page-idx="' + idx + '">' +
@@ -182,7 +186,7 @@
     bvPageList.innerHTML = section.pages.map(renderPage).join('');
   }
 
-  // ---- Master/detail (mục "2. Báo cháy", dữ liệu thật) ----
+  // ---- Master/detail dùng chung cho mọi mục có dữ liệu thật ----
   function groupByLoaiBanVe(rows){
     var order = [];
     var groups = {};
@@ -194,13 +198,13 @@
     return order.map(function(key){ return { label: key, rows: groups[key] }; });
   }
 
-  function renderBaochayDetail(row){
+  function renderMasterDetailRow(row, imgBase){
     var statusClass = row.trang_thai === "Đã rà soát" ? "b-green" : "b-warn";
     var imageHtml;
     if(row.ten_file_anh){
       imageHtml =
         '<div class="bv2-image-wrap">' +
-          '<img src="' + IMG_BASE + row.ten_file_anh + '" alt="' + row.noi_dung + '">' +
+          '<img src="' + imgBase + row.ten_file_anh + '" alt="' + row.noi_dung + '">' +
           (row.nguon_anh ? '<div class="bv2-image-caption">Nguồn ảnh: ' + row.nguon_anh + '</div>' : '') +
         '</div>';
     }else{
@@ -224,7 +228,9 @@
     );
   }
 
-  function renderBaochayMasterDetail(rows){
+  function renderMasterDetail(key, rows){
+    var imgBase = MASTER_DETAIL_SECTIONS[key].imgBase;
+    var selectedIdx = masterDetailSelectedIdx[key] || 0;
     var groups = groupByLoaiBanVe(rows);
     var listHtml = groups.map(function(g){
       return (
@@ -233,7 +239,7 @@
           var globalIdx = rows.indexOf(r);
           var hasImg = !!r.ten_file_anh;
           return (
-            '<button type="button" class="bv2-item' + (globalIdx === baochaySelectedIdx ? ' active' : '') + '" data-idx="' + globalIdx + '">' +
+            '<button type="button" class="bv2-item' + (globalIdx === selectedIdx ? ' active' : '') + '" data-idx="' + globalIdx + '">' +
               '<span class="bv2-item-icon ' + (hasImg ? 'has-img' : 'no-img') + '">' + (hasImg ? '●' : '○') + '</span>' +
               '<span><span class="bv2-item-ma">' + r.ma_muc + '</span> — ' + r.noi_dung + '</span>' +
             '</button>'
@@ -245,26 +251,32 @@
     bvPageList.innerHTML =
       '<div class="bv2-layout">' +
         '<div class="bv2-list">' + listHtml + '</div>' +
-        '<div class="bv2-detail" id="bv2Detail">' + renderBaochayDetail(rows[baochaySelectedIdx]) + '</div>' +
+        '<div class="bv2-detail" id="bv2Detail">' + renderMasterDetailRow(rows[selectedIdx], imgBase) + '</div>' +
       '</div>';
   }
 
-  function loadBaochaySection(){
-    if(baochayRowsCache){ renderBaochayMasterDetail(baochayRowsCache); return; }
+  function loadMasterDetailSection(key){
+    currentMasterDetailKey = key;
+    if(masterDetailCache[key]){ renderMasterDetail(key, masterDetailCache[key]); return; }
     bvPageList.innerHTML = '<div class="bv-placeholder">Đang tải dữ liệu…</div>';
-    fetch(BAOCHAY_DATA_URL)
+    fetch(MASTER_DETAIL_SECTIONS[key].dataUrl)
       .then(function(res){ if(!res.ok) throw new Error("HTTP " + res.status); return res.json(); })
       .then(function(rows){
-        baochayRowsCache = rows;
-        renderBaochayMasterDetail(rows);
+        masterDetailCache[key] = rows;
+        // Neu nguoi dung da bam sang muc khac truoc khi fetch nay xong thi bo
+        // qua, tranh ket qua cu de lai o man hinh cua muc dang xem.
+        if(currentMasterDetailKey === key) renderMasterDetail(key, rows);
       })
       .catch(function(err){
-        bvPageList.innerHTML = '<div class="bv-placeholder">Không tải được dữ liệu mục Báo cháy (' + err.message + ').</div>';
+        if(currentMasterDetailKey === key){
+          bvPageList.innerHTML = '<div class="bv-placeholder">Không tải được dữ liệu (' + err.message + ').</div>';
+        }
       });
   }
 
   function renderSection(key){
-    if(key === "baochay"){ loadBaochaySection(); return; }
+    if(MASTER_DETAIL_SECTIONS[key]){ loadMasterDetailSection(key); return; }
+    currentMasterDetailKey = null;
     renderAccordionSection(key);
   }
 
@@ -281,10 +293,12 @@
   bvPageList.addEventListener("click", function(e){
     var bv2Item = e.target.closest(".bv2-item");
     if(bv2Item){
-      baochaySelectedIdx = parseInt(bv2Item.dataset.idx, 10);
+      var key = currentMasterDetailKey;
+      var idx = parseInt(bv2Item.dataset.idx, 10);
+      masterDetailSelectedIdx[key] = idx;
       bvPageList.querySelectorAll(".bv2-item").forEach(function(x){ x.classList.remove("active"); });
       bv2Item.classList.add("active");
-      document.getElementById("bv2Detail").innerHTML = renderBaochayDetail(baochayRowsCache[baochaySelectedIdx]);
+      document.getElementById("bv2Detail").innerHTML = renderMasterDetailRow(masterDetailCache[key][idx], MASTER_DETAIL_SECTIONS[key].imgBase);
       return;
     }
     var pageHeader = e.target.closest(".bv-page-header");
