@@ -1,0 +1,38 @@
+[
+  {
+    "ma_muc": "BC-01",
+    "loai_ban_ve": "Mặt bằng bình chữa cháy",
+    "he_thong": "B12",
+    "noi_dung": "Chủng loại & thông số bình",
+    "yeu_cau_chi_tiet": "Chủng loại tại từng vị trí (bột, CO2, nước, bọt...); dung tích/khối lượng chất chữa cháy từng loại.",
+    "can_cu_phap_ly": "QCVN 06",
+    "loi_thuong_gap": null,
+    "ten_file_anh": null,
+    "nguon_anh": null,
+    "trang_thai": "Chưa rà soát"
+  },
+  {
+    "ma_muc": "BC-02",
+    "loai_ban_ve": "Mặt bằng bình chữa cháy",
+    "he_thong": "B12",
+    "noi_dung": "Số lượng & khoảng cách phục vụ",
+    "yeu_cau_chi_tiet": "Số lượng bình từng khu vực và tổng số toàn công trình; khoảng cách di chuyển đến bình gần nhất theo quy định.",
+    "can_cu_phap_ly": "QCVN 06",
+    "loi_thuong_gap": null,
+    "ten_file_anh": null,
+    "nguon_anh": null,
+    "trang_thai": "Chưa rà soát"
+  },
+  {
+    "ma_muc": "BC-03",
+    "loai_ban_ve": "Mặt bằng bình chữa cháy",
+    "he_thong": "B12",
+    "noi_dung": "Lắp đặt & thống kê",
+    "yeu_cau_chi_tiet": "Cao độ lắp đặt, giá treo/tủ đặt bình; bảng thống kê phương tiện ban đầu (ký hiệu, chủng loại, thông số, số lượng, vị trí).",
+    "can_cu_phap_ly": "QCVN 06",
+    "loi_thuong_gap": null,
+    "ten_file_anh": null,
+    "nguon_anh": null,
+    "trang_thai": "Chưa rà soát"
+  }
+]

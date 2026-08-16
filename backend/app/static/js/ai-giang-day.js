@@ -121,15 +121,17 @@
 
   /* =====================================================================
      Tab con 2 — "Hướng dẫn bố cục bản vẽ thẩm định"
-     - Mục "2. Báo cháy" và "3. Chữa cháy bằng nước": đọc DỮ LIỆU THẬT từ
-       data/ai-giang-day-{key}.json (xuất sẵn từ sheet NOI_DUNG_BAN_VE, lọc
-       he_thong chứa ĐÚNG token B1/B2 hoặc B3/B5/B6 — so khớp theo token
-       tách bằng "/", KHÔNG lọc kiểu "chứa chuỗi" vì sẽ dính nhầm token khác
-       vd "B12"), hiển thị dạng master/detail dùng CHUNG (cột trái danh
-       sách gom nhóm theo loai_ban_ve, cột phải chi tiết + ảnh thật) —
-       tổng quát hoá qua MASTER_DETAIL_SECTIONS thay vì viết riêng từng bộ
-       hàm cho mỗi mục.
-     - 5 mục còn lại: accordion 3 tầng với dữ liệu placeholder "Đang cập
+     - Mục "2. Báo cháy", "3. Chữa cháy bằng nước" và "6. Bình chữa cháy"
+       (phần đèn sự cố/Exit/thoát nạn của mục 6 CHƯA có nguồn thật): đọc DỮ
+       LIỆU THẬT từ data/ai-giang-day-{key}.json (xuất sẵn từ sheet
+       NOI_DUNG_BAN_VE, lọc he_thong chứa ĐÚNG token B1/B2, B3/B5/B6, hoặc
+       B12 — so khớp theo token tách bằng "/", KHÔNG lọc kiểu "chứa chuỗi"
+       vì sẽ dính nhầm token khác; mục B12 loại trừ thêm các dòng đồng thời
+       chứa B3/B5/B6 vì đã thuộc mục ccnuoc), hiển thị dạng master/detail
+       dùng CHUNG (cột trái danh sách gom nhóm theo loai_ban_ve, cột phải
+       chi tiết + ảnh thật) — tổng quát hoá qua MASTER_DETAIL_SECTIONS thay
+       vì viết riêng từng bộ hàm cho mỗi mục.
+     - 4 mục còn lại: accordion 3 tầng với dữ liệu placeholder "Đang cập
        nhật…" (chưa có nguồn thật).
      ===================================================================== */
   var bvSidebar = document.getElementById("bvSidebar");
@@ -139,7 +141,8 @@
   // key (khớp data-bv trên sidebar) -> nguồn dữ liệu thật + thư mục ảnh gốc.
   var MASTER_DETAIL_SECTIONS = {
     baochay: { dataUrl: "data/ai-giang-day-baochay.json", imgBase: "img/ai-giang-day/bao-chay/" },
-    ccnuoc: { dataUrl: "data/ai-giang-day-ccnuoc.json", imgBase: "img/ai-giang-day/ccnuoc/" }
+    ccnuoc: { dataUrl: "data/ai-giang-day-ccnuoc.json", imgBase: "img/ai-giang-day/ccnuoc/" },
+    densucco: { dataUrl: "data/ai-giang-day-densucco.json", imgBase: "img/ai-giang-day/densucco/" }
   };
   var masterDetailCache = {};       // key -> rows (cache theo section, tránh fetch lại)
   var masterDetailSelectedIdx = {}; // key -> idx đang chọn (mỗi section nhớ riêng)
@@ -159,15 +162,12 @@
     cckhi: {
       pages: [placeholderTrang("Mặt bằng phòng bảo vệ"), placeholderTrang("Sơ đồ nguyên lý xả khí")]
     },
-    densucco: {
-      pages: [placeholderTrang("Mặt bằng đèn sự cố, đèn Exit"), placeholderTrang("Sơ đồ chỉ dẫn thoát nạn"), placeholderTrang("Mặt bằng bình chữa cháy")]
-    },
     dienpccc: {
       pages: [placeholderTrang("Sơ đồ nguyên lý cấp nguồn ưu tiên"), placeholderTrang("Mặt bằng tuyến cáp chống cháy")]
     }
   };
 
-  // ---- Accordion 3 tầng (5 mục còn placeholder) ----
+  // ---- Accordion 3 tầng (4 mục còn placeholder) ----
   function renderPage(page, idx){
     return (
       '<div class="bv-page-item" data-page-idx="' + idx + '">' +
