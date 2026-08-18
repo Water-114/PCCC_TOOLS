@@ -72,7 +72,7 @@
       <li>Miễn phí <b>1 Bộ hồ sơ</b> đầu tiên cho mỗi tài khoản (cấp khi xác thực email). Mỗi lượt đọc tương đương <b>1 Bộ hồ sơ</b> (tối đa 5 file bản vẽ, tối đa 7 form MĐC của cùng công trình).</li>
       <li>Nạp <b>100.000đ</b> được cộng <b>2 Bộ hồ sơ</b> sau khi admin xác nhận đã nhận được chuyển khoản.</li>
       <li>Đối với bản vẽ <b>dung lượng lớn</b>, nên tách bản vẽ theo từng hạng mục PCCC để có kết quả chính xác hơn.</li>
-      <li>Đối với bản vẽ <b>dưới 20MB</b>, có thể dùng chức năng đính 1 file bản vẽ (áp dụng cho nhiều hạng mục cùng lúc).</li>
+      <li>Đối với bản vẽ PDF <b>dưới 22MB</b> (ảnh dưới 7MB), có thể dùng chức năng đính 1 file bản vẽ (áp dụng cho nhiều hạng mục cùng lúc).</li>
     </ul>
     <div class="actions">
       <button type="button" class="btn-main" id="aihoNoticeOk">Đã hiểu, tiếp tục</button>
@@ -881,7 +881,7 @@
 
   <section class="buoc">
     <div class="buoc-tag"><span class="num">BƯỚC 1</span><h3>Đính kèm bản vẽ theo hạng mục</h3><span class="progress-badge" id="aihoProgress">0/8 hạng mục đã đính kèm</span></div>
-    <div class="note">Chia nhỏ PDF bản vẽ ra theo từng hạng mục, mỗi file tối đa <b>15MB</b> — có thể dùng <a href="https://smallpdf.com/vi/split-pdf" target="_blank" rel="noopener noreferrer">công cụ tách file PDF miễn phí tại đây</a>. File lớn hơn 15MB cần nén lại trước khi đính kèm — có thể dùng <a href="https://smallpdf.com/vi/compress-pdf#r=compress" target="_blank" rel="noopener noreferrer">công cụ nén file PDF miễn phí tại đây</a>.</div>
+    <div class="note">Chia nhỏ PDF bản vẽ ra theo từng hạng mục, mỗi file PDF tối đa <b>22MB</b> (ảnh tối đa <b>7MB</b>) — có thể dùng <a href="https://smallpdf.com/vi/split-pdf" target="_blank" rel="noopener noreferrer">công cụ tách file PDF miễn phí tại đây</a>. File PDF lớn hơn 22MB cần nén lại trước khi đính kèm — có thể dùng <a href="https://smallpdf.com/vi/compress-pdf#r=compress" target="_blank" rel="noopener noreferrer">công cụ nén file PDF miễn phí tại đây</a>.</div>
 
     <p class="section-case-heading"><span class="section-case-icon">👉</span> Trường hợp tách nhiều file bản vẽ theo hạng mục PCCC</p>
     <div class="grid" id="aihoGrid" style="grid-template-columns:repeat(2,1fr)">
@@ -891,7 +891,7 @@
           <div class="drop-body">
             <h4>Quy mô <span class="real-badge">AI thật</span></h4>
             <p class="hint">Mặt bằng, mặt cắt, mặt đứng — xác định công năng, quy mô, số tầng</p>
-            <span class="drop-meta">PDF, ảnh scan · tối đa 15MB · cần đăng nhập</span>
+            <span class="drop-meta">PDF ≤22MB, ảnh ≤7MB · cần đăng nhập</span>
             <span class="drop-status" id="kientrucStatus">○ Chưa đính kèm</span>
           </div>
           <input type="file" id="kientrucFileInput" accept="application/pdf,image/png,image/jpeg,image/webp" hidden>
@@ -905,7 +905,7 @@
         <div class="drop-body">
           <h4>Báo cháy tự động <span class="real-badge">AI thật</span></h4>
           <p class="hint">Sơ đồ nguyên lý, mặt bằng đầu báo, tủ trung tâm — đối chiếu MĐC B1–B2</p>
-          <span class="drop-meta">PDF, ảnh scan · tối đa 15MB · cần đăng nhập</span>
+          <span class="drop-meta">PDF ≤22MB, ảnh ≤7MB · cần đăng nhập</span>
           <span class="drop-status" id="baochayStatus">○ Chưa đính kèm</span>
         </div>
         <input type="file" id="baochayFileInput" accept="application/pdf,image/png,image/jpeg,image/webp" hidden>
@@ -916,7 +916,7 @@
         <div class="drop-body">
           <h4>Chữa cháy bằng nước <span class="real-badge">AI thật</span></h4>
           <p class="hint">Trạm bơm, họng nước trong nhà, chữa cháy tự động (sprinkler/drencher) — đối chiếu MĐC B3, B5, B6</p>
-          <span class="drop-meta">PDF, ảnh scan · tối đa 15MB · cần đăng nhập</span>
+          <span class="drop-meta">PDF ≤22MB, ảnh ≤7MB · cần đăng nhập</span>
           <span class="drop-status" id="ccnuocStatus">○ Chưa đính kèm</span>
         </div>
         <input type="file" id="ccnuocFileInput" accept="application/pdf,image/png,image/jpeg,image/webp" hidden>
@@ -927,7 +927,7 @@
         <div class="drop-body">
           <h4>Chữa cháy bằng khí <span class="real-badge">AI thật</span></h4>
           <p class="hint">Sol-khí, CO₂, khí hóa lỏng (FM200/Novec), khí trơ (IG) — AI tự nhận diện, đối chiếu MĐC B8–B11</p>
-          <span class="drop-meta">PDF, ảnh scan · tối đa 15MB · cần đăng nhập</span>
+          <span class="drop-meta">PDF ≤22MB, ảnh ≤7MB · cần đăng nhập</span>
           <span class="drop-status" id="khibotStatus">○ Chưa đính kèm</span>
         </div>
         <input type="file" id="khibotFileInput" accept="application/pdf,image/png,image/jpeg,image/webp" hidden>
@@ -938,7 +938,7 @@
         <div class="drop-body">
           <h4>Chữa cháy bằng bọt cố định <span class="real-badge">AI thật</span></h4>
           <p class="hint">Bể chứa xăng dầu, dung môi ngoài trời — bọt cố định/bán cố định — đối chiếu MĐC B7</p>
-          <span class="drop-meta">PDF, ảnh scan · tối đa 15MB · cần đăng nhập</span>
+          <span class="drop-meta">PDF ≤22MB, ảnh ≤7MB · cần đăng nhập</span>
           <span class="drop-status" id="botcodinhStatus">○ Chưa đính kèm</span>
         </div>
         <input type="file" id="botcodinhFileInput" accept="application/pdf,image/png,image/jpeg,image/webp" hidden>
@@ -949,7 +949,7 @@
         <div class="drop-body">
           <h4>Cấp nước ngoài nhà <span class="soon-badge">Sắp có</span></h4>
           <p class="hint">Trụ nước chữa cháy ngoài nhà — chỉ cần khi công trình có yêu cầu riêng — đối chiếu MĐC B4</p>
-          <span class="drop-meta">PDF, ảnh scan · tối đa 15MB · cần đăng nhập</span>
+          <span class="drop-meta">PDF ≤22MB, ảnh ≤7MB · cần đăng nhập</span>
           <span class="drop-status">○ Chưa đính kèm</span>
         </div>
       </button>
@@ -959,7 +959,7 @@
         <div class="drop-body">
           <h4>Đèn sự cố / chỉ dẫn thoát nạn / Bình chữa cháy <span class="real-badge">AI thật</span></h4>
           <p class="hint">Đèn chiếu sáng sự cố, đèn chỉ dẫn thoát nạn, vị trí/chủng loại bình xách tay/xe đẩy — thường thiết kế chung trên cùng bản vẽ — đối chiếu MĐC B12, B13</p>
-          <span class="drop-meta">PDF, ảnh scan · tối đa 15MB · cần đăng nhập</span>
+          <span class="drop-meta">PDF ≤22MB, ảnh ≤7MB · cần đăng nhập</span>
           <span class="drop-status" id="densuccoStatus">○ Chưa đính kèm</span>
         </div>
         <input type="file" id="densuccoFileInput" accept="application/pdf,image/png,image/jpeg,image/webp" hidden>
@@ -970,14 +970,14 @@
         <div class="drop-body">
           <h4>Điện PCCC <span class="real-badge">AI thật</span></h4>
           <p class="hint">Cấp nguồn ưu tiên, dây/cáp chống cháy, tủ điện PCCC — đối chiếu MĐC B14</p>
-          <span class="drop-meta">PDF, ảnh scan · tối đa 15MB · cần đăng nhập</span>
+          <span class="drop-meta">PDF ≤22MB, ảnh ≤7MB · cần đăng nhập</span>
           <span class="drop-status" id="dienpcccStatus">○ Chưa đính kèm</span>
         </div>
         <input type="file" id="dienpcccFileInput" accept="application/pdf,image/png,image/jpeg,image/webp" hidden>
       </button>
     </div>
 
-    <p class="section-case-heading"><span class="section-case-icon">👉</span> Trường hợp đính 1 file bản vẽ (đối với file không quá 20MB)</p>
+    <p class="section-case-heading"><span class="section-case-icon">👉</span> Trường hợp đính 1 file bản vẽ (PDF không quá 22MB, ảnh không quá 7MB)</p>
     <button type="button" class="multi-attach-toggle" id="multiAttachToggle">Dùng 1 file cho nhiều hạng mục</button>
     <div class="multi-attach-panel" id="multiAttachPanel" hidden></div>
 
@@ -1022,7 +1022,7 @@
   <div class="actions">
     <button type="button" class="btn-main" id="aihoCta" disabled>Bắt đầu phân tích →</button>
     <span class="cta-hint" id="aihoCtaHint">Đính ít nhất 1 bản vẽ và chọn 1 kết quả đầu ra để bật nút này</span>
-    <button type="button" class="feedback-cta" id="aihoFeedbackCta" disabled title="Chạy xong 1 Bộ hồ sơ để góp ý">
+    <button type="button" class="feedback-cta" id="aihoFeedbackCta" title="Góp ý về kết quả hỗ trợ của Bộ hồ sơ">
       <span class="feedback-cta-title">GÓP Ý</span>
       <span class="feedback-cta-sub">Góp ý về kết quả hỗ trợ của Bộ hồ sơ</span>
     </button>

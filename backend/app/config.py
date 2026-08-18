@@ -86,7 +86,8 @@ class Config:
     # Gioi han kich thuoc toan bo request body o tang Flask/Werkzeug — chan som (413)
     # truoc khi buffer het vao RAM, thay vi chi dua vao kiem tra thu cong sau khi da
     # doc het file trong aiho.py. Phai >= gioi han file LON NHAT trong toan app +
-    # bien du cho multipart overhead: 5 route rieng le MAX_BYTES=15MB, rieng route
-    # /read-merged ("Dinh 1 ban ve - AI tu nhan dien nhieu hang muc") cho PDF toi
-    # 20MB (MERGED_MAX_BYTES_PDF, xem routes/aiho.py) — 24MB de con ~4MB bien.
-    MAX_CONTENT_LENGTH = 24 * 1024 * 1024
+    # bien du cho multipart overhead: ca 3 luong dinh file (7 route rieng le, multi-
+    # attach, va /read-merged) deu dung chung muc PDF toi da 22MB (SINGLE_MAX_BYTES_PDF/
+    # MERGED_MAX_BYTES_PDF, xem routes/aiho.py) — 26MB de con ~4MB bien, giu dung ty le
+    # bien nhu truoc (24MB cho 20MB file -> 26MB cho 22MB file).
+    MAX_CONTENT_LENGTH = 26 * 1024 * 1024

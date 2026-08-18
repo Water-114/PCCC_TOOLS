@@ -28,19 +28,23 @@ from ..services.ai_reader_common import AIReaderError
 bp = Blueprint("aiho", __name__, url_prefix="/api/aiho")
 
 ALLOWED_TYPES = {"application/pdf", "image/png", "image/jpeg", "image/webp"}
-MAX_BYTES = 15 * 1024 * 1024  # 15MB, khớp ghi chú trên giao diện
 
-# Gioi han rieng cho /read-merged ("Dinh 1 ban ve - AI tu nhan dien nhieu hang
-# muc") — phan biet anh/PDF thay vi 1 con so chung nhu MAX_BYTES o tren, vi gioi
-# han THAT cua Anthropic Messages API khac nhau ro ret giua 2 loai (da xac nhan
-# truc tiep tu docs chinh thuc, khong doan): anh toi da 10MB SAU KHI encode
-# base64 (rieng cho tung anh) -> file goc phai <= ~7.5MB, chon 7MB de co bien;
-# PDF toi da 32MB cho CA request (base64 + JSON + system prompt gop rat dai cua
-# tinh nang nay) -> file goc phai nho hon nhieu de con cho prompt, chon 20MB.
-# CHI ap dung cho route nay - 5 route doc tung hang muc rieng le van giu nguyen
-# MAX_BYTES=15MB nhu cu (khong doi hanh vi da co).
+# Gioi han dung luong file, phan biet anh/PDF vi gioi han THAT cua Anthropic
+# Messages API khac nhau ro ret giua 2 loai (da xac nhan truc tiep tu docs
+# chinh thuc, khong doan): anh toi da 10MB SAU KHI encode base64 (rieng cho
+# tung anh) -> file goc phai <= ~7.5MB, chon 7MB de co bien; PDF toi da 32MB
+# cho CA request (base64 + JSON + system prompt) -> base64 hoa lam phinh dung
+# luong x1,33 lan, 22MB file goc -> ~29,3MB sau base64, con du ~2,7MB cho
+# prompt he thong - du an toan cho moi reader hien co.
+#
+# Ap dung THONG NHAT cho ca 3 luong dinh file (7 route doc tung hang muc rieng
+# le "Buoc 1"/multi-attach VA route /read-merged) - gia tri giong het nhau vi
+# cung 1 gioi han API goc, chi tach ten hang so theo tung nhom route de code
+# de doc (khong gop chung 1 cap vi 2 nhom route nam o 2 doan code khac nhau).
+SINGLE_MAX_BYTES_IMAGE = 7 * 1024 * 1024
+SINGLE_MAX_BYTES_PDF = 22 * 1024 * 1024
 MERGED_MAX_BYTES_IMAGE = 7 * 1024 * 1024
-MERGED_MAX_BYTES_PDF = 20 * 1024 * 1024
+MERGED_MAX_BYTES_PDF = 22 * 1024 * 1024
 
 # file.mimetype la Content-Type client tu khai trong multipart request - gia mao
 # duoc de dang (khong lien quan gi toi noi dung file that). Kiem tra them byte dau
@@ -138,8 +142,11 @@ def _handle_read_request(read_drawing_fn, build_mdc_files, forms_per_call, on_su
         return jsonify({"error": f"Định dạng '{media_type}' không hỗ trợ — chỉ nhận PDF, PNG, JPEG, WEBP."}), 400
 
     data = file.read()
-    if len(data) > MAX_BYTES:
-        return jsonify({"error": "File vượt quá 15MB."}), 400
+    single_limit_bytes = SINGLE_MAX_BYTES_PDF if media_type == "application/pdf" else SINGLE_MAX_BYTES_IMAGE
+    if len(data) > single_limit_bytes:
+        single_limit_mb = single_limit_bytes // (1024 * 1024)
+        single_loai_file = "PDF" if media_type == "application/pdf" else "ảnh"
+        return jsonify({"error": f"File {single_loai_file} vượt quá {single_limit_mb}MB."}), 400
 
     if not _sniff_magic_bytes(data, media_type):
         return jsonify({"error": "Nội dung file không khớp với định dạng khai báo — file có thể bị hỏng hoặc sai định dạng thật."}), 400

@@ -252,8 +252,13 @@
     topupHistoryToggle.textContent = willShow ? 'Ẩn lịch sử' : 'Xem lịch sử';
   });
 
-  var MAX_FILE_MB = 15;
-  var MAX_FILE_BYTES = MAX_FILE_MB * 1024 * 1024;
+  // Gioi han dung luong file, phan biet anh/PDF (khop dung gioi han that cua
+  // Anthropic Messages API — xem giai thich chi tiet o routes/aiho.py
+  // SINGLE_MAX_BYTES_IMAGE/SINGLE_MAX_BYTES_PDF). Dung CHUNG voi
+  // MERGED_MAX_BYTES_IMAGE/MERGED_MAX_BYTES_PDF (khai bao rieng ben duoi cho
+  // panel "Dinh 1 ban ve - AI tu nhan dien") vi cung 1 gioi han API goc.
+  var SINGLE_MAX_BYTES_IMAGE = 7 * 1024 * 1024;
+  var SINGLE_MAX_BYTES_PDF = 22 * 1024 * 1024;
 
   // Dung createElement/.textContent thay vi noi chuoi + innerHTML - ten file
   // nguoi dung tu chon (f.name) khong dang tin cay, co the chua ky tu HTML.
@@ -417,9 +422,12 @@
   // rieng (setupRealFileCard) VA panel "Dung 1 file cho nhieu hang muc".
   // Tra ve chuoi loi neu vuot han muc, null neu hop le.
   function validateFileSize(f){
-    if(f.size > MAX_FILE_BYTES){
+    var isPdf = f.type === 'application/pdf';
+    var limitBytes = isPdf ? SINGLE_MAX_BYTES_PDF : SINGLE_MAX_BYTES_IMAGE;
+    if(f.size > limitBytes){
       var overMb = (f.size / (1024 * 1024)).toFixed(1);
-      return 'File "' + f.name + '" (' + overMb + ' MB) vượt quá giới hạn ' + MAX_FILE_MB + 'MB — vui lòng nén file hoặc chia nhỏ PDF rồi đính kèm lại.';
+      var limitMb = limitBytes / (1024 * 1024);
+      return 'File "' + f.name + '" (' + overMb + ' MB) vượt quá giới hạn ' + limitMb + 'MB cho ' + (isPdf ? 'PDF' : 'ảnh') + ' — vui lòng nén file hoặc chia nhỏ PDF rồi đính kèm lại.';
     }
     return null;
   }
@@ -861,7 +869,7 @@
      đã có — không viết lại logic hiển thị/kết hợp kiến nghị.
      =================================================================== */
   var MERGED_MAX_BYTES_IMAGE = 7 * 1024 * 1024;
-  var MERGED_MAX_BYTES_PDF = 20 * 1024 * 1024;
+  var MERGED_MAX_BYTES_PDF = 22 * 1024 * 1024;
   var MERGED_FORMS_PER_CALL = {baochay: 1, ccnuoc: 3, densucco: 2, dienpccc: 1, quy_mo: 1};
 
   var autoDetectToggle = document.getElementById('autoDetectToggle');
@@ -911,7 +919,7 @@
 
     var introP = document.createElement('p');
     introP.className = 'hint';
-    introP.textContent = 'AI đọc 1 bản vẽ, TỰ nhận diện bản vẽ thuộc (các) hạng mục nào trong 5 hạng mục AI thật, rồi điền luôn kết quả cho từng hạng mục phát hiện được — bạn xem kỹ và có thể bỏ bớt hạng mục trước khi xác nhận trừ. Giới hạn riêng cho tính năng này: ảnh tối đa 7MB, PDF tối đa 20MB.';
+    introP.textContent = 'AI đọc 1 bản vẽ, TỰ nhận diện bản vẽ thuộc (các) hạng mục nào trong 5 hạng mục AI thật, rồi điền luôn kết quả cho từng hạng mục phát hiện được — bạn xem kỹ và có thể bỏ bớt hạng mục trước khi xác nhận trừ. Giới hạn riêng cho tính năng này: ảnh tối đa 7MB, PDF tối đa 22MB.';
     autoDetectPanel.appendChild(introP);
 
     var fileField = document.createElement('div');
@@ -1695,8 +1703,6 @@
           resultsSection.hidden = false;
           resultsSection.scrollIntoView({behavior: 'smooth', block: 'start'});
           updateCta();
-          // Khong tu bat popup gop y - chi kich hoat nut, nguoi dung tu bam khi san sang.
-          feedbackCta.disabled = false;
         }, 300);
       });
     }
@@ -1762,7 +1768,6 @@
 
     msg.classList.remove('show');
     feedbackConfirm.hidden = true;
-    feedbackCta.disabled = true;
     resultsSection.hidden = true;
     processing.hidden = false;
     isProcessing = true;

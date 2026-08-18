@@ -244,7 +244,9 @@ def test_confirm_rejects_tampered_detection_missing_id(client):
 
 
 # ---------------------------------------------------------------------------
-# Gioi han file rieng cho tinh nang nay - phan theo anh/PDF (khac 15MB dung chung)
+# Gioi han file rieng cho tinh nang nay - phan theo anh/PDF (7MB anh / 22MB PDF -
+# dung chung muc voi ca 7 route doc tung hang muc rieng le, xem MERGED_MAX_BYTES_*/
+# SINGLE_MAX_BYTES_* trong routes/aiho.py)
 # ---------------------------------------------------------------------------
 def test_read_merged_image_over_7mb_rejected(client):
     token, _ = _register_login_and_grant(client)
@@ -257,22 +259,22 @@ def test_read_merged_image_over_7mb_rejected(client):
     assert "ảnh" in resp.get_json()["error"] and "7" in resp.get_json()["error"]
 
 
-def test_read_merged_pdf_up_to_20mb_accepted_but_over_rejected(client):
+def test_read_merged_pdf_up_to_22mb_accepted_but_over_rejected(client):
     token, _ = _register_login_and_grant(client)
     session_id = _open_session(client, token)
 
-    ok_pdf = PDF_HEADER + b"\x00" * (10 * 1024 * 1024)  # duoi 20MB - phai qua duoc buoc kich thuoc
+    ok_pdf = PDF_HEADER + b"\x00" * (10 * 1024 * 1024)  # duoi 22MB - phai qua duoc buoc kich thuoc
     provider = _fake_provider_for(["dienpccc"])
     with patch("app.routes.aiho.get_provider", return_value=provider):
         resp_ok = _upload_merged(client, token, session_id, data=ok_pdf, filename="drawing.pdf")
     assert resp_ok.status_code == 200, resp_ok.get_json()
 
     session_id_2 = _open_session(client, token)
-    big_pdf = PDF_HEADER + b"\x00" * (20 * 1024 * 1024 + 100)
+    big_pdf = PDF_HEADER + b"\x00" * (22 * 1024 * 1024 + 100)
     with patch("app.routes.aiho.get_provider", return_value=provider):
         resp_big = _upload_merged(client, token, session_id_2, data=big_pdf, filename="drawing.pdf")
     assert resp_big.status_code == 400
-    assert "PDF" in resp_big.get_json()["error"] and "20" in resp_big.get_json()["error"]
+    assert "PDF" in resp_big.get_json()["error"] and "22" in resp_big.get_json()["error"]
 
 
 # ---------------------------------------------------------------------------
