@@ -400,6 +400,30 @@
      được các hạng mục khác trong CÙNG lượt phân tích tái dùng). */
   var activeSessionId = null;
 
+  /* Quy mô Giai đoạn 1 (Phần A/B/C/E) — trạng thái riêng cho phiên đang mở:
+     - quyMoDataSavedInSession: true sau khi CÓ 1 bản ghi Quy mô được lưu
+       trong phiên này (nhập tay "Lưu thông số" HOẶC Lượt 0 tự phát hiện) —
+       dùng để KHÔNG hiện lại modal khuyến cáo (Phần B) nếu đã có rồi.
+     - quyMoScanAttemptedInSession: true sau khi Lượt 0 đã chạy 1 lần (dù tìm
+       thấy gì hay không) — tránh gọi lại Lượt 0 nhiều lần thừa nếu người
+       dùng bấm "Bắt đầu phân tích" nhiều lần trong cùng phiên mà chưa từng
+       đính file Quy mô riêng.
+     - quyMoModalSkippedOnce: true sau khi người dùng bấm "Bỏ qua, vẫn chạy"
+       1 lần — không hiện lại modal cho các lần bấm tiếp theo trong CÙNG
+       phiên (tránh làm phiền lặp lại, đúng yêu cầu Phần B).
+     - quyMoConflictWarningsPending: mảng conflict (Phần D.1) từ lần Lượt 0
+       gần nhất, giữ tạm để hiển thị SAU khi Lượt 1 xong (cùng lúc với cảnh
+       báo "thiếu hồ sơ" ở Phần E) — không hiện ngay lúc Lượt 0 xong vì lúc
+       đó khu kết quả (#aihoResults) còn đang ẩn. */
+  var quyMoDataSavedInSession = false;
+  var quyMoScanAttemptedInSession = false;
+  var quyMoModalSkippedOnce = false;
+  var quyMoConflictWarningsPending = [];
+  // Phan E — canh bao "thieu ho so he thong X" cua LUOT VUA CHAY XONG gan
+  // nhat (khong tich luy qua nhieu luot, luon ghi de) - doc boi
+  // outputPreviewHtml('loi') VA maybeExportKienNghiDocx() VA renderQuyMoWarningsBox().
+  var quyMoMissingWarningsPending = [];
+
   function ensureSessionOpen(){
     if(activeSessionId){
       return Promise.resolve({status: 200, data: {session_id: activeSessionId}});
@@ -514,7 +538,8 @@
     {key: 'areaFloor', label: 'Diện tích 1 tầng điển hình (m²)', ph: 'VD: 500'},
     {key: 'totalArea', label: 'Tổng diện tích sàn ΣF (m²)', ph: 'VD: 4200'},
     {key: 'volume', label: 'Khối tích V (m³)', ph: 'VD: 15000'},
-    {key: 'hFire', label: 'Chiều cao phục vụ PCCC (m)', ph: 'VD: 22'}
+    {key: 'hFire', label: 'Chiều cao phục vụ PCCC (m)', ph: 'VD: 22'},
+    {key: 'chieuCaoKeHang', label: 'Chiều cao sắp xếp hàng hoá trên kệ (m) — nếu có', ph: 'VD: 6'}
   ];
 
   var quymoManualToggle = document.getElementById('kientrucManualToggle');
@@ -571,6 +596,26 @@
       baseInputs[f.key] = input;
     });
     quymoManualForm.appendChild(baseGrid);
+
+    // coBeXangDauNgoaiTroi (Phần D.2) — boolean, không fit khuôn input số
+    // của QUYMO_BASE_FIELDS, dùng select riêng (3 trạng thái: chưa xác định
+    // / có / không — KHÔNG mặc định "Không" để tránh hiểu nhầm là đã xác
+    // nhận không có, xem evaluate_bot_co_dinh() phân biệt None vs False).
+    var coBeField = document.createElement('div');
+    coBeField.className = 'field';
+    coBeField.style.marginTop = '10px';
+    var coBeLabel = document.createElement('label');
+    coBeLabel.textContent = 'Có bể chứa xăng dầu/dung môi dễ cháy đặt ngoài trời không?';
+    coBeField.appendChild(coBeLabel);
+    var coBeSelect = document.createElement('select');
+    [['', '— Chưa xác định —'], ['true', 'Có'], ['false', 'Không']].forEach(function(pair){
+      var opt = document.createElement('option');
+      opt.value = pair[0];
+      opt.textContent = pair[1];
+      coBeSelect.appendChild(opt);
+    });
+    coBeField.appendChild(coBeSelect);
+    quymoManualForm.appendChild(coBeField);
 
     var extraWrap = document.createElement('div');
     extraWrap.className = 'grid';
@@ -647,6 +692,7 @@
         var v = baseInputs[f.key].value;
         if(v !== '') quyMo[f.key] = Number(v);
       });
+      if(coBeSelect.value !== '') quyMo.coBeXangDauNgoaiTroi = (coBeSelect.value === 'true');
       Object.keys(extraInputs).forEach(function(key){
         var el = extraInputs[key];
         if(el.value === '') return;
@@ -680,6 +726,7 @@
             }
             feedbackMsg.textContent = '✓ Đã lưu — các hạng mục khác trong Bộ hồ sơ này sẽ dùng thông số này để đối chiếu chính xác hơn.';
             feedbackMsg.style.color = 'var(--green)';
+            quyMoDataSavedInSession = true;
 
             var f = (r2.data.mdc_docx_files || [])[0];
             if(f && f.base64){
@@ -1503,10 +1550,15 @@
       case 'loi':
         var kienNghiSections = collectRealSections(function(d){ return !!d.kien_nghi; });
         var loiFailed = collectFailedRealSlots();
-        if(kienNghiSections.length || loiFailed.length){
+        // Phan E — canh bao quy mo (mau thuan/thieu ho so) cung phai kich hoat
+        // hop #aihoKienNghiDocxBox du KHONG hang muc rieng le nao co kien_nghi
+        // (vd moi hang muc deu "dat" nhung van thieu 1 he thong thuoc dien) -
+        // khong thi maybeExportKienNghiDocx() se khong tim thay box de xuat file.
+        var hasQuyMoWarnings = (quyMoConflictWarningsPending.length + quyMoMissingWarningsPending.length) > 0;
+        if(kienNghiSections.length || loiFailed.length || hasQuyMoWarnings){
           var loiParts = [];
-          if(kienNghiSections.length){
-            loiParts.push(renderKienNghiReal(kienNghiSections));
+          if(kienNghiSections.length || hasQuyMoWarnings){
+            if(kienNghiSections.length) loiParts.push(renderKienNghiReal(kienNghiSections));
             loiParts.push('<div id="aihoKienNghiDocxBox"><p>Đang tạo file kiến nghị thiết kế (.docx) tổng hợp…</p></div>');
           }
           loiFailed.forEach(function(f){
@@ -1564,6 +1616,24 @@
         });
       }
     });
+
+    // Phan D.1/E.3 — 1 hang muc TONG HOP rieng cho canh bao quy mo (mau
+    // thuan Luot 0 -> nhom II, thieu ho so theo doi chieu nguoc -> nhom IV),
+    // KHONG gan voi 1 ban ve cu the nao nen dung dung ten trung lap voi cac
+    // hang muc that o tren.
+    if(quyMoConflictWarningsPending.length || quyMoMissingWarningsPending.length){
+      hangMuc.push({
+        ten_he_thong: 'Đối chiếu tổng thể theo quy mô công trình',
+        so_hieu_ban_ve: 'Không xác định được số hiệu bản vẽ',
+        kien_nghi: {
+          I_chua_the_hien: [],
+          II_chua_thong_nhat: quyMoConflictWarningsPending.map(quyMoConflictWarningText),
+          III_chua_phu_hop: [],
+          IV_de_xuat_bo_sung: quyMoMissingWarningsPending.map(quyMoMissingWarningText)
+        }
+      });
+    }
+
     if(!hangMuc.length) return;
 
     function showError(text){
@@ -1691,7 +1761,13 @@
     function finishUp(){
       clearInterval(interval);
       processingFill.style.width = '100%';
-      closeSessionIfAny().then(function(){
+      // Phan E — PHAI doi chieu nguoc TRUOC khi dong phien: route
+      // /quymo-reverse-check doi hoi phien dang 'open' (ho_so_session.
+      // get_open_session_for_user) - goi SAU closeSessionIfAny() se luon
+      // that bai vi phien da chuyen 'closed_used'/'closed_refunded'.
+      fetchQuyMoReverseCheck(activeSlots, sessionId).then(function(){
+        return closeSessionIfAny();
+      }).then(function(){
         setTimeout(function(){
           processing.hidden = true;
           processingFill.style.width = '0%';
@@ -1699,6 +1775,7 @@
           setOutputPickerLocked(false);
           renderResultTable();
           renderOutputPreviews();
+          renderQuyMoWarningsBox();
           maybeExportKienNghiDocx();
           resultsSection.hidden = false;
           resultsSection.scrollIntoView({behavior: 'smooth', block: 'start'});
@@ -1707,65 +1784,170 @@
       });
     }
 
-    if(activeSlots.length){
-      var checkedKeys = Array.prototype.map.call(panel.querySelectorAll('input:checked'), function(input){ return input.dataset.key; });
-      var outputsValue = checkedKeys.join(',');
-      var pending = activeSlots.length;
-      var sawAuthError = false;
+    function fireLuot1(){
+      if(activeSlots.length){
+        var checkedKeys = Array.prototype.map.call(panel.querySelectorAll('input:checked'), function(input){ return input.dataset.key; });
+        var outputsValue = checkedKeys.join(',');
+        var pending = activeSlots.length;
+        var sawAuthError = false;
 
-      activeSlots.forEach(function(slot){
-        var cfg = REAL_CATEGORIES[slot];
-        var form = new FormData();
-        form.append('file', realFiles[slot]);
-        form.append('outputs', outputsValue);
-        form.append('session_id', sessionId);
-        fetch(BACKEND_BASE + cfg.endpoint, {
-          method: 'POST',
-          headers: {'Authorization': 'Bearer ' + getToken()},
-          body: form
-        })
-          .then(function(res){ return res.json().then(function(data){ return {status: res.status, data: data}; }); })
-          .then(function(r){
-            if(r.status === 401){
-              if(sawAuthError) return;
-              sawAuthError = true;
-              A.logout();
-              clearInterval(interval);
-              processing.hidden = true;
-              isProcessing = false;
-              setOutputPickerLocked(false);
-              updateCta();
-              msg.textContent = r.data.error || 'Phiên đăng nhập đã hết hạn — vui lòng đăng nhập lại.';
-              msg.classList.add('show');
-              window.openAuthModal();
-              return;
-            }
-            if(r.status >= 400){
-              realResults[slot] = {status: 'warn', note: cfg.label + ': AI đọc bản vẽ báo lỗi: ' + (r.data.error || 'không rõ nguyên nhân') + '.'};
-              return;
-            }
-            realResults[slot] = cfg.summarize(r.data);
-            realData[slot] = r.data;
+        activeSlots.forEach(function(slot){
+          var cfg = REAL_CATEGORIES[slot];
+          var form = new FormData();
+          form.append('file', realFiles[slot]);
+          form.append('outputs', outputsValue);
+          form.append('session_id', sessionId);
+          fetch(BACKEND_BASE + cfg.endpoint, {
+            method: 'POST',
+            headers: {'Authorization': 'Bearer ' + getToken()},
+            body: form
           })
-          .catch(function(){
-            realResults[slot] = {status: 'warn', note: cfg.label + ': Không kết nối được tới máy chủ AI — thử lại sau.'};
-          })
-          .then(function(){
-            pending--;
-            if(pending === 0 && !sawAuthError) finishUp();
-          });
-      });
+            .then(function(res){ return res.json().then(function(data){ return {status: res.status, data: data}; }); })
+            .then(function(r){
+              if(r.status === 401){
+                if(sawAuthError) return;
+                sawAuthError = true;
+                A.logout();
+                clearInterval(interval);
+                processing.hidden = true;
+                isProcessing = false;
+                setOutputPickerLocked(false);
+                updateCta();
+                msg.textContent = r.data.error || 'Phiên đăng nhập đã hết hạn — vui lòng đăng nhập lại.';
+                msg.classList.add('show');
+                window.openAuthModal();
+                return;
+              }
+              if(r.status >= 400){
+                realResults[slot] = {status: 'warn', note: cfg.label + ': AI đọc bản vẽ báo lỗi: ' + (r.data.error || 'không rõ nguyên nhân') + '.'};
+                return;
+              }
+              realResults[slot] = cfg.summarize(r.data);
+              realData[slot] = r.data;
+            })
+            .catch(function(){
+              realResults[slot] = {status: 'warn', note: cfg.label + ': Không kết nối được tới máy chủ AI — thử lại sau.'};
+            })
+            .then(function(){
+              pending--;
+              if(pending === 0 && !sawAuthError) finishUp();
+            });
+        });
+      } else {
+        setTimeout(finishUp, 2200);
+      }
+    }
+
+    // Quy mô Giai đoạn 1, Phần A.2 — Lượt 0: quét nhẹ quy mô từ báo cháy/ccnuoc
+    // TRƯỚC khi bắn Lượt 1, CHỈ khi Quy mô CHƯA đính file riêng, CÓ ít nhất 1
+    // trong 2 file báo cháy/ccnuoc, VÀ chưa từng chạy Lượt 0 trong phiên này
+    // (tránh gọi lại thừa nếu bấm "Bắt đầu phân tích" nhiều lần). Lượt 0 lỗi
+    // (mạng/AI) KHÔNG được chặn Lượt 1 — luôn resolve rồi mới gọi fireLuot1().
+    var needQuyMoScan = sessionId && !realFiles.kientruc && !quyMoScanAttemptedInSession &&
+      (activeSlots.indexOf('baochay') !== -1 || activeSlots.indexOf('ccnuoc') !== -1);
+    if(needQuyMoScan){
+      runQuyMoScanLuot0(sessionId, activeSlots).then(fireLuot1);
     } else {
-      setTimeout(finishUp, 2200);
+      fireLuot1();
     }
   }
 
-  cta.addEventListener('click', function(){
-    if(!currentUser){
-      window.openAuthModal();
-      return;
-    }
+  /* ---- Quy mô Giai đoạn 1, Phần E — đối chiếu ngược sau Lượt 1 ---- */
+  function fetchQuyMoReverseCheck(activeSlots, sessionId){
+    quyMoMissingWarningsPending = [];
+    if(!sessionId) return Promise.resolve();
+    var slotsWithData = activeSlots.filter(function(slot){ return !!realData[slot]; });
+    return fetch(BACKEND_BASE + '/api/aiho/quymo-reverse-check', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken()},
+      body: JSON.stringify({session_id: sessionId, slots_with_data: slotsWithData})
+    })
+      .then(function(res){ return res.json().then(function(data){ return {status: res.status, data: data}; }); })
+      .then(function(r){
+        if(r.status < 400 && r.data.warnings) quyMoMissingWarningsPending = r.data.warnings;
+      })
+      .catch(function(){ /* doi chieu nguoc la best-effort - khong chan hien ket qua neu loi mang */ });
+  }
 
+  function quyMoConflictWarningText(c){
+    return 'Phát hiện số liệu quy mô KHÔNG THỐNG NHẤT giữa bản vẽ ' +
+      c.values.map(function(v){ return v.label; }).join(' và ') + ' — trường ' + c.label + ': ' +
+      c.values.map(function(v){ return (v.value === true ? 'Có' : v.value === false ? 'Không' : v.value) + ' (theo ' + v.label + ')'; }).join(' vs ') +
+      '. Đã tạm dùng ' + (c.chosen === true ? 'Có' : c.chosen === false ? 'Không' : c.chosen) + ', cần xác nhận lại.';
+  }
+
+  function quyMoMissingWarningText(w){
+    var label = (REAL_CATEGORIES[w.slot] && REAL_CATEGORIES[w.slot].label) || w.slot;
+    return 'Bổ sung hồ sơ thiết kế hệ thống ' + label + ' cho hạng mục này; theo ' + w.can_cu +
+      ', hạng mục này thuộc diện bắt buộc trang bị nhưng chưa thấy bản vẽ/hồ sơ thiết kế hệ thống này trong bộ hồ sơ hiện có.';
+  }
+
+  function renderQuyMoWarningsBox(){
+    var box = document.getElementById('aihoQuyMoWarnings');
+    if(!box) return;
+    box.innerHTML = '';
+    quyMoConflictWarningsPending.forEach(function(c){
+      var div = document.createElement('div');
+      div.className = 'quymo-warning qw-red';
+      div.textContent = quyMoConflictWarningText(c);
+      box.appendChild(div);
+    });
+    quyMoMissingWarningsPending.forEach(function(w){
+      var div = document.createElement('div');
+      div.className = 'quymo-warning qw-amber';
+      div.textContent = quyMoMissingWarningText(w);
+      box.appendChild(div);
+    });
+    box.hidden = !(quyMoConflictWarningsPending.length || quyMoMissingWarningsPending.length);
+  }
+
+  /* ---- Quy mô Giai đoạn 1, Phần A.1-A.3 — "Lượt 0" quét nhẹ quy mô ---- */
+  function runQuyMoScanLuot0(sessionId, activeSlots){
+    quyMoScanAttemptedInSession = true;
+    var scanSlots = ['baochay', 'ccnuoc'].filter(function(s){ return activeSlots.indexOf(s) !== -1; });
+
+    var calls = scanSlots.map(function(slot){
+      var form = new FormData();
+      form.append('file', realFiles[slot]);
+      form.append('session_id', sessionId);
+      return fetch(BACKEND_BASE + '/api/aiho/scan-quymo', {
+        method: 'POST',
+        headers: {'Authorization': 'Bearer ' + getToken()},
+        body: form
+      })
+        .then(function(res){ return res.json().then(function(data){ return {status: res.status, data: data}; }); })
+        .then(function(r){
+          if(r.status >= 400) return null; // loi Luot 0 (vd het quota AI/ngay) - bo qua ket qua nay, KHONG chan Luot 1
+          return {slot: slot, label: REAL_CATEGORIES[slot].label, tim_thay: !!r.data.tim_thay, quy_mo: r.data.quy_mo || null};
+        })
+        .catch(function(){ return null; });
+    });
+
+    return Promise.all(calls).then(function(results){
+      var valid = results.filter(function(r){ return !!r; });
+      if(!valid.length) return Promise.resolve();
+      return fetch(BACKEND_BASE + '/api/aiho/scan-quymo/finish', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken()},
+        body: JSON.stringify({session_id: sessionId, results: valid})
+      })
+        .then(function(res){ return res.json().then(function(data){ return {status: res.status, data: data}; }); })
+        .then(function(r){
+          if(r.status >= 400) return;
+          if(r.data.saved) quyMoDataSavedInSession = true;
+          if(r.data.conflicts && r.data.conflicts.length) quyMoConflictWarningsPending = r.data.conflicts;
+        })
+        .catch(function(){});
+    });
+  }
+
+  /* ---- Quy mô Giai đoạn 1, Phần B — modal khuyến cáo trước khi chạy ---- */
+  var quyMoNoticeModal = document.getElementById('quyMoNoticeModal');
+  var quyMoNoticeClose = document.getElementById('quyMoNoticeClose');
+  var quyMoNoticeAttachBtn = document.getElementById('quyMoNoticeAttachBtn');
+  var quyMoNoticeSkipBtn = document.getElementById('quyMoNoticeSkipBtn');
+
+  function startAnalysisFlow(){
     msg.classList.remove('show');
     feedbackConfirm.hidden = true;
     resultsSection.hidden = true;
@@ -1802,7 +1984,39 @@
       .catch(function(){
         abortProcessing('Không kết nối được tới máy chủ — vui lòng thử lại sau.');
       });
+  }
+
+  cta.addEventListener('click', function(){
+    if(!currentUser){
+      window.openAuthModal();
+      return;
+    }
+
+    // Phan B: chi hien modal khi CHUA dinh file Quy mo VA CHUA co ban ghi
+    // Quy mo nao da luu trong phien (nhap tay truoc do) VA nguoi dung CHUA
+    // tung bam "Bo qua" 1 lan trong phien nay.
+    if(!realFiles.kientruc && !quyMoDataSavedInSession && !quyMoModalSkippedOnce && quyMoNoticeModal){
+      quyMoNoticeModal.hidden = false;
+      return;
+    }
+
+    startAnalysisFlow();
   });
+
+  if(quyMoNoticeModal){
+    if(quyMoNoticeClose) quyMoNoticeClose.addEventListener('click', function(){ quyMoNoticeModal.hidden = true; });
+    if(quyMoNoticeAttachBtn) quyMoNoticeAttachBtn.addEventListener('click', function(){
+      quyMoNoticeModal.hidden = true;
+      var kientrucCard = document.getElementById('kientrucCard');
+      if(kientrucCard) kientrucCard.scrollIntoView({behavior: 'smooth', block: 'center'});
+      // KHONG chay phan tich - nguoi dung tu dinh file/nhap tay Quy mo roi tu bam lai "Bắt đầu phân tích".
+    });
+    if(quyMoNoticeSkipBtn) quyMoNoticeSkipBtn.addEventListener('click', function(){
+      quyMoModalSkippedOnce = true;
+      quyMoNoticeModal.hidden = true;
+      startAnalysisFlow();
+    });
+  }
 
   /* ===================================================================
      Modal Góp ý — góp ý chung cho cả Bộ hồ sơ (không phải riêng 1 kết quả).

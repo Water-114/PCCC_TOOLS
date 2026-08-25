@@ -194,6 +194,20 @@ class HoSoSession(db.Model):
     ledger_entry_id = db.Column(db.Integer, db.ForeignKey("credit_ledger.id"), nullable=True)
     opened_at = db.Column(db.DateTime(timezone=True), default=_utcnow, nullable=False)
     closed_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    # "Luot 0" quet nhe quy mo tu bao chay/ccnuoc (quy_mo_store Phan A) da tung
+    # chay cho phien nay hay chua - set khi da thu (du KET QUA co tim thay gi
+    # hay khong). Dung de: (1) Phan E biet co nen chay doi chieu nguoc hay
+    # khong (chi chay khi that su co du lieu quy mo — get_quy_mo() khac None —
+    # con neu da thu Luot 0 nhung KHONG tim thay gi thi khong co can cu de doi
+    # chieu, bo qua Phan E cho phien nay); (2) tranh goi lai Luot 0 nhieu lan
+    # thua neu nguoi dung bam "Bắt đầu phân tích" nhieu lan trong cung 1 phien.
+    # CO Y KHONG tao ban ghi HoSoSessionQuyMo "rong" cho truong hop khong tim
+    # thay gi - vi to_dict() luon tra ve dict du 18 key (dù toan None), khien
+    # get_quy_mo() tro thanh truthy va lam 6 reader hien co (dang check "if
+    # quy_mo:") tu dong noi doan "Công năng: None" vo nghia vao prompt cua ho -
+    # dung cot rieng nay thay vi 1 ban ghi Quy mo "sentinel" de khong dung gi
+    # toi get_quy_mo()/format_quy_mo_context() da co.
+    quy_mo_scan_attempted_at = db.Column(db.DateTime(timezone=True), nullable=True)
 
     user = db.relationship("User")
     ledger_entry = db.relationship("CreditLedger")
@@ -204,13 +218,20 @@ class HoSoSessionQuyMo(db.Model):
     lưu tách bảng riêng vì chỉ dùng khi user CÓ đính hạng mục Quy mô (không
     bắt buộc). Tên cột giữ ĐÚNG tên field mà tham_dinh.py/he_thong_bat_buoc.py/
     phuong_tien.py dùng (qua to_dict()) để truyền thẳng vào evaluate_*() không
-    cần lớp chuyển đổi tên. source: 'ai' | 'manual'. Xem quy_mo_store.py."""
+    cần lớp chuyển đổi tên. source: 'ai' | 'manual' | 'ai_auto_detected' (Lượt
+    0, quy_mo_store.py Phần A). Xem quy_mo_store.py.
+
+    source đổi String(10) -> String(30) (migration sau 4503ab6017ba) vì
+    'ai_auto_detected' (17 ký tự) vượt quá String(10) cũ — SQLite (dev/test)
+    không báo lỗi khi vượt quá độ dài String, nhưng PostgreSQL (production)
+    sẽ raise StringDataRightTruncation thật, nên phải nới cột bằng migration
+    thay vì chỉ đổi comment."""
 
     __tablename__ = "ho_so_session_quy_mo"
 
     id = db.Column(db.Integer, primary_key=True)
     session_id = db.Column(db.Integer, db.ForeignKey("ho_so_session.id"), nullable=False, unique=True, index=True)
-    source = db.Column(db.String(10), nullable=False)  # 'ai' | 'manual'
+    source = db.Column(db.String(30), nullable=False)  # 'ai' | 'manual' | 'ai_auto_detected'
     occ = db.Column(db.String(30), nullable=True)
     floors = db.Column(db.Integer, nullable=True)
     basements = db.Column(db.Integer, nullable=True)
@@ -229,6 +250,11 @@ class HoSoSessionQuyMo(db.Model):
     ppl_floor = db.Column(db.Integer, nullable=True)
     ext_level = db.Column(db.String(10), nullable=True)
     hanh_lang_dai_nhat = db.Column(db.Float, nullable=True)
+    # 2 field moi (Batch Quy mo Giai doan 1, Phan D.2) - phuc vu goi y form B15
+    # (TCVN 14496:2025, chieu cao ke hang) va rule moi evaluate_bot_co_dinh()
+    # (co be xang dau ngoai troi -> B7).
+    chieu_cao_ke_hang = db.Column(db.Float, nullable=True)
+    co_be_xang_dau_ngoai_troi = db.Column(db.Boolean, nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), default=_utcnow, nullable=False)
     updated_at = db.Column(db.DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False)
 
@@ -256,4 +282,6 @@ class HoSoSessionQuyMo(db.Model):
             "pplFloor": self.ppl_floor,
             "extLevel": self.ext_level,
             "hanhLangDaiNhat": self.hanh_lang_dai_nhat,
+            "chieuCaoKeHang": self.chieu_cao_ke_hang,
+            "coBeXangDauNgoaiTroi": self.co_be_xang_dau_ngoai_troi,
         }

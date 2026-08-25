@@ -435,3 +435,92 @@ def evaluate_bien_tam_thap(payload):
     if hanh_lang > 10:
         return _result("yes", f"Khách sạn đủ quy mô ({quy_mo_note} ≥ ngưỡng) và hành lang thoát nạn {_fmt(hanh_lang)} m > 10 m — thuộc diện.", cc)
     return _result("no", f"Khách sạn đủ quy mô ({quy_mo_note} ≥ ngưỡng) nhưng hành lang thoát nạn {_fmt(hanh_lang)} m ≤ 10 m — không thuộc diện.", cc)
+
+
+# ---------------------------------------------------------------------------
+# Quy mo Giai doan 1, Phan D.3/D.4 — 2 rule MOI, dung NOI BO cho buoc doi
+# chieu nguoc (quy_mo_store.py Phan E, danh cho AIHO doc ban ve) — KHONG dua
+# vao _TYPE1_ROWS/build_form_a_items() (khong doi y nghia cot "Ket luan" cua
+# id=63/id=38 dan chieu trong Form A goc).
+# ---------------------------------------------------------------------------
+def evaluate_dien_pccc_suy_luan(payload):
+    """Điện PCCC KHÔNG có ngưỡng riêng theo QCVN 10 — suy luận thực tế: cần
+    điện phục vụ PCCC (nguồn điện, dây dẫn, tủ điện...) khi công trình có ÍT
+    NHẤT 1 hệ thống chủ động khác thuộc diện bắt buộc (báo cháy, sprinkler,
+    họng nước, đèn sự cố, loa thông báo, bình chữa cháy — bình chữa cháy
+    LUÔN bắt buộc theo TCVN 7435-1:2004 nên trong thực tế hàm này gần như
+    luôn trả "yes", đúng thực tế PCCC: hầu như công trình nào cũng cần điện
+    phục vụ PCCC). Tái dùng NGUYÊN các evaluate_*() có sẵn — KHÔNG viết lại
+    ngưỡng/công thức của chúng."""
+    from .he_thong_bat_buoc import HeThongBatBuocInputError, evaluate_bao_chay, evaluate_hong_nuoc, evaluate_sprinkler
+
+    checks = []
+    for fn in (evaluate_bao_chay, evaluate_sprinkler, evaluate_hong_nuoc):
+        try:
+            checks.append((fn.__name__, fn(payload)))
+        except HeThongBatBuocInputError:
+            continue
+    for fn in (evaluate_den, evaluate_loa):
+        try:
+            checks.append((fn.__name__, fn(payload)))
+        except PhuongTienInputError:
+            continue
+    # Binh chua chay xach tay: luon bat buoc, khong nguong quy mo nao (TCVN
+    # 7435-1:2004) - dung dung nhu cach build_type1_items() (quy_mo_store.py)
+    # dang xu ly tinh cho id=49 Form A, khong goi lai evaluate_binh() (ham do
+    # tra ve so luong cu the, khong phai "co thuoc dien hay khong").
+    checks.append(("binh_chua_chay", {"result": "yes"}))
+
+    ten_vi = {
+        "evaluate_bao_chay": "báo cháy tự động",
+        "evaluate_sprinkler": "chữa cháy tự động (sprinkler/drencher)",
+        "evaluate_hong_nuoc": "họng nước chữa cháy trong nhà",
+        "evaluate_den": "đèn sự cố/chỉ dẫn thoát nạn",
+        "evaluate_loa": "loa thông báo và hướng dẫn thoát nạn",
+        "binh_chua_chay": "bình chữa cháy xách tay",
+    }
+    can_cu = "Suy luận nội bộ (không phải ngưỡng riêng theo phụ lục QCVN 10:2025/BCA cụ thể nào)"
+    yes_list = [ten_vi[name] for name, r in checks if r.get("result") == "yes"]
+
+    if yes_list:
+        return _result(
+            "yes",
+            "Công trình có hệ thống chủ động thuộc diện bắt buộc: " + ", ".join(yes_list) +
+            " (suy luận: cần điện PCCC khi có hệ thống chủ động khác thuộc diện, không phải ngưỡng riêng theo phụ lục).",
+            can_cu,
+        )
+    return _result(
+        "warn",
+        "Chưa đủ dữ liệu quy mô để xác định có hệ thống chủ động nào thuộc diện bắt buộc hay không "
+        "(suy luận: cần điện PCCC khi có hệ thống chủ động khác thuộc diện, không phải ngưỡng riêng theo phụ lục).",
+        can_cu,
+    )
+
+
+def evaluate_bot_co_dinh(payload):
+    """B7 — chữa cháy bằng bọt cố định cho bể chứa xăng dầu/dung môi NGOÀI
+    TRỜI (TCVN 5307:2009 — phạm vi áp dụng: kho DM&SPDM dạng lỏng xây mới/
+    cải tạo/mở rộng, xem references/bot-co-dinh-tcvn5307.md skill
+    ra-mau-doi-chieu-pccc). KHÔNG có ngưỡng diện tích/khối tích như các
+    evaluate_* khác — chỉ phụ thuộc field mới coBeXangDauNgoaiTroi (ai_schema.
+    QuyMoFields, Phần D.2): True -> "yes", False -> "no", None (chưa khai
+    báo) -> "chua_du_du_lieu" (KHÔNG mặc định là không thuộc diện)."""
+    v = payload.get("coBeXangDauNgoaiTroi")
+    cc = "TCVN 5307:2009 — phạm vi áp dụng (kho dầu mỏ và sản phẩm dầu mỏ dạng lỏng)"
+    if v is True:
+        return _result(
+            "yes",
+            "Công trình CÓ bể chứa xăng dầu/dung môi dễ cháy đặt ngoài trời — thuộc phạm vi áp dụng TCVN 5307:2009 (chữa cháy bằng bọt cố định).",
+            cc,
+        )
+    if v is False:
+        return _result(
+            "no",
+            "Công trình KHÔNG có bể chứa xăng dầu/dung môi dễ cháy đặt ngoài trời — không thuộc phạm vi áp dụng TCVN 5307:2009.",
+            cc,
+        )
+    return _result(
+        "chua_du_du_lieu",
+        "Chưa xác định công trình có bể chứa xăng dầu/dung môi dễ cháy đặt ngoài trời hay không — cần bổ sung thông tin để kết luận.",
+        cc,
+    )

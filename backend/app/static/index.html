@@ -1037,6 +1037,7 @@
   <section class="buoc" id="aihoResults" hidden>
     <div class="buoc-tag"><span class="num">KẾT QUẢ</span><h3>Kết quả đối chiếu (demo)</h3></div>
     <p class="section-note">Dữ liệu bên dưới là minh hoạ cho mục đích xem giao diện — chưa phải kết quả phân tích thật.</p>
+    <div class="quymo-warning-box" id="aihoQuyMoWarnings" hidden></div>
     <div class="result-table" id="aihoResultTable"></div>
     <div class="output-previews" id="aihoOutputPreviews"></div>
   </section>
@@ -1077,6 +1078,18 @@
       <div class="actions" style="margin-top:14px">
         <button type="button" class="btn-main" id="feedbackSubmitBtn">Gửi góp ý</button>
         <button type="button" class="btn-ghost" id="feedbackSkipBtn">Góp ý sau</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="quyMoNoticeModal" hidden>
+    <div class="modal-card">
+      <button type="button" class="modal-close" id="quyMoNoticeClose" aria-label="Đóng">✕</button>
+      <h3>Chưa có thông tin quy mô công trình</h3>
+      <p class="section-note" style="margin-top:0">Bạn chưa đính thông tin quy mô công trình (đơn đề nghị thẩm định/bản vẽ quy mô) — nên đính để kết quả rà soát chính xác hơn.</p>
+      <div class="actions" style="margin-top:14px">
+        <button type="button" class="btn-main" id="quyMoNoticeAttachBtn">Đính thêm quy mô</button>
+        <button type="button" class="btn-ghost" id="quyMoNoticeSkipBtn">Bỏ qua, vẫn chạy</button>
       </div>
     </div>
   </div>

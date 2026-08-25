@@ -27,10 +27,12 @@ ghi nhớ cũ) trước khi viết module này:
      nhóm này). TODO: quay lại sửa 5 dòng này khi B8-B11 có AI thật.
 """
 
+from datetime import datetime, timezone
+
 from pydantic import ValidationError
 
 from ..extensions import db
-from ..models import HoSoSessionQuyMo
+from ..models import HoSoSession, HoSoSessionQuyMo
 from .ai_schema import QuyMoFields
 from .he_thong_bat_buoc import (
     HeThongBatBuocInputError,
@@ -43,8 +45,10 @@ from .he_thong_bat_buoc import (
 )
 from .phuong_tien import (
     PhuongTienInputError,
+    evaluate_bot_co_dinh,
     evaluate_co_gioi,
     evaluate_den,
+    evaluate_dien_pccc_suy_luan,
     evaluate_loa,
     evaluate_mat_na,
     evaluate_pha_do,
@@ -121,6 +125,10 @@ def format_quy_mo_context(fields: dict) -> str:
         lines.append(f"- Số người lớn nhất trên 1 tầng: {_fmt(fields['pplFloor'])}")
     if fields.get("hanhLangDaiNhat") is not None:
         lines.append(f"- Chiều dài hành lang thoát nạn dài nhất: {_fmt(fields['hanhLangDaiNhat'])} m")
+    if fields.get("chieuCaoKeHang") is not None:
+        lines.append(f"- Chiều cao sắp xếp hàng hoá trên giá đỡ/kệ hàng: {_fmt(fields['chieuCaoKeHang'])} m")
+    if fields.get("coBeXangDauNgoaiTroi") is not None:
+        lines.append(f"- Có bể chứa xăng dầu/dung môi ngoài trời: {'Có' if fields['coBeXangDauNgoaiTroi'] else 'Không'}")
 
     return (
         "\n\n--- QUY MÔ CÔNG TRÌNH ĐÃ XÁC NHẬN (tham khảo, KHÔNG thay thế việc tự đọc bản vẽ) ---\n"
@@ -170,8 +178,217 @@ def save_quy_mo(session_id, fields: dict, source: str):
     row.ppl_floor = fields.get("pplFloor")
     row.ext_level = fields.get("extLevel")
     row.hanh_lang_dai_nhat = fields.get("hanhLangDaiNhat")
+    row.chieu_cao_ke_hang = fields.get("chieuCaoKeHang")
+    row.co_be_xang_dau_ngoai_troi = fields.get("coBeXangDauNgoaiTroi")
     db.session.commit()
     return row.to_dict()
+
+
+# ---------------------------------------------------------------------------
+# "Luot 0" (Phan A) - quet nhe quy mo tu bao chay/ccnuoc, gop ket qua, luu
+# hoac chi danh dau "da thu nhung khong thay gi" (Phan C).
+# ---------------------------------------------------------------------------
+_ALL_SCAN_FIELD_KEYS = (
+    "occ", "floors", "basements", "semiBasements", "areaFloor", "totalArea",
+    "volume", "hFire", "kids", "seats", "hazard", "garaKin", "garaKC12",
+    "garaBcl", "garaCapS", "pplFloor", "extLevel", "hanhLangDaiNhat",
+    "chieuCaoKeHang", "coBeXangDauNgoaiTroi",
+)
+
+_FIELD_LABELS_VI = {
+    "occ": "công năng",
+    "floors": "số tầng nổi",
+    "basements": "số tầng hầm",
+    "semiBasements": "số tầng bán hầm",
+    "areaFloor": "diện tích 1 tầng",
+    "totalArea": "tổng diện tích sàn ΣF",
+    "volume": "khối tích V",
+    "hFire": "chiều cao phục vụ PCCC",
+    "kids": "số trẻ",
+    "seats": "số chỗ ngồi",
+    "hazard": "hạng nguy hiểm cháy nổ",
+    "garaKin": "dạng nhà để xe",
+    "garaKC12": "khoảng cách đến cạnh để hở",
+    "garaBcl": "bậc chịu lửa",
+    "garaCapS": "cấp nguy hiểm cháy kết cấu",
+    "pplFloor": "số người lớn nhất trên 1 tầng",
+    "extLevel": "mức nguy hiểm cháy (tính bình chữa cháy)",
+    "hanhLangDaiNhat": "chiều dài hành lang thoát nạn dài nhất",
+    "chieuCaoKeHang": "chiều cao sắp xếp hàng hoá trên kệ",
+    "coBeXangDauNgoaiTroi": "có bể xăng dầu ngoài trời",
+}
+
+
+def _validate_scan_merged_fields(fields: dict) -> dict:
+    """Validate NHE ket qua da gop cua Luot 0 truoc khi luu - dung
+    ScanQuyMoFields (occ VAN duoc phep thieu, khac QuyMoFields cua
+    validate_manual_fields() ben duoi) vi ban ve bao chay/ccnuoc thuong
+    khong ghi ro cong nang tong the."""
+    from .ai_schema import ScanQuyMoFields
+    try:
+        model = ScanQuyMoFields.model_validate(fields)
+    except ValidationError as exc:
+        raise QuyMoInputError(f"Dữ liệu quy mô (Lượt 0) không hợp lệ: {exc}") from exc
+    data = model.model_dump()
+    for key in (
+        "floors", "basements", "semiBasements", "areaFloor", "totalArea",
+        "volume", "hFire", "kids", "seats", "pplFloor", "hanhLangDaiNhat", "chieuCaoKeHang",
+    ):
+        v = data.get(key)
+        if v is not None and v < 0:
+            raise QuyMoInputError(f"Giá trị của '{key}' không được âm.")
+    return data
+
+
+def merge_scan_quymo_results(results: list) -> dict:
+    """Gộp kết quả "Lượt 0" từ 1-2 file (báo cháy + ccnuoc) — xem Phần A.3.
+
+    results: list [{"slot": "baochay"|"ccnuoc", "label": str, "tim_thay": bool,
+    "quy_mo": dict|None}, ...] — ĐÚNG payload thô mà 1-2 lần gọi
+    /api/aiho/scan-quymo trả về, frontend forward nguyên lại kèm slot/label.
+
+    Trả về {"merged": dict|None, "conflicts": [{"field", "label", "values":
+    [{"slot","label","value"}, ...]}], "found_count": int} — "merged" là
+    None nếu KHÔNG có file nào tim_thay=True (Phần C xử lý tiếp)."""
+    found = [r for r in results if r.get("tim_thay") and r.get("quy_mo")]
+    if not found:
+        return {"merged": None, "conflicts": [], "found_count": 0}
+
+    if len(found) == 1:
+        only = found[0]
+        merged = {k: v for k, v in only["quy_mo"].items() if v is not None}
+        return {"merged": merged, "conflicts": [], "found_count": 1}
+
+    # 2 file deu tim thay - so tung field, "muc do day du" = so field KHAC None
+    # (uu tien file day du hon lam nguon "da chon" cho field mau thuan).
+    def _completeness(r):
+        return sum(1 for v in r["quy_mo"].values() if v is not None)
+
+    found_sorted = sorted(found, key=_completeness, reverse=True)
+    priority = found_sorted[0]
+
+    merged = {}
+    conflicts = []
+    for key in _ALL_SCAN_FIELD_KEYS:
+        values = [(r["slot"], r["label"], r["quy_mo"].get(key)) for r in found if r["quy_mo"].get(key) is not None]
+        if not values:
+            continue
+        distinct = {v for _, _, v in values}
+        if len(distinct) == 1:
+            merged[key] = values[0][2]
+        else:
+            # Mau thuan that - dung gia tri cua file "day du hon" (priority),
+            # neu priority khong co field nay thi dung gia tri con lai.
+            chosen = priority["quy_mo"].get(key)
+            if chosen is None:
+                chosen = values[0][2]
+            merged[key] = chosen
+            conflicts.append({
+                "field": key,
+                "label": _FIELD_LABELS_VI.get(key, key),
+                "values": [{"slot": slot, "label": label, "value": v} for slot, label, v in values],
+                "chosen": chosen,
+            })
+
+    return {"merged": merged, "conflicts": conflicts, "found_count": len(found)}
+
+
+def finish_quy_mo_scan(session: "HoSoSession", results: list) -> dict:
+    """Kết thúc Lượt 0: gộp kết quả rồi lưu (source='ai_auto_detected') NẾU có
+    tìm thấy gì, hoặc CHỈ đánh dấu quy_mo_scan_attempted_at (Phần C — KHÔNG
+    tạo bản ghi HoSoSessionQuyMo rỗng, xem lý do ở models.HoSoSession) nếu
+    không tìm thấy gì cả. LUÔN đánh dấu attempted (dù có tìm thấy hay không)
+    để Phần E biết Lượt 0 đã từng chạy cho phiên này."""
+    merge_result = merge_scan_quymo_results(results)
+    saved = None
+    if merge_result["merged"]:
+        clean = _validate_scan_merged_fields(merge_result["merged"])
+        saved = save_quy_mo(session.id, clean, source="ai_auto_detected")
+
+    session.quy_mo_scan_attempted_at = datetime.now(timezone.utc)
+    db.session.commit()
+
+    return {
+        "saved": saved,
+        "conflicts": merge_result["conflicts"],
+        "found_count": merge_result["found_count"],
+    }
+
+
+# ---------------------------------------------------------------------------
+# Phan E — doi chieu nguoc: tu phat hien "thieu ho so he thong X". Bang anh xa
+# "thuoc dien" -> slot AIHO (E.1) — KHONG ap dung cho "khibot" (chua co
+# nguong rule nao xac dinh thuoc dien, khong tu bia).
+# ---------------------------------------------------------------------------
+def _slot_thuoc_dien_baochay(fields):
+    try:
+        r = evaluate_bao_chay(fields)
+    except HeThongBatBuocInputError:
+        return False, None
+    return r.get("result") == "yes", r.get("can_cu")
+
+
+def _slot_thuoc_dien_ccnuoc(fields):
+    can_cu_list = []
+    thuoc_dien = False
+    for fn in (evaluate_sprinkler, evaluate_hong_nuoc):
+        try:
+            r = fn(fields)
+        except HeThongBatBuocInputError:
+            continue
+        if r.get("result") == "yes":
+            thuoc_dien = True
+            can_cu_list.append(r.get("can_cu"))
+    return thuoc_dien, "; ".join(c for c in can_cu_list if c) or None
+
+
+def _slot_thuoc_dien_densucco(fields):
+    can_cu_list = ["TCVN 7435-1:2004 (bình chữa cháy xách tay — luôn bắt buộc)"]
+    thuoc_dien = True  # binh chua chay xach tay luon bat buoc (id=49 Form A)
+    for fn in (evaluate_den, evaluate_loa):
+        try:
+            r = fn(fields)
+        except PhuongTienInputError:
+            continue
+        if r.get("result") == "yes":
+            can_cu_list.append(r.get("can_cu"))
+    return thuoc_dien, "; ".join(c for c in can_cu_list if c) or None
+
+
+def _slot_thuoc_dien_dienpccc(fields):
+    r = evaluate_dien_pccc_suy_luan(fields)
+    return r.get("result") == "yes", r.get("can_cu")
+
+
+def _slot_thuoc_dien_botcodinh(fields):
+    r = evaluate_bot_co_dinh(fields)
+    return r.get("result") == "yes", r.get("can_cu")
+
+
+_REVERSE_CHECK_SLOTS = (
+    ("baochay", _slot_thuoc_dien_baochay),
+    ("ccnuoc", _slot_thuoc_dien_ccnuoc),
+    ("densucco", _slot_thuoc_dien_densucco),
+    ("dienpccc", _slot_thuoc_dien_dienpccc),
+    ("botcodinh", _slot_thuoc_dien_botcodinh),
+)
+
+
+def compute_reverse_check_warnings(fields: dict, slots_with_data) -> list:
+    """Phần E.2 — với mỗi slot trong _REVERSE_CHECK_SLOTS, nếu THUỘC DIỆN
+    (theo evaluate_*() có sẵn) mà KHÔNG có trong slots_with_data (đã đính +
+    đọc thành công, do frontend gửi lên — backend không tự biết) → sinh 1
+    cảnh báo {slot, can_cu}. "Tên hệ thống" KHÔNG dựng ở đây — frontend tự
+    ghép bằng REAL_CATEGORIES[slot].label (E.2 yêu cầu dùng đúng label đã có,
+    không đặt tên mới), backend chỉ trả can_cu (trích từ evaluate_*() tương
+    ứng, không tự bịa)."""
+    slots_with_data = set(slots_with_data or [])
+    warnings = []
+    for slot, check_fn in _REVERSE_CHECK_SLOTS:
+        thuoc_dien, can_cu = check_fn(fields)
+        if thuoc_dien and slot not in slots_with_data:
+            warnings.append({"slot": slot, "can_cu": can_cu or "—"})
+    return warnings
 
 
 def validate_manual_fields(fields) -> dict:

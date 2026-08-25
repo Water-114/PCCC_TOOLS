@@ -309,6 +309,14 @@ ul.pos li{margin-bottom:2px}
 .multi-attach-error{font-size:13px;color:var(--red-deep);margin-top:4px}
 .multi-attach-error[hidden]{display:none}
 
+/* Quy mo Giai doan 1, Phan D.1/E.3 - canh bao "mau thuan quy mo" (do, nghiem
+   trong hon) va "thieu ho so he thong X" (vang, can chu y) - tai dung dung
+   bien mau amber/red-deep da co, khong tao mau moi. */
+.quymo-warning-box{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+.quymo-warning{border-radius:4px;padding:10px 14px;font-size:13.5px;line-height:1.55;border-left:4px solid}
+.quymo-warning.qw-amber{background:var(--amber-wash);border:1px solid #EBD3A0;border-left:4px solid var(--amber);color:var(--amber)}
+.quymo-warning.qw-red{background:var(--red-wash);border:1px solid #E3B9BA;border-left:4px solid var(--red-deep);color:var(--red-deep)}
+
 /* Nut "HUONG DAN" cho trang AI kiem tra ho so - chu do dam, in hoa, khong icon */
 .aiho-guide-toggle{
   display:inline-block;margin-top:8px;background:none;border:none;padding:0;

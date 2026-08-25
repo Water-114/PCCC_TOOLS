@@ -22,6 +22,7 @@ from ..services import (
     merged_reader,
     quy_mo_store,
     quymo_reader,
+    scan_quymo_reader,
 )
 from ..services.ai_reader_common import AIReaderError
 
@@ -348,6 +349,164 @@ def read_ccnuoc():
 @login_required
 def read_densucco():
     return _handle_read_request(densucco_reader.read_drawing, _build_forms_mdc, forms_per_call=2)
+
+
+@bp.post("/scan-quymo")
+@login_required
+def scan_quymo():
+    """"Lượt 0" (Quy mô Giai đoạn 1, Phần A.1) — quét NHẸ 1 file báo cháy/ccnuoc
+    đã đính để tìm thông tin quy mô công trình tình cờ có trên đó, KHÔNG chạy
+    đủ checklist tiêu chí kỹ thuật như /read-baochay, /read-ccnuoc.
+
+    KHÔNG dùng _handle_read_request() dùng chung (route đó LUÔN gọi
+    ho_so_session.reserve_slot() — cộng vào files_used/forms_used của phiên,
+    đúng cho 7 hạng mục AI thật kia nhưng SAI cho route này: Lượt 0 chỉ là
+    bước phụ trợ bên trong phiên đã mở, KHÔNG được tính là 1 hạng mục/form
+    riêng) — viết route riêng, tái dùng ĐÚNG logic validate file (size/type/
+    magic bytes) và hạn mức "lượt gọi AI/ngày" (count_usage_today/
+    effective_quota) như _handle_read_request(), chỉ bỏ đúng đoạn
+    reserve_slot()."""
+    user = g.current_user
+
+    try:
+        session_id = int(request.form.get("session_id"))
+    except (TypeError, ValueError):
+        return jsonify({
+            "error": "Thiếu hoặc sai session_id (phiên Bộ hồ sơ) — gọi /api/aiho/session/open trước khi đọc bản vẽ.",
+        }), 400
+
+    try:
+        session = ho_so_session.get_open_session_for_user(user.id, session_id)
+    except ho_so_session.SessionNotFound as exc:
+        return jsonify({"error": str(exc)}), 404
+    except ho_so_session.SessionNotOpen as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    file = request.files.get("file")
+    if not file:
+        return jsonify({"error": "Thiếu file bản vẽ (field 'file')."}), 400
+
+    media_type = file.mimetype
+    if media_type not in ALLOWED_TYPES:
+        return jsonify({"error": f"Định dạng '{media_type}' không hỗ trợ — chỉ nhận PDF, PNG, JPEG, WEBP."}), 400
+
+    data = file.read()
+    single_limit_bytes = SINGLE_MAX_BYTES_PDF if media_type == "application/pdf" else SINGLE_MAX_BYTES_IMAGE
+    if len(data) > single_limit_bytes:
+        single_limit_mb = single_limit_bytes // (1024 * 1024)
+        single_loai_file = "PDF" if media_type == "application/pdf" else "ảnh"
+        return jsonify({"error": f"File {single_loai_file} vượt quá {single_limit_mb}MB."}), 400
+
+    if not _sniff_magic_bytes(data, media_type):
+        return jsonify({"error": "Nội dung file không khớp với định dạng khai báo — file có thể bị hỏng hoặc sai định dạng thật."}), 400
+
+    limit = user.effective_quota()
+    used_today = count_usage_today(user.id, AIHO_API_NAME)
+    if used_today >= limit:
+        return jsonify({
+            "error": f"Đã đạt hạn mức {limit} lượt gọi AI/ngày cho tính năng này — thử lại vào ngày mai.",
+            "quota": {"limit": limit, "used_today": used_today, "remaining_today": 0},
+        }), 429
+
+    provider_name = request.form.get("provider")
+    try:
+        provider = get_provider(provider_name)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    try:
+        result = scan_quymo_reader.read_drawing(data, media_type, provider)
+    except ProviderNotConfigured as exc:
+        return jsonify({"error": str(exc), "provider": provider.name}), 503
+    except AIReaderError as exc:
+        db.session.add(UsageLog(user_id=user.id, api_name=AIHO_API_NAME, status="error"))
+        db.session.commit()
+        return jsonify({"error": str(exc)}), 502
+    except Exception:
+        db.session.add(UsageLog(user_id=user.id, api_name=AIHO_API_NAME, status="error"))
+        db.session.commit()
+        current_app.logger.exception("Loi goi provider '%s' (scan-quymo)", provider.name)
+        return jsonify({"error": f"Lỗi gọi máy chủ AI ('{provider.name}') — vui lòng thử lại sau."}), 502
+
+    db.session.add(UsageLog(user_id=user.id, api_name=AIHO_API_NAME, status="success"))
+    db.session.commit()
+
+    result["provider"] = provider.name
+    return jsonify(result)
+
+
+@bp.post("/scan-quymo/finish")
+@login_required
+def scan_quymo_finish():
+    """Kết thúc "Lượt 0" (Phần A.3/C) — nhận lại các kết quả thô từ 1-2 lần
+    gọi /scan-quymo (frontend tự forward, KHÔNG gọi AI ở route này), gộp +
+    lưu (source='ai_auto_detected') nếu có tìm thấy gì, hoặc chỉ đánh dấu
+    quy_mo_scan_attempted_at nếu không (xem quy_mo_store.finish_quy_mo_scan)."""
+    user = g.current_user
+    payload = request.get_json(silent=True) or {}
+
+    try:
+        session_id = int(payload.get("session_id"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Thiếu hoặc sai session_id."}), 400
+
+    try:
+        session = ho_so_session.get_open_session_for_user(user.id, session_id)
+    except ho_so_session.SessionNotFound as exc:
+        return jsonify({"error": str(exc)}), 404
+    except ho_so_session.SessionNotOpen as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    results = payload.get("results")
+    if not isinstance(results, list) or not results:
+        return jsonify({"error": "Thiếu 'results' (danh sách kết quả /scan-quymo đã gọi)."}), 400
+
+    try:
+        outcome = quy_mo_store.finish_quy_mo_scan(session, results)
+    except quy_mo_store.QuyMoInputError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    return jsonify({
+        "saved": outcome["saved"],
+        "conflicts": outcome["conflicts"],
+        "found_count": outcome["found_count"],
+    })
+
+
+@bp.post("/quymo-reverse-check")
+@login_required
+def quymo_reverse_check():
+    """Phần E.2 — đối chiếu ngược "thiếu hồ sơ hệ thống X". Chạy SAU khi Lượt 1
+    hoàn tất, frontend gửi lên danh sách slot đã có kết quả thành công
+    (slots_with_data — backend không tự biết trạng thái này, nó sống ở
+    realData phía frontend). Nếu phiên KHÔNG có dữ liệu quy mô (get_quy_mo()
+    trả None — kể cả trường hợp Lượt 0 đã thử nhưng không tìm thấy gì, xem
+    Phần C) thì không có căn cứ gì để đối chiếu — trả về rỗng, KHÔNG lỗi."""
+    user = g.current_user
+    payload = request.get_json(silent=True) or {}
+
+    try:
+        session_id = int(payload.get("session_id"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Thiếu hoặc sai session_id."}), 400
+
+    try:
+        ho_so_session.get_open_session_for_user(user.id, session_id)
+    except ho_so_session.SessionNotFound as exc:
+        return jsonify({"error": str(exc)}), 404
+    except ho_so_session.SessionNotOpen as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    fields = quy_mo_store.get_quy_mo(session_id)
+    if not fields:
+        return jsonify({"has_quy_mo": False, "warnings": []})
+
+    slots_with_data = payload.get("slots_with_data") or []
+    if not isinstance(slots_with_data, list):
+        return jsonify({"error": "'slots_with_data' phải là danh sách."}), 400
+
+    warnings = quy_mo_store.compute_reverse_check_warnings(fields, slots_with_data)
+    return jsonify({"has_quy_mo": True, "warnings": warnings})
 
 
 @bp.post("/read-quymo")

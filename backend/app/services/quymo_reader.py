@@ -71,6 +71,8 @@ BƯỚC 1 — Trích xuất quy mô công trình vào object "quy_mo". CHỈ đi
 - "pplFloor": số người lớn nhất trên 1 tầng (nếu thuyết minh có nêu).
 - "extLevel" ("thap"/"tb"/"cao"): mức nguy hiểm cháy dùng tính bình chữa cháy — chỉ điền nếu thuyết minh nêu rõ, để null nếu không chắc (hệ thống sẽ tự suy ra theo công năng khi thiếu).
 - "hanhLangDaiNhat": chiều dài hành lang thoát nạn dài nhất (m), nếu bản vẽ thể hiện.
+- "chieuCaoKeHang": chiều cao sắp xếp hàng hoá trên giá đỡ/kệ hàng (m) — chỉ điền nếu công trình là kho có kệ hàng và bản vẽ/thuyết minh thể hiện rõ.
+- "coBeXangDauNgoaiTroi": true nếu bản vẽ CÓ thể hiện bể chứa xăng dầu/dung môi dễ cháy đặt NGOÀI TRỜI, false nếu bản vẽ rõ ràng KHÔNG có, để null nếu không đủ căn cứ để xác định.
 
 BƯỚC 2 — Với MỖI mục sau, đọc bản vẽ xem có hạng mục/khu vực hoặc thiết bị nào thuộc danh mục quy định hay không, điền vào nếu đọc thấy trên bản vẽ; nếu bản vẽ không thể hiện đủ thông tin để kết luận: ghi ĐÚNG NGUYÊN VĂN "{KHONG_XAC_DINH_A2_A4}" — KHÔNG suy đoán, KHÔNG tự mặc định là "Bổ sung":
 {_fmt_a2_a4()}
@@ -88,7 +90,8 @@ Trả lời DUY NHẤT bằng JSON hợp lệ theo đúng cấu trúc sau, khôn
     "areaFloor": null, "totalArea": null, "volume": null, "hFire": null,
     "kids": null, "seats": null, "hazard": null,
     "garaKin": null, "garaKC12": null, "garaBcl": null, "garaCapS": null,
-    "pplFloor": null, "extLevel": null, "hanhLangDaiNhat": null
+    "pplFloor": null, "extLevel": null, "hanhLangDaiNhat": null,
+    "chieuCaoKeHang": null, "coBeXangDauNgoaiTroi": null
   }},
   "bang_a2_bao_chay": "...",
   "bang_a4_bao_chay": "...",

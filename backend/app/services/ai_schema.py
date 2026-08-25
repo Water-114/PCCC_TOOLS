@@ -96,6 +96,8 @@ class QuyMoFields(BaseModel):
     pplFloor: Optional[int] = None
     extLevel: Optional[Literal["auto", "thap", "tb", "cao"]] = None
     hanhLangDaiNhat: Optional[float] = None  # rieng cho evaluate_bien_tam_thap (phuong_tien.py)
+    chieuCaoKeHang: Optional[float] = None  # chieu cao sap xep hang hoa tren gia do/ke hang, m — phuc vu goi y form B15 (TCVN 14496:2025) sau nay
+    coBeXangDauNgoaiTroi: Optional[bool] = None  # co be chua xang dau/dung moi de chay ngoai troi khong — can cu ap dung B7 (TCVN 5307:2009)
 
     @field_validator("occ")
     @classmethod
@@ -103,6 +105,51 @@ class QuyMoFields(BaseModel):
         if v not in _VALID_OCC_IDS:
             raise ValueError(f"Công năng không hợp lệ: '{v}'.")
         return v
+
+
+class ScanQuyMoFields(BaseModel):
+    """Y HET QuyMoFields nhung TOAN BO field deu Optional (ke ca "occ") — dung
+    RIENG cho scan_quymo_reader.py (Luot 0, quy_mo_store.py Phan A): ban ve
+    bao chay/ccnuoc co the cho biet floors/totalArea ma KHONG the hien ro
+    cong nang, khong duoc ep AI phai doan "occ" chi de qua validation nhu
+    QuyMoFields (occ bat buoc) dang lam cho quymo_reader.py (doc dung ban ve
+    kien truc, luon co occ ro rang)."""
+    occ: Optional[str] = None
+    floors: Optional[int] = None
+    basements: Optional[int] = None
+    semiBasements: Optional[int] = None
+    areaFloor: Optional[float] = None
+    totalArea: Optional[float] = None
+    volume: Optional[float] = None
+    hFire: Optional[float] = None
+    kids: Optional[int] = None
+    seats: Optional[int] = None
+    hazard: Optional[Literal["A", "B", "C", "D", "E"]] = None
+    garaKin: Optional[Literal["kin", "ho"]] = None
+    garaKC12: Optional[Literal["le12", "gt12"]] = None
+    garaBcl: Optional[Literal["I", "II", "III", "IV", "V"]] = None
+    garaCapS: Optional[Literal["S0", "S1", "S2", "S3"]] = None
+    pplFloor: Optional[int] = None
+    extLevel: Optional[Literal["auto", "thap", "tb", "cao"]] = None
+    hanhLangDaiNhat: Optional[float] = None
+    chieuCaoKeHang: Optional[float] = None
+    coBeXangDauNgoaiTroi: Optional[bool] = None
+
+    @field_validator("occ")
+    @classmethod
+    def _occ_hop_le_neu_co(cls, v):
+        if v is not None and v not in _VALID_OCC_IDS:
+            raise ValueError(f"Công năng không hợp lệ: '{v}'.")
+        return v
+
+
+class ScanQuyMoResult(BaseModel):
+    """Kết quả "Lượt 0" (quét nhẹ quy mô, KHÔNG chạy đủ checklist tiêu chí kỹ
+    thuật) — xem scan_quymo_reader.py. tim_thay=False khi bản vẽ không có
+    thông tin quy mô nào (thay vì AI tự bịa để có giá trị)."""
+    tim_thay: bool
+    quy_mo: Optional[ScanQuyMoFields] = None
+    so_hieu_ban_ve: str = KHONG_XAC_DINH_SO_HIEU
 
 
 class QuyMoReaderResult(BaseModel):
@@ -134,6 +181,17 @@ def validate_quy_mo_reader_result(data: dict) -> QuyMoReaderResult:
         raise SchemaValidationError("Kết quả trả về không phải một JSON object.")
     try:
         return QuyMoReaderResult.model_validate(data)
+    except ValidationError as exc:
+        raise SchemaValidationError(f"JSON trả về không đúng cấu trúc yêu cầu: {exc}") from exc
+
+
+def validate_scan_quy_mo_result(data: dict) -> ScanQuyMoResult:
+    """Validate rieng cho ScanQuyMoResult (Luot 0, quet nhe) - tuong tu
+    validate_quy_mo_reader_result() nhung khac model."""
+    if not isinstance(data, dict):
+        raise SchemaValidationError("Kết quả trả về không phải một JSON object.")
+    try:
+        return ScanQuyMoResult.model_validate(data)
     except ValidationError as exc:
         raise SchemaValidationError(f"JSON trả về không đúng cấu trúc yêu cầu: {exc}") from exc
 
