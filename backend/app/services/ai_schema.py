@@ -70,6 +70,24 @@ class ChuaChayTuDongReaderResult(ReaderResult):
     co_thiet_ke_tu_dong: bool
 
 
+class GiaKeHangReaderResult(ReaderResult):
+    """Riêng cho gia_ke_hang_reader.py (B15: chữa cháy tự động giá kệ hàng,
+    TCVN 14496:2025) — KHÁC KhiBotSolKhiReaderResult ở chỗ 2 nhánh dùng CHUNG
+    1 template/1 bộ id cố định (không chọn template theo nhánh) — AI vẫn phải
+    trả lời ĐỦ mọi id, chỉ đánh dấu "khong_ap_dung" cho id thuộc nhánh không
+    chọn (xem gia_ke_hang_reader._EXPECTED_IDS, không lọc theo "nhanh")."""
+    nhanh: Literal["mot_tang", "nhieu_tang"]
+    ly_do_nhan_dien: str = ""
+
+
+class BotChuaChayReaderResult(ReaderResult):
+    """Riêng cho bot_chua_chay_reader.py (B16: chữa cháy bằng bột, TCVN
+    13877-2:2023) — cùng kiểu "1 template, 2 nhánh loại id" như
+    GiaKeHangReaderResult ở trên."""
+    nhanh: Literal["the_tich", "be_mat"]
+    ly_do_nhan_dien: str = ""
+
+
 class QuyMoFields(BaseModel):
     """Dữ liệu quy mô công trình (hạng mục "Quy mô", Form A) — dùng ĐÚNG tên
     field mà tham_dinh.py/he_thong_bat_buoc.py/phuong_tien.py đã dùng (occ,

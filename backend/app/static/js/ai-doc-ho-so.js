@@ -385,6 +385,34 @@
         else if(items.some(function(it){ return it.ket_luan === 'chua_the_hien'; })) status = 'warn';
         return {status: status, note: data.tong_ket || ''};
       }
+    },
+    giakehang: {
+      endpoint: '/api/aiho/read-b15',
+      label: 'Chữa cháy tự động giá kệ hàng',
+      estimatedSeconds: 100, // 1 mau duy nhat nhung 74 tieu chi (ca 2 nhanh gop chung 1 bang) — nhieu hon khibot/botcodinh
+      summarize: function(data){
+        var items = data.items || [];
+        var status = 'ok';
+        if(items.some(function(it){ return it.ket_luan === 'chua_dat'; })) status = 'bad';
+        else if(items.some(function(it){ return it.ket_luan === 'chua_the_hien'; })) status = 'warn';
+        var NHANH_LABEL = {mot_tang: 'hệ 1 tầng đầu phun', nhieu_tang: 'hệ nhiều tầng đầu phun'};
+        var nhanhLabel = NHANH_LABEL[data.nhanh] || data.nhanh || 'chưa xác định';
+        return {status: status, note: 'AI nhận diện: ' + nhanhLabel + '. ' + (data.tong_ket || '')};
+      }
+    },
+    botchuachay: {
+      endpoint: '/api/aiho/read-b16',
+      label: 'Chữa cháy bằng bột',
+      estimatedSeconds: 70, // 1 mau duy nhat, 33 tieu chi (ca 2 nhanh gop chung 1 bang) — it hon giakehang
+      summarize: function(data){
+        var items = data.items || [];
+        var status = 'ok';
+        if(items.some(function(it){ return it.ket_luan === 'chua_dat'; })) status = 'bad';
+        else if(items.some(function(it){ return it.ket_luan === 'chua_the_hien'; })) status = 'warn';
+        var NHANH_LABEL = {the_tich: 'hệ theo thể tích', be_mat: 'hệ bề mặt'};
+        var nhanhLabel = NHANH_LABEL[data.nhanh] || data.nhanh || 'chưa xác định';
+        return {status: status, note: 'AI nhận diện: ' + nhanhLabel + '. ' + (data.tong_ket || '')};
+      }
     }
   };
 
@@ -1475,15 +1503,22 @@
         fileDiv.style.marginTop = '12px';
         if(f.base64){
           var items = itemsForMdcFile(d, f);
-          var knCount = items.filter(function(it){ return it.ket_luan !== 'dat'; }).length;
-          var datCount = items.length - knCount;
+          // "khong_ap_dung" (vd nhanh khong duoc AI chon o B7/B15/B16) khong
+          // phai la 1 muc "can kien nghi" - tach rieng khoi knCount, khac voi
+          // truoc day gop chung vao KN (dung sai voi cac form co nhieu id
+          // khong_ap_dung nhu B15/B16 - xem mdc_filler._KET_LUAN_TO_DOCX cho
+          // dung 3 nhom nay o phia backend).
+          var naCount = items.filter(function(it){ return it.ket_luan === 'khong_ap_dung'; }).length;
+          var knCount = items.filter(function(it){ return it.ket_luan !== 'dat' && it.ket_luan !== 'khong_ap_dung'; }).length;
+          var datCount = items.length - knCount - naCount;
           var dataUrl = 'data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,' + f.base64;
 
           var p = document.createElement('p');
           var b = document.createElement('b');
           b.textContent = f.label;
           p.appendChild(b);
-          p.appendChild(document.createTextNode(' — đã điền ' + items.length + ' mục đối chiếu: ' + datCount + ' Đạt, ' + knCount + ' cần kiến nghị (KN).'));
+          var summaryText = ' — đã điền ' + items.length + ' mục đối chiếu: ' + datCount + ' Đạt, ' + knCount + ' cần kiến nghị (KN)' + (naCount ? ', ' + naCount + ' không áp dụng' : '') + '.';
+          p.appendChild(document.createTextNode(summaryText));
           fileDiv.appendChild(p);
 
           var a = document.createElement('a');

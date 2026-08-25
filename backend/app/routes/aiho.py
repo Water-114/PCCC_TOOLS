@@ -10,11 +10,13 @@ from ..providers.factory import get_provider
 from ..services import (
     ai_schema,
     baochay_reader,
+    bot_chua_chay_reader,
     botcodinh_reader,
     ccnuoc_reader,
     credits,
     densucco_reader,
     dienpccc_reader,
+    gia_ke_hang_reader,
     khibotsolkhi_reader,
     ho_so_session,
     kien_nghi_docx,
@@ -299,6 +301,14 @@ def _build_botcodinh_mdc(result):
     return [_build_mdc_file("bot_co_dinh", "Chữa cháy bằng bọt cố định", result.get("items", []))]
 
 
+def _build_gia_ke_hang_mdc(result):
+    return [_build_mdc_file("chua_chay_gia_ke_hang", "Chữa cháy tự động giá kệ hàng", result.get("items", []))]
+
+
+def _build_bot_chua_chay_mdc(result):
+    return [_build_mdc_file("bot_chua_chay", "Chữa cháy bằng bột", result.get("items", []))]
+
+
 def _build_quymo_mdc(result):
     items = quy_mo_store.build_form_a_items(
         result.get("quy_mo") or {},
@@ -530,6 +540,18 @@ def read_khibot():
 @login_required
 def read_botcodinh():
     return _handle_read_request(botcodinh_reader.read_drawing, _build_botcodinh_mdc, forms_per_call=1)
+
+
+@bp.post("/read-b15")
+@login_required
+def read_b15():
+    return _handle_read_request(gia_ke_hang_reader.read_drawing, _build_gia_ke_hang_mdc, forms_per_call=1)
+
+
+@bp.post("/read-b16")
+@login_required
+def read_b16():
+    return _handle_read_request(bot_chua_chay_reader.read_drawing, _build_bot_chua_chay_mdc, forms_per_call=1)
 
 
 @bp.post("/read-merged")
