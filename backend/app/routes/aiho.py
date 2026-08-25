@@ -17,6 +17,7 @@ from ..services import (
     densucco_reader,
     dienpccc_reader,
     gia_ke_hang_reader,
+    hang_muc_store,
     khibotsolkhi_reader,
     ho_so_session,
     kien_nghi_docx,
@@ -763,6 +764,112 @@ def quymo_manual():
         "quy_mo": clean_fields,
         "mdc_docx_files": [mdc_file],
     })
+
+
+# ---------------------------------------------------------------------------
+# Dự án nhiều công trình (Đợt 2a) — khai báo + xem trước quy mô TỪNG công
+# trình/khối trong 1 dự án (LƯU Ý: "hạng mục" ở nhóm route này nghĩa là 1
+# CÔNG TRÌNH, khác "hạng mục" = 1 loại hệ thống PCCC ở các route phía trên —
+# xem models.HoSoSessionHangMuc). Giống hệt /quymo-manual: KHÔNG gọi AI,
+# KHÔNG trừ quota "lượt gọi AI/ngày", KHÔNG trừ Bộ hồ sơ — chỉ cần phiên
+# đang mở đúng của user để lưu đúng phiên.
+# ---------------------------------------------------------------------------
+def _get_open_session_or_error(user_id, session_id):
+    """Trả về (session, None) hoặc (None, (response, status)) — dùng chung
+    cho cả 4 route hang-muc để tránh lặp lại try/except."""
+    try:
+        return ho_so_session.get_open_session_for_user(user_id, session_id), None
+    except ho_so_session.SessionNotFound as exc:
+        return None, (jsonify({"error": str(exc)}), 404)
+    except ho_so_session.SessionNotOpen as exc:
+        return None, (jsonify({"error": str(exc)}), 400)
+
+
+@bp.post("/hang-muc")
+@login_required
+def create_hang_muc():
+    user = g.current_user
+    payload = request.get_json(silent=True) or {}
+
+    try:
+        session_id = int(payload.get("session_id"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Thiếu hoặc sai session_id (phiên Bộ hồ sơ)."}), 400
+
+    _session, err = _get_open_session_or_error(user.id, session_id)
+    if err:
+        return err
+
+    try:
+        result = hang_muc_store.save_hang_muc(session_id, payload.get("ten_hang_muc"), payload.get("quy_mo"))
+    except hang_muc_store.HangMucInputError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    return jsonify(result)
+
+
+@bp.get("/hang-muc")
+@login_required
+def get_hang_muc_list():
+    user = g.current_user
+    try:
+        session_id = int(request.args.get("session_id"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Thiếu hoặc sai session_id (phiên Bộ hồ sơ)."}), 400
+
+    _session, err = _get_open_session_or_error(user.id, session_id)
+    if err:
+        return err
+
+    return jsonify({"items": hang_muc_store.list_hang_muc(session_id)})
+
+
+@bp.put("/hang-muc/<int:hang_muc_id>")
+@login_required
+def update_hang_muc_route(hang_muc_id):
+    user = g.current_user
+    payload = request.get_json(silent=True) or {}
+
+    try:
+        session_id = int(payload.get("session_id"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Thiếu hoặc sai session_id (phiên Bộ hồ sơ)."}), 400
+
+    _session, err = _get_open_session_or_error(user.id, session_id)
+    if err:
+        return err
+
+    try:
+        result = hang_muc_store.update_hang_muc(hang_muc_id, session_id, payload.get("ten_hang_muc"), payload.get("quy_mo"))
+    except hang_muc_store.HangMucNotFound as exc:
+        return jsonify({"error": str(exc)}), 404
+    except hang_muc_store.HangMucInputError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    return jsonify(result)
+
+
+@bp.delete("/hang-muc/<int:hang_muc_id>")
+@login_required
+def delete_hang_muc_route(hang_muc_id):
+    user = g.current_user
+    payload = request.get_json(silent=True) or {}
+
+    try:
+        session_id = int(payload.get("session_id"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Thiếu hoặc sai session_id (phiên Bộ hồ sơ)."}), 400
+
+    _session, err = _get_open_session_or_error(user.id, session_id)
+    if err:
+        return err
+
+    try:
+        hang_muc_store.delete_hang_muc(hang_muc_id, session_id)
+    except hang_muc_store.HangMucNotFound as exc:
+        return jsonify({"error": str(exc)}), 404
+
+    return jsonify({"deleted": True})
 
 
 @bp.post("/export-kien-nghi")

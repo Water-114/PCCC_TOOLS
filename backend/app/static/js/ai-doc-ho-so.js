@@ -1246,6 +1246,448 @@
     });
   }
 
+  /* ===================================================================
+     Dự án nhiều công trình (Đợt 2a) — khai báo + xem trước quy mô TỪNG
+     công trình/khối trong 1 dự án (vd Xưởng A, Kho B, Kho C dùng CHUNG bộ
+     bản vẽ theo hệ thống). LƯU Ý: "hạng mục" trong biến/route (hang-muc,
+     hangMuc...) nghĩa là 1 CÔNG TRÌNH — KHÁC "hạng mục" ở khu Bước 1 phía
+     trên (1 loại hệ thống PCCC) — UI dùng chữ "công trình" để không nhầm.
+     Đợt 2a CHỈ dừng ở khai báo + xem trước "thuộc diện hệ thống gì" —
+     CHƯA nối vào luồng đọc bản vẽ hiện có (đó là Đợt 2b, làm sau).
+     KHÔNG gọi AI, KHÔNG trừ quota/Bộ hồ sơ — giống hệt luồng Quy mô nhập
+     tay (quymo-manual) ở trên, tái dùng ĐÚNG ensureSessionOpen().
+     =================================================================== */
+  var hangMucToggle = document.getElementById('hangMucToggle');
+  var hangMucPanel = document.getElementById('hangMucPanel');
+
+  // Nhan he thong hien thi cho 12 id cua build_thuoc_dien_preview_items()
+  // (7,9,16,18,27,30,42,45,49,55,57,60 - dung THU TU/Y NGHIA da co san trong
+  // quy_mo_store._TYPE1_ROWS, chi la nhan hien thi phia frontend, KHONG doi
+  // du lieu/ket_luan backend tra ve).
+  var HANG_MUC_SYSTEM_LABEL = {
+    7: 'Báo cháy tự động (đối với nhà)',
+    9: 'Báo cháy tự động (đối với gian phòng)',
+    16: 'Chữa cháy Sprinkler (đối với nhà)',
+    18: 'Chữa cháy Sprinkler (đối với gian phòng)',
+    27: 'Họng nước chữa cháy trong nhà',
+    30: 'Cấp nước chữa cháy ngoài nhà',
+    42: 'Đèn sự cố / chỉ dẫn thoát nạn',
+    45: 'Loa thông báo, hướng dẫn thoát nạn',
+    49: 'Bình chữa cháy xách tay',
+    55: 'Dụng cụ phá dỡ thô sơ',
+    57: 'Mặt nạ lọc độc/phòng độc cách ly',
+    60: 'Phương tiện chữa cháy cơ giới'
+  };
+
+  var hangMucEditingId = null; // null = dang them moi; khac null = dang sua dung id nay
+  var hangMucListWrap; // gan trong buildHangMucPanel()
+
+  function hangMucQuyMoFromForm(occSelect, baseInputs, coBeSelect, extraInputs, extraDefs){
+    var quyMo = {occ: occSelect.value};
+    QUYMO_BASE_FIELDS.forEach(function(f){
+      var v = baseInputs[f.key].value;
+      if(v !== '') quyMo[f.key] = Number(v);
+    });
+    if(coBeSelect.value !== '') quyMo.coBeXangDauNgoaiTroi = (coBeSelect.value === 'true');
+    Object.keys(extraInputs).forEach(function(key){
+      var el = extraInputs[key];
+      if(el.value === '') return;
+      quyMo[key] = extraDefs[key].select ? el.value : Number(el.value);
+    });
+    return quyMo;
+  }
+
+  function renderHangMucList(items){
+    hangMucListWrap.innerHTML = '';
+    if(!items.length){
+      var emptyP = document.createElement('p');
+      emptyP.className = 'hint';
+      emptyP.textContent = 'Chưa có công trình nào trong dự án này.';
+      hangMucListWrap.appendChild(emptyP);
+      return;
+    }
+
+    var tblWrap = document.createElement('div');
+    tblWrap.className = 'tbl-wrap';
+    var table = document.createElement('table');
+    var thead = document.createElement('thead');
+    thead.innerHTML = ''; // dung textContent tung o thay vi noi chuoi HTML
+    var headRow = document.createElement('tr');
+    ['Tên công trình', 'Quy mô chính', 'Thuộc diện bắt buộc trang bị', 'Thao tác'].forEach(function(h){
+      var th = document.createElement('th');
+      th.textContent = h;
+      headRow.appendChild(th);
+    });
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+
+    var tbody = document.createElement('tbody');
+    items.forEach(function(hm){
+      var tr = document.createElement('tr');
+
+      var tdTen = document.createElement('td');
+      tdTen.textContent = hm.ten_hang_muc;
+      tr.appendChild(tdTen);
+
+      var tdQuyMo = document.createElement('td');
+      var f = hm.fields || {};
+      var occDef = (typeof OCCS !== 'undefined' ? OCCS : []).filter(function(o){ return o.id === f.occ; })[0];
+      var quyMoParts = [(occDef && occDef.label) || f.occ || 'chưa xác định công năng'];
+      if(f.totalArea != null) quyMoParts.push('ΣF ' + Number(f.totalArea).toLocaleString('vi-VN') + ' m²');
+      if(f.volume != null) quyMoParts.push('V ' + Number(f.volume).toLocaleString('vi-VN') + ' m³');
+      if(f.floors != null) quyMoParts.push(f.floors + ' tầng nổi' + (f.basements ? ' + ' + f.basements + ' tầng hầm' : ''));
+      if(f.pplFloor != null) quyMoParts.push(f.pplFloor + ' người/tầng');
+      tdQuyMo.textContent = quyMoParts.join(' · ');
+      tr.appendChild(tdQuyMo);
+
+      var tdThuocDien = document.createElement('td');
+      var thuocDien = (hm.thuoc_dien_items || []).filter(function(it){ return it.ket_luan === 'dat'; });
+      if(thuocDien.length){
+        var ul = document.createElement('ul');
+        ul.style.margin = '0';
+        ul.style.paddingLeft = '18px';
+        thuocDien.forEach(function(it){
+          var li = document.createElement('li');
+          li.textContent = HANG_MUC_SYSTEM_LABEL[it.id] || ('Mục #' + it.id);
+          ul.appendChild(li);
+        });
+        tdThuocDien.appendChild(ul);
+      } else {
+        var noneSpan = document.createElement('span');
+        noneSpan.className = 'hint';
+        noneSpan.textContent = 'Chưa xác định được — cần thêm thông số quy mô.';
+        tdThuocDien.appendChild(noneSpan);
+      }
+      tr.appendChild(tdThuocDien);
+
+      var tdActions = document.createElement('td');
+      var editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.className = 'btn-ghost';
+      editBtn.style.padding = '6px 12px';
+      editBtn.style.marginRight = '6px';
+      editBtn.textContent = 'Sửa';
+      editBtn.addEventListener('click', function(){ hangMucStartEdit(hm); });
+      tdActions.appendChild(editBtn);
+
+      var delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'btn-ghost';
+      delBtn.style.padding = '6px 12px';
+      delBtn.addEventListener('click', function(){ hangMucDelete(hm.hang_muc_id); });
+      delBtn.textContent = 'Xoá';
+      tdActions.appendChild(delBtn);
+
+      tr.appendChild(tdActions);
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    tblWrap.appendChild(table);
+    hangMucListWrap.appendChild(tblWrap);
+  }
+
+  function fetchHangMucList(){
+    if(!activeSessionId){
+      renderHangMucList([]);
+      return Promise.resolve();
+    }
+    return fetch(BACKEND_BASE + '/api/aiho/hang-muc?session_id=' + activeSessionId, {
+      headers: {'Authorization': 'Bearer ' + getToken()}
+    })
+      .then(function(res){ return res.json().then(function(data){ return {status: res.status, data: data}; }); })
+      .then(function(r){
+        if(r.status < 400) renderHangMucList(r.data.items || []);
+      })
+      .catch(function(){ /* im lang - danh sach giu nguyen, khong chan luong nhap */ });
+  }
+
+  var hangMucStartEdit; // gan trong buildHangMucPanel() (can truy cap form)
+  var hangMucDelete;    // gan trong buildHangMucPanel()
+
+  function buildHangMucPanel(){
+    hangMucPanel.innerHTML = '';
+    var occs = (typeof OCCS !== 'undefined') ? OCCS : [];
+    var extraDefs = (typeof EXTRA_FIELDS !== 'undefined') ? EXTRA_FIELDS : {};
+
+    var introP = document.createElement('p');
+    introP.className = 'hint';
+    introP.textContent = 'Dùng khi dự án có NHIỀU công trình/khối (vd Xưởng A, Kho B, Kho C) dùng chung 1 bộ bản vẽ theo hệ thống — khai báo quy mô riêng từng công trình để xem trước công trình nào thuộc diện bắt buộc trang bị hệ thống gì.';
+    hangMucPanel.appendChild(introP);
+
+    var noteP = document.createElement('p');
+    noteP.className = 'hint';
+    noteP.style.color = 'var(--amber)';
+    noteP.style.marginTop = '6px';
+    noteP.textContent = 'Danh sách này hiện dùng để xem trước — chưa liên kết với việc đọc bản vẽ (sẽ bổ sung ở bản cập nhật sau).';
+    hangMucPanel.appendChild(noteP);
+
+    var tenField = document.createElement('div');
+    tenField.className = 'field';
+    tenField.style.marginTop = '12px';
+    var tenLabel = document.createElement('label');
+    tenLabel.textContent = 'Tên công trình';
+    tenField.appendChild(tenLabel);
+    var tenInput = document.createElement('input');
+    tenInput.type = 'text';
+    tenInput.placeholder = 'VD: Xưởng A';
+    tenField.appendChild(tenInput);
+    hangMucPanel.appendChild(tenField);
+
+    var occField = document.createElement('div');
+    occField.className = 'field';
+    occField.style.marginTop = '10px';
+    var occLabel = document.createElement('label');
+    occLabel.textContent = 'Công năng chính';
+    occField.appendChild(occLabel);
+    var occSelect = document.createElement('select');
+    var optDefault = document.createElement('option');
+    optDefault.value = '';
+    optDefault.textContent = '— Chọn công năng —';
+    occSelect.appendChild(optDefault);
+    occs.forEach(function(o){
+      var opt = document.createElement('option');
+      opt.value = o.id;
+      opt.textContent = o.label;
+      occSelect.appendChild(opt);
+    });
+    occField.appendChild(occSelect);
+    hangMucPanel.appendChild(occField);
+
+    var baseGrid = document.createElement('div');
+    baseGrid.className = 'grid';
+    baseGrid.style.marginTop = '10px';
+    var baseInputs = {};
+    QUYMO_BASE_FIELDS.forEach(function(f){
+      var field = document.createElement('div');
+      field.className = 'field';
+      var label = document.createElement('label');
+      label.textContent = f.label;
+      field.appendChild(label);
+      var input = document.createElement('input');
+      input.type = 'number';
+      input.min = '0';
+      input.step = 'any';
+      input.placeholder = f.ph;
+      field.appendChild(input);
+      baseGrid.appendChild(field);
+      baseInputs[f.key] = input;
+    });
+    hangMucPanel.appendChild(baseGrid);
+
+    var coBeField = document.createElement('div');
+    coBeField.className = 'field';
+    coBeField.style.marginTop = '10px';
+    var coBeLabel = document.createElement('label');
+    coBeLabel.textContent = 'Có bể chứa xăng dầu/dung môi dễ cháy đặt ngoài trời không?';
+    coBeField.appendChild(coBeLabel);
+    var coBeSelect = document.createElement('select');
+    [['', '— Chưa xác định —'], ['true', 'Có'], ['false', 'Không']].forEach(function(pair){
+      var opt = document.createElement('option');
+      opt.value = pair[0];
+      opt.textContent = pair[1];
+      coBeSelect.appendChild(opt);
+    });
+    coBeField.appendChild(coBeSelect);
+    hangMucPanel.appendChild(coBeField);
+
+    var extraWrap = document.createElement('div');
+    extraWrap.className = 'grid';
+    extraWrap.style.marginTop = '10px';
+    hangMucPanel.appendChild(extraWrap);
+
+    var extraInputs = {};
+    function renderExtraFields(){
+      extraWrap.innerHTML = '';
+      extraInputs = {};
+      var occDef = occs.filter(function(o){ return o.id === occSelect.value; })[0];
+      var extraKeys = (occDef && occDef.extra) || [];
+      extraKeys.forEach(function(key){
+        var def = extraDefs[key];
+        if(!def) return;
+        var field = document.createElement('div');
+        field.className = 'field';
+        var label = document.createElement('label');
+        label.textContent = def.label;
+        field.appendChild(label);
+        var el;
+        if(def.select){
+          el = document.createElement('select');
+          def.select.forEach(function(pair){
+            var opt = document.createElement('option');
+            opt.value = pair[0];
+            opt.textContent = pair[1];
+            el.appendChild(opt);
+          });
+        } else {
+          el = document.createElement('input');
+          el.type = 'number';
+          el.min = '0';
+          el.step = 'any';
+          el.placeholder = def.ph || '';
+        }
+        field.appendChild(el);
+        extraWrap.appendChild(field);
+        extraInputs[key] = el;
+      });
+    }
+    occSelect.addEventListener('change', renderExtraFields);
+    renderExtraFields();
+
+    function resetForm(){
+      hangMucEditingId = null;
+      tenInput.value = '';
+      occSelect.value = '';
+      renderExtraFields();
+      QUYMO_BASE_FIELDS.forEach(function(f){ baseInputs[f.key].value = ''; });
+      coBeSelect.value = '';
+      submitBtn.textContent = 'Thêm công trình vào dự án';
+      cancelEditBtn.hidden = true;
+    }
+
+    function fillFormForEdit(hm){
+      hangMucEditingId = hm.hang_muc_id;
+      tenInput.value = hm.ten_hang_muc;
+      var f = hm.fields || {};
+      occSelect.value = f.occ || '';
+      renderExtraFields();
+      QUYMO_BASE_FIELDS.forEach(function(fld){
+        var v = f[fld.key];
+        baseInputs[fld.key].value = (v == null) ? '' : v;
+      });
+      coBeSelect.value = f.coBeXangDauNgoaiTroi === true ? 'true' : (f.coBeXangDauNgoaiTroi === false ? 'false' : '');
+      Object.keys(extraInputs).forEach(function(key){
+        var v = f[key];
+        extraInputs[key].value = (v == null) ? '' : v;
+      });
+      submitBtn.textContent = 'Lưu thay đổi công trình';
+      cancelEditBtn.hidden = false;
+      feedbackMsg.textContent = 'Đang sửa "' + hm.ten_hang_muc + '" — bấm "Lưu thay đổi công trình" để lưu.';
+      feedbackMsg.style.color = '';
+      hangMucPanel.scrollIntoView({behavior: 'smooth', block: 'start'});
+    }
+
+    var actions = document.createElement('div');
+    actions.className = 'quymo-manual-actions';
+    actions.style.marginTop = '12px';
+
+    var submitBtn = document.createElement('button');
+    submitBtn.type = 'button';
+    submitBtn.className = 'btn-main';
+    submitBtn.textContent = 'Thêm công trình vào dự án';
+    actions.appendChild(submitBtn);
+
+    var cancelEditBtn = document.createElement('button');
+    cancelEditBtn.type = 'button';
+    cancelEditBtn.className = 'btn-ghost';
+    cancelEditBtn.style.marginLeft = '8px';
+    cancelEditBtn.textContent = 'Huỷ sửa';
+    cancelEditBtn.hidden = true;
+    cancelEditBtn.addEventListener('click', resetForm);
+    actions.appendChild(cancelEditBtn);
+
+    var feedbackMsg = document.createElement('span');
+    feedbackMsg.className = 'quymo-manual-msg';
+    actions.appendChild(feedbackMsg);
+
+    hangMucPanel.appendChild(actions);
+
+    submitBtn.addEventListener('click', function(){
+      if(!currentUser){ window.openAuthModal(); return; }
+      var ten = tenInput.value.trim();
+      if(!ten){
+        feedbackMsg.textContent = 'Vui lòng nhập tên công trình.';
+        feedbackMsg.style.color = 'var(--red-deep)';
+        return;
+      }
+      if(!occSelect.value){
+        feedbackMsg.textContent = 'Vui lòng chọn công năng chính.';
+        feedbackMsg.style.color = 'var(--red-deep)';
+        return;
+      }
+      var quyMo = hangMucQuyMoFromForm(occSelect, baseInputs, coBeSelect, extraInputs, extraDefs);
+
+      submitBtn.disabled = true;
+      feedbackMsg.textContent = 'Đang lưu…';
+      feedbackMsg.style.color = '';
+
+      ensureSessionOpen().then(function(r){
+        if(r.status >= 400){
+          submitBtn.disabled = false;
+          feedbackMsg.textContent = r.data.error || 'Không mở được phiên Bộ hồ sơ — vui lòng thử lại.';
+          feedbackMsg.style.color = 'var(--red-deep)';
+          return;
+        }
+        var isEdit = hangMucEditingId != null;
+        var url = BACKEND_BASE + '/api/aiho/hang-muc' + (isEdit ? '/' + hangMucEditingId : '');
+        return fetch(url, {
+          method: isEdit ? 'PUT' : 'POST',
+          headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken()},
+          body: JSON.stringify({session_id: r.data.session_id, ten_hang_muc: ten, quy_mo: quyMo})
+        })
+          .then(function(res){ return res.json().then(function(data){ return {status: res.status, data: data}; }); })
+          .then(function(r2){
+            submitBtn.disabled = false;
+            if(r2.status >= 400){
+              feedbackMsg.textContent = r2.data.error || 'Không lưu được công trình — vui lòng thử lại.';
+              feedbackMsg.style.color = 'var(--red-deep)';
+              return;
+            }
+            feedbackMsg.textContent = isEdit ? '✓ Đã lưu thay đổi.' : '✓ Đã thêm công trình — tiếp tục nhập công trình tiếp theo nếu có.';
+            feedbackMsg.style.color = 'var(--green)';
+            resetForm();
+            fetchHangMucList();
+          });
+      }).catch(function(){
+        submitBtn.disabled = false;
+        feedbackMsg.textContent = 'Không kết nối được tới máy chủ — vui lòng thử lại.';
+        feedbackMsg.style.color = 'var(--red-deep)';
+      });
+    });
+
+    var listHeading = document.createElement('h4');
+    listHeading.style.marginTop = '18px';
+    listHeading.textContent = 'Danh sách công trình trong dự án';
+    hangMucPanel.appendChild(listHeading);
+
+    hangMucListWrap = document.createElement('div');
+    hangMucListWrap.style.marginTop = '8px';
+    hangMucPanel.appendChild(hangMucListWrap);
+
+    hangMucStartEdit = fillFormForEdit;
+    hangMucDelete = function(hangMucId){
+      if(!activeSessionId) return;
+      fetch(BACKEND_BASE + '/api/aiho/hang-muc/' + hangMucId, {
+        method: 'DELETE',
+        headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken()},
+        body: JSON.stringify({session_id: activeSessionId})
+      })
+        .then(function(res){ return res.json().then(function(data){ return {status: res.status, data: data}; }); })
+        .then(function(r){
+          if(r.status < 400){
+            if(hangMucEditingId === hangMucId) resetForm();
+            fetchHangMucList();
+          }
+        });
+    };
+
+    renderHangMucList([]);
+    fetchHangMucList();
+  }
+
+  if(hangMucToggle && hangMucPanel){
+    hangMucToggle.addEventListener('click', function(){
+      if(!currentUser){ window.openAuthModal(); return; }
+      var willOpen = hangMucPanel.hidden;
+      if(willOpen && !hangMucPanel.dataset.built){
+        buildHangMucPanel();
+        hangMucPanel.dataset.built = '1';
+      }
+      if(willOpen) fetchHangMucList();
+      hangMucPanel.hidden = !willOpen;
+      hangMucToggle.textContent = willOpen ? 'Ẩn' : 'Dự án nhiều công trình — khai báo quy mô từng công trình';
+    });
+  }
+
   grid.addEventListener('click', function(e){
     var card = e.target.closest('.drop-card');
     if(!card) return;

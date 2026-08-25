@@ -285,3 +285,86 @@ class HoSoSessionQuyMo(db.Model):
             "chieuCaoKeHang": self.chieu_cao_ke_hang,
             "coBeXangDauNgoaiTroi": self.co_be_xang_dau_ngoai_troi,
         }
+
+
+class HoSoSessionHangMuc(db.Model):
+    """Dự án nhiều công trình (Đợt 2a) — quy mô của TỪNG công trình/khối
+    trong 1 dự án PCCC (vd Xưởng A, Kho B, Kho C cùng 1 phiên Bộ hồ sơ).
+
+    LƯU Ý THUẬT NGỮ: "hạng mục" ở đây nghĩa là 1 CÔNG TRÌNH/KHỐI trong dự án
+    — KHÁC HẲN "hạng mục" ở khu "Bước 1: Đính kèm bản vẽ theo hạng mục" của
+    AIHO (nghĩa là 1 LOẠI HỆ THỐNG PCCC — báo cháy/điện PCCC/nước...). Trùng
+    chữ do lịch sử đặt tên — code/DB vẫn dùng hang_muc/HangMuc (khớp thuật
+    ngữ đã thống nhất với owner và skill lap-ho-so-tham-dinh), UI hiển thị
+    cho user dùng chữ "công trình" để tránh nhầm với khu Bước 1 hiện có.
+
+    Copy Y HỆT các cột dữ liệu quy mô của HoSoSessionQuyMo (occ, floors,
+    ..., coBeXangDauNgoaiTroi) — dùng lại đúng QuyMoFields để validate,
+    dùng lại đúng evaluate_*() hiện có để tính "thuộc diện hệ thống gì"
+    (xem hang_muc_store.py) — không viết lại logic rule-based nào.
+
+    KHÁC HoSoSessionQuyMo ở 3 điểm:
+    1. Thêm ten_hang_muc (tên công trình do user tự đặt, bắt buộc).
+    2. session_id KHÔNG unique — 1 phiên có NHIỀU công trình (khác
+       HoSoSessionQuyMo giới hạn đúng 1 bản ghi/phiên, đại diện quy mô
+       TOÀN DỰ ÁN nói chung, không phải riêng từng công trình).
+    3. KHÔNG có cột source — đợt này chỉ có nhập tay, chưa có AI đọc bản vẽ
+       theo công trình (đó là Đợt 2b, chưa làm ở đây)."""
+
+    __tablename__ = "ho_so_session_hang_muc"
+
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.Integer, db.ForeignKey("ho_so_session.id"), nullable=False, index=True)
+    ten_hang_muc = db.Column(db.String(255), nullable=False)
+    occ = db.Column(db.String(30), nullable=True)
+    floors = db.Column(db.Integer, nullable=True)
+    basements = db.Column(db.Integer, nullable=True)
+    semi_basements = db.Column(db.Integer, nullable=True)
+    area_floor = db.Column(db.Float, nullable=True)
+    total_area = db.Column(db.Float, nullable=True)
+    volume = db.Column(db.Float, nullable=True)
+    h_fire = db.Column(db.Float, nullable=True)
+    kids = db.Column(db.Integer, nullable=True)
+    seats = db.Column(db.Integer, nullable=True)
+    hazard = db.Column(db.String(1), nullable=True)
+    gara_kin = db.Column(db.String(10), nullable=True)
+    gara_kc12 = db.Column(db.String(10), nullable=True)
+    gara_bcl = db.Column(db.String(10), nullable=True)
+    gara_cap_s = db.Column(db.String(10), nullable=True)
+    ppl_floor = db.Column(db.Integer, nullable=True)
+    ext_level = db.Column(db.String(10), nullable=True)
+    hanh_lang_dai_nhat = db.Column(db.Float, nullable=True)
+    chieu_cao_ke_hang = db.Column(db.Float, nullable=True)
+    co_be_xang_dau_ngoai_troi = db.Column(db.Boolean, nullable=True)
+    created_at = db.Column(db.DateTime(timezone=True), default=_utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False)
+
+    session = db.relationship("HoSoSession")
+
+    def to_fields_dict(self):
+        """Y HET HoSoSessionQuyMo.to_dict() (tra ve dung ten field cua
+        QuyMoFields/evaluate_*(), camelCase) - doi ten ham de tranh nham voi
+        to_dict() thong thuong (bo sung ten_hang_muc/id o dau goi, xem
+        hang_muc_store.py)."""
+        return {
+            "occ": self.occ,
+            "floors": self.floors,
+            "basements": self.basements,
+            "semiBasements": self.semi_basements,
+            "areaFloor": self.area_floor,
+            "totalArea": self.total_area,
+            "volume": self.volume,
+            "hFire": self.h_fire,
+            "kids": self.kids,
+            "seats": self.seats,
+            "hazard": self.hazard,
+            "garaKin": self.gara_kin,
+            "garaKC12": self.gara_kc12,
+            "garaBcl": self.gara_bcl,
+            "garaCapS": self.gara_cap_s,
+            "pplFloor": self.ppl_floor,
+            "extLevel": self.ext_level,
+            "hanhLangDaiNhat": self.hanh_lang_dai_nhat,
+            "chieuCaoKeHang": self.chieu_cao_ke_hang,
+            "coBeXangDauNgoaiTroi": self.co_be_xang_dau_ngoai_troi,
+        }

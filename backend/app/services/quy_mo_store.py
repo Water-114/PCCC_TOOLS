@@ -514,6 +514,61 @@ def build_type1_items(fields: dict) -> list:
     return items
 
 
+# "yes"/"no"/"na"/"warn" -> ket_luan RIENG cho preview "thuoc dien he thong
+# gi" (Dự án nhiều công trình, Đợt 2a, hang_muc_store.py) - KHAC HAN
+# _RULE_TO_KET_LUAN o tren (Form A gop ca "yes" LAN "no" thanh "dat", vi Form
+# A chi quan tam "dong da tra loi chua", khong phai "co bat buoc khong"). O
+# day can PHAN BIET that "yes" (bat buoc trang bi, "dat") voi "no" (rule da
+# chay nhung KHONG bat buoc - gop chung voi "na" thanh "khong_ap_dung") -
+# neu dung nham _RULE_TO_KET_LUAN se lam preview hien SAI he thong khong bat
+# buoc (vd loa thong bao duoi nguong 18.000m2 van bi liet ke nham la "thuoc
+# dien" vi evaluate_loa() tra ve "no" chu khong phai "na").
+_RULE_TO_THUOC_DIEN_KET_LUAN = {
+    "yes": "dat",
+    "no": "khong_ap_dung",
+    "na": "khong_ap_dung",
+    "warn": "chua_the_hien",
+    "chua_du_du_lieu": "chua_the_hien",
+}
+
+
+def build_thuoc_dien_preview_items(fields: dict) -> list:
+    """Dự án nhiều công trình (Đợt 2a) — rút gọn "công trình này thuộc diện
+    bắt buộc trang bị hệ thống gì" cho 1 bộ quy mô, dùng CHUNG _TYPE1_ROWS/
+    _safe_eval/evaluate_den với build_type1_items() (KHÔNG viết lại/KHÔNG
+    đổi bất kỳ ngưỡng nào) — chỉ khác cách map "ket_luan" (xem
+    _RULE_TO_THUOC_DIEN_KET_LUAN) để "dat" ĐÚNG NGHĨA "bắt buộc trang bị",
+    dùng để lọc hiển thị (khác build_type1_items(), nơi "dat" chỉ có nghĩa
+    "đã có kết luận rule-based", có thể là yes HOẶC no)."""
+    items = []
+    for row_id, fn in _TYPE1_ROWS:
+        r = _safe_eval(fn, fields)
+        items.append({
+            "id": row_id,
+            "noi_dung_thiet_ke": r.get("detail", "—"),
+            "ket_luan": _RULE_TO_THUOC_DIEN_KET_LUAN.get(r["result"], "chua_the_hien"),
+        })
+
+    r = _safe_eval(evaluate_den, fields)
+    if r["result"] == "yes" and "pos" in r:
+        noi_dung = "Vị trí bắt buộc lắp đặt: " + "; ".join(r["pos"]) + "."
+    else:
+        noi_dung = r.get("detail", "—")
+    items.append({
+        "id": 42,
+        "noi_dung_thiet_ke": noi_dung,
+        "ket_luan": _RULE_TO_THUOC_DIEN_KET_LUAN.get(r["result"], "chua_the_hien"),
+    })
+
+    items.append({
+        "id": 49,
+        "noi_dung_thiet_ke": "Bắt buộc trang bị bình chữa cháy xách tay — không phụ thuộc quy mô (TCVN 7435-1:2004).",
+        "ket_luan": "dat",
+    })
+
+    return items
+
+
 # ---------------------------------------------------------------------------
 # Bang A.2/A.4 (id 8,10,17,19) — AI doc ban ve, khong co rule san.
 # ---------------------------------------------------------------------------
