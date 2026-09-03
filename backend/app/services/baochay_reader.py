@@ -9,8 +9,10 @@ bộ tiêu chí tương ứng — không suy đoán ngoài nội dung bản vẽ
 
 from . import mdc_filler, quy_mo_store
 from .ai_reader_common import (
+    DOC_CHU_XOAY_VA_KY_HIEU,
     KHONG_UOC_LUONG_KHOANG_CACH,
     NHOM_II_MAU_THUAN_CHECKLIST,
+    STANDARD_PHRASES,
     TOA_DO_TRUC_KHOANG_CACH,
     AIReaderError,
     read_and_validate_drawing_json,
@@ -38,6 +40,7 @@ BƯỚC 1: Xác định bản vẽ được cung cấp là hệ báo cháy LOẠ
 BƯỚC 2: CHỈ đối chiếu bản vẽ với danh sách tiêu chí thuộc ĐÚNG loại đã xác định ở Bước 1 (KHÔNG trả lời cho danh sách của loại còn lại). Mỗi dòng tiêu chí có sẵn "id" — khi trả lời PHẢI giữ nguyên đúng id đó, và phải trả lời ĐỦ cho TẤT CẢ id thuộc danh sách của loại đã xác định, không bỏ sót. Với mỗi id, trả về:
 - "noi_dung_thiet_ke": nội dung điền vào cột "Nội dung thiết kế" của mẫu MĐC gốc — ngắn gọn, đúng mạch đối chiếu (dùng gạch đầu dòng "-" nếu nhiều ý), nêu số liệu cụ thể NHÌN THẤY trên bản vẽ. Nếu bản vẽ không thể hiện đủ thông tin để kết luận: ghi đúng "Chưa thể hiện trên bản vẽ cung cấp".
 {TOA_DO_TRUC_KHOANG_CACH}
+{STANDARD_PHRASES}
 - "ket_luan": "dat" nếu nội dung trên bản vẽ đáp ứng đúng quy định; "chua_dat" nếu đã thể hiện nhưng vi phạm giá trị/quy định; "chua_the_hien" nếu bản vẽ không đủ thông tin để kết luận.
 
 --- DANH SÁCH TIÊU CHÍ LOẠI THƯỜNG (MĐC B1) ---
@@ -62,6 +65,7 @@ NGUYÊN TẮC BẮT BUỘC:
 - Chỉ đánh giá dựa trên nội dung THỰC SỰ thể hiện trên bản vẽ được cung cấp. Không suy đoán, không dùng kiến thức chung ngoài bản vẽ.
 - Không được bỏ sót bất kỳ id nào thuộc danh sách của loại đã xác định.
 {KHONG_UOC_LUONG_KHOANG_CACH}
+{DOC_CHU_XOAY_VA_KY_HIEU}
 
 Trả lời DUY NHẤT bằng JSON hợp lệ theo đúng cấu trúc sau, không thêm văn bản nào khác ngoài JSON:
 {{

@@ -67,6 +67,42 @@ TOA_DO_TRUC_KHOANG_CACH = """
 - Riêng với tiêu chí về khoảng cách có "ket_luan" là "chua_dat": NẾU bản vẽ có lưới trục kết cấu (ký hiệu chữ dọc A, B, C... và số ngang 1, 2, 3... ghi ở khung/mép bản vẽ), xác định vị trí ô lưới hoặc giao điểm trục gần nhất chứa (các) thiết bị vi phạm — ghi thêm vào CẢ "noi_dung_thiet_ke" (ngay sau số liệu đo được) LẪN câu kiến nghị tương ứng (ngay sau phần mô tả đối tượng, trước phần căn cứ Điều/Khoản) — định dạng "tại vị trí trục (X-Y, N-M)" nếu thiết bị nằm giữa 2 trục dọc X-Y và 2 trục ngang N-M, hoặc "gần giao trục X-N" nếu nằm sát 1 giao điểm cụ thể. NẾU bản vẽ KHÔNG có lưới trục kết cấu rõ ràng (không ghi nhãn chữ/số trục nào): bỏ qua yêu cầu này, KHÔNG tự suy đoán hoặc đặt tên trục giả định.
 """
 
+# Chuan hoa 3 mau cau ket luan (doi chieu tu tai lieu "Bo quy tac doc ban ve
+# va dien MDC" 03/9/2026, Phan III.14 + Phan IV) - truoc ban nay moi reader tu
+# dien dat 1 kieu khac nhau cho cung 1 tinh huong, kho doi chieu khi 1 du an
+# co nhieu form. Dung CHUNG cho moi reader co dung KHONG_UOC_LUONG_KHOANG_CACH.
+STANDARD_PHRASES = """
+CHUẨN HÓA CÂU CHỮ — dùng đúng 1 trong 3 mẫu câu sau (chỉ thay phần trong ngoặc
+vuông), không tự diễn đạt khác đi:
+1. Nội dung đáng lẽ phải có trên bản vẽ nhưng không tìm thấy: "noi_dung_thiet_ke"
+   ghi đúng "Chưa thể hiện trên bản vẽ cung cấp".
+2. Nội dung cần đo đạc/quan sát trực tiếp tại hiện trường mới khẳng định chắc
+   chắn được (không thể chỉ nhìn bản vẽ để kết luận Đạt/chưa đạt): câu kiến
+   nghị bắt đầu bằng "Khuyến cáo — đề nghị kiểm tra lại" thay vì "Bổ sung"/
+   "Thể hiện rõ"/"Thuyết minh rõ".
+3. Nội dung KHÔNG thuộc đối tượng áp dụng của công trình này ("ket_luan" =
+   "khong_ap_dung"): "noi_dung_thiet_ke" ghi theo đúng khuôn "x - Không thuộc
+   đối tượng áp dụng: [căn cứ ngưỡng quy định] - [số liệu thực tế của công
+   trình]".
+"""
+
+# Ky nang doc ban ve #7 + #8 (Phan III.B tai lieu tren) - chua co reader nao
+# nhac toi 2 ky nang nay (da grep xac nhan truoc khi them). Dung CHUNG cho moi
+# reader co dung KHONG_UOC_LUONG_KHOANG_CACH.
+DOC_CHU_XOAY_VA_KY_HIEU = """
+- CHỮ XOAY DỌC / KÝ HIỆU BỊ TÁCH RỜI: trong lớp văn bản trích từ file PDF, các
+  con số/chữ bị xoay 90° (thường là kích thước, bán kính, mã hiệu ghi dọc theo
+  cạnh bản vẽ) có thể bị tách thành nhiều đoạn rời rạc xen kẽ khoảng trắng (ví
+  dụ "0 20 R7" thực chất là "R7200" đọc ngược). TRƯỚC khi kết luận một nội
+  dung "chưa thể hiện" vì không tìm thấy số liệu, thử ghép lại các đoạn
+  chữ/số rời rạc nằm gần nhau (bỏ khoảng trắng, đọc xuôi và đọc ngược) xem có
+  tạo thành 1 số liệu hợp lệ hay không.
+- TRA BẢNG CHÚ THÍCH KÝ HIỆU (legend) trước khi diễn giải chức năng của bất kỳ
+  ký hiệu nào trên mặt bằng — nếu bản vẽ có bảng chú thích/bảng ký hiệu riêng,
+  PHẢI đối chiếu đúng ký hiệu đó với bảng chú thích trước khi kết luận đó là
+  thiết bị gì, không suy đoán chức năng chỉ từ hình dạng ký hiệu.
+"""
+
 
 def exclusive_alternative_block(ten_nhom, pairs, ghi_chu=""):
     """Dung chung cho cac reader co tieu chi dang "nhieu lua chon THAY THE LAN

@@ -34,6 +34,8 @@ TEMPLATE_PATHS = {
     "sol_khi": TEMPLATES_DIR / "B11_sol_khi.docx",
     "chua_chay_gia_ke_hang": TEMPLATES_DIR / "B15_chua_chay_gia_ke_hang.docx",
     "bot_chua_chay": TEMPLATES_DIR / "B16_bot_chua_chay.docx",
+    "A14": TEMPLATES_DIR / "A14_nha_san_xuat.docx",
+    "A15": TEMPLATES_DIR / "A15_nha_kho.docx",
 }
 TEMPLATE_FILENAMES = {
     "thuong": "B1_MDC_bao_chay_thuong.docx",
@@ -52,6 +54,8 @@ TEMPLATE_FILENAMES = {
     "sol_khi": "B11_MDC_sol_khi.docx",
     "chua_chay_gia_ke_hang": "B15_MDC_chua_chay_gia_ke_hang.docx",
     "bot_chua_chay": "B16_MDC_bot_chua_chay.docx",
+    "A14": "A14_MDC_nha_san_xuat.docx",
+    "A15": "A15_MDC_nha_kho.docx",
 }
 
 COL_DOI_CHIEU = 1

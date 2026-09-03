@@ -444,6 +444,11 @@
        báo "thiếu hồ sơ" ở Phần E) — không hiện ngay lúc Lượt 0 xong vì lúc
        đó khu kết quả (#aihoResults) còn đang ẩn. */
   var quyMoDataSavedInSession = false;
+  // Form A goc (A14/A15) - Phan 3: can biet occ hien tai de quyet dinh hien
+  // nut "Xuat Form A goc" dung loai hinh - cap nhat o CA 3 nguon co the co
+  // quy mo (AI doc kientruc / nhap tay / Luot 0 tu phat hien), vi khong co
+  // 1 route rieng de GET lai occ hien tai tu server.
+  var quyMoOccInSession = null;
   var quyMoScanAttemptedInSession = false;
   var quyMoModalSkippedOnce = false;
   var quyMoConflictWarningsPending = [];
@@ -755,6 +760,7 @@
             feedbackMsg.textContent = '✓ Đã lưu — các hạng mục khác trong Bộ hồ sơ này sẽ dùng thông số này để đối chiếu chính xác hơn.';
             feedbackMsg.style.color = 'var(--green)';
             quyMoDataSavedInSession = true;
+            quyMoOccInSession = quyMo.occ;
 
             var f = (r2.data.mdc_docx_files || [])[0];
             if(f && f.base64){
@@ -1688,6 +1694,329 @@
     });
   }
 
+  /* ===================================================================
+     Form A gốc (A14/A15) — Phần 0: "Phạm vi đề nghị thẩm định lần này" +
+     "Hạ tầng hiện hữu". Tính năng TUỲ CHỌN (không khai báo gì = mặc định
+     TẤT CẢ hệ thống đều trong phạm vi, dự án xây mới hoàn toàn) — combiner
+     Form A backend tự đọc dữ liệu này qua session_id, KHÔNG cần frontend
+     gửi lại khi xuất Form A (xem Phần 3, nút "Xuất Form A gốc").
+     =================================================================== */
+  var phamViToggle = document.getElementById('phamViToggle');
+  var phamViPanel = document.getElementById('phamViPanel');
+
+  var HE_THONG_LABELS = {
+    baochay: 'Báo cháy tự động',
+    dienpccc: 'Điện phục vụ PCCC',
+    tram_bom: 'Trạm bơm cấp nước chữa cháy',
+    hong_nuoc: 'Họng nước chữa cháy trong nhà',
+    chua_chay_tu_dong: 'Chữa cháy tự động (sprinkler)',
+    giakehang: 'Chữa cháy tự động giá kệ hàng',
+    botcodinh: 'Chữa cháy bằng bọt cố định',
+    botchuachay: 'Chữa cháy bằng bột',
+    khibotsolkhi: 'Chữa cháy bằng khí/sol-khí',
+    densucco: 'Đèn sự cố / Loa thông báo',
+    binhchuachay: 'Bình chữa cháy'
+  };
+  var HE_THONG_KEYS_ORDER = ['baochay', 'tram_bom', 'hong_nuoc', 'chua_chay_tu_dong', 'giakehang',
+    'khibotsolkhi', 'botcodinh', 'botchuachay', 'densucco', 'binhchuachay', 'dienpccc'];
+
+  var haTangListWrap;
+
+  function renderHaTangList(items){
+    haTangListWrap.innerHTML = '';
+    if(!items.length){
+      var emptyP = document.createElement('p');
+      emptyP.className = 'hint';
+      emptyP.textContent = 'Chưa khai báo hạ tầng hiện hữu nào.';
+      haTangListWrap.appendChild(emptyP);
+      return;
+    }
+    var tblWrap = document.createElement('div');
+    tblWrap.className = 'tbl-wrap';
+    var table = document.createElement('table');
+    var thead = document.createElement('thead');
+    var headRow = document.createElement('tr');
+    ['Hệ thống', 'Số GCN / ngày', 'Số nghiệm thu / ngày', 'Thao tác'].forEach(function(h){
+      var th = document.createElement('th');
+      th.textContent = h;
+      headRow.appendChild(th);
+    });
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+    var tbody = document.createElement('tbody');
+    items.forEach(function(ht){
+      var tr = document.createElement('tr');
+      var tdHe = document.createElement('td');
+      tdHe.textContent = HE_THONG_LABELS[ht.ten_he_thong] || ht.ten_he_thong;
+      tr.appendChild(tdHe);
+      var tdGcn = document.createElement('td');
+      tdGcn.textContent = ht.gcn_so + ' — ' + ht.gcn_ngay + (ht.gcn_bo_sung_so ? ' (bổ sung: ' + ht.gcn_bo_sung_so + ' — ' + ht.gcn_bo_sung_ngay + ')' : '');
+      tr.appendChild(tdGcn);
+      var tdNt = document.createElement('td');
+      tdNt.textContent = ht.nghiem_thu_so + ' — ' + ht.nghiem_thu_ngay;
+      tr.appendChild(tdNt);
+      var tdActions = document.createElement('td');
+      var delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'btn-ghost';
+      delBtn.style.padding = '6px 12px';
+      delBtn.textContent = 'Xoá';
+      delBtn.addEventListener('click', function(){
+        fetch(BACKEND_BASE + '/api/aiho/ha-tang-hien-huu/' + ht.id, {
+          method: 'DELETE',
+          headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken()},
+          body: JSON.stringify({session_id: activeSessionId})
+        })
+          .then(function(res){ return res.json().then(function(data){ return {status: res.status, data: data}; }); })
+          .then(function(r){ if(r.status < 400) fetchHaTangList(); });
+      });
+      tdActions.appendChild(delBtn);
+      tr.appendChild(tdActions);
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    tblWrap.appendChild(table);
+    haTangListWrap.appendChild(tblWrap);
+  }
+
+  function fetchHaTangList(){
+    if(!activeSessionId){ renderHaTangList([]); return Promise.resolve(); }
+    return fetch(BACKEND_BASE + '/api/aiho/ha-tang-hien-huu?session_id=' + activeSessionId, {
+      headers: {'Authorization': 'Bearer ' + getToken()}
+    })
+      .then(function(res){ return res.json().then(function(data){ return {status: res.status, data: data}; }); })
+      .then(function(r){ if(r.status < 400) renderHaTangList(r.data.items || []); })
+      .catch(function(){ /* im lang - danh sach giu nguyen */ });
+  }
+
+  function buildPhamViPanel(){
+    phamViPanel.innerHTML = '';
+
+    var introP = document.createElement('p');
+    introP.className = 'hint';
+    introP.textContent = 'Mặc định (không khai báo gì) — coi như dự án XÂY MỚI HOÀN TOÀN, mọi hệ thống đều trong phạm vi đề nghị thẩm định lần này. Chỉ cần khai nếu đây là hồ sơ CẢI TẠO MỘT PHẦN (một số hệ thống đã có hồ sơ thẩm duyệt/nghiệm thu từ trước, không xin lại lần này).';
+    phamViPanel.appendChild(introP);
+
+    var checklistWrap = document.createElement('div');
+    checklistWrap.className = 'multi-attach-checklist';
+    var checkboxes = {};
+    HE_THONG_KEYS_ORDER.forEach(function(key){
+      var row = document.createElement('label');
+      row.style.display = 'flex';
+      row.style.alignItems = 'center';
+      row.style.gap = '8px';
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = true;
+      cb.dataset.heThong = key;
+      row.appendChild(cb);
+      var span = document.createElement('span');
+      span.textContent = HE_THONG_LABELS[key] + ' — trong phạm vi đề nghị lần này';
+      row.appendChild(span);
+      checklistWrap.appendChild(row);
+      checkboxes[key] = cb;
+    });
+    phamViPanel.appendChild(checklistWrap);
+
+    var saveScopeBtn = document.createElement('button');
+    saveScopeBtn.type = 'button';
+    saveScopeBtn.className = 'btn-main';
+    saveScopeBtn.style.marginTop = '10px';
+    saveScopeBtn.textContent = 'Lưu phạm vi đề nghị';
+    phamViPanel.appendChild(saveScopeBtn);
+
+    var scopeMsg = document.createElement('span');
+    scopeMsg.className = 'quymo-manual-msg';
+    scopeMsg.style.marginLeft = '10px';
+    phamViPanel.appendChild(scopeMsg);
+
+    saveScopeBtn.addEventListener('click', function(){
+      if(!currentUser){ window.openAuthModal(); return; }
+      var checkedKeys = HE_THONG_KEYS_ORDER.filter(function(key){ return checkboxes[key].checked; });
+      saveScopeBtn.disabled = true;
+      scopeMsg.textContent = 'Đang lưu…';
+      scopeMsg.style.color = '';
+      ensureSessionOpen().then(function(r){
+        if(r.status >= 400){
+          saveScopeBtn.disabled = false;
+          scopeMsg.textContent = r.data.error || 'Không mở được phiên Bộ hồ sơ.';
+          scopeMsg.style.color = 'var(--red-deep)';
+          return;
+        }
+        return fetch(BACKEND_BASE + '/api/aiho/pham-vi-de-nghi', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken()},
+          body: JSON.stringify({session_id: r.data.session_id, pham_vi_de_nghi: checkedKeys})
+        })
+          .then(function(res){ return res.json().then(function(data){ return {status: res.status, data: data}; }); })
+          .then(function(r2){
+            saveScopeBtn.disabled = false;
+            if(r2.status >= 400){
+              scopeMsg.textContent = r2.data.error || 'Không lưu được.';
+              scopeMsg.style.color = 'var(--red-deep)';
+              return;
+            }
+            scopeMsg.textContent = '✓ Đã lưu.';
+            scopeMsg.style.color = 'var(--green)';
+          });
+      }).catch(function(){
+        saveScopeBtn.disabled = false;
+        scopeMsg.textContent = 'Không kết nối được tới máy chủ.';
+        scopeMsg.style.color = 'var(--red-deep)';
+      });
+    });
+
+    var haTangHeading = document.createElement('h4');
+    haTangHeading.style.marginTop = '18px';
+    haTangHeading.textContent = 'Khai báo hạ tầng hiện hữu (hệ thống ĐÃ bỏ check ở trên vì đã có hồ sơ thẩm duyệt/nghiệm thu từ trước, không xin lại lần này)';
+    phamViPanel.appendChild(haTangHeading);
+
+    var heSelectField = document.createElement('div');
+    heSelectField.className = 'field';
+    heSelectField.style.marginTop = '8px';
+    var heSelectLabel = document.createElement('label');
+    heSelectLabel.textContent = 'Hệ thống hiện hữu';
+    heSelectField.appendChild(heSelectLabel);
+    var heSelect = document.createElement('select');
+    HE_THONG_KEYS_ORDER.forEach(function(key){
+      var opt = document.createElement('option');
+      opt.value = key;
+      opt.textContent = HE_THONG_LABELS[key];
+      heSelect.appendChild(opt);
+    });
+    heSelectField.appendChild(heSelect);
+    phamViPanel.appendChild(heSelectField);
+
+    var haTangGrid = document.createElement('div');
+    haTangGrid.className = 'grid';
+    haTangGrid.style.marginTop = '10px';
+    var haTangInputs = {};
+    [
+      {key: 'gcn_so', label: 'Số Giấy chứng nhận thẩm duyệt', ph: 'VD: 621/TD-PCCC-P2'},
+      {key: 'gcn_ngay', label: 'Ngày GCN thẩm duyệt', ph: 'VD: 12/05/2016'},
+      {key: 'gcn_bo_sung_so', label: 'Số GCN cải tạo bổ sung (nếu có)', ph: ''},
+      {key: 'gcn_bo_sung_ngay', label: 'Ngày GCN cải tạo bổ sung (nếu có)', ph: ''},
+      {key: 'nghiem_thu_so', label: 'Số văn bản nghiệm thu', ph: 'VD: 273/CSPCCC-P2'},
+      {key: 'nghiem_thu_ngay', label: 'Ngày văn bản nghiệm thu', ph: 'VD: 20/09/2016'}
+    ].forEach(function(f){
+      var field = document.createElement('div');
+      field.className = 'field';
+      var label = document.createElement('label');
+      label.textContent = f.label;
+      field.appendChild(label);
+      var input = document.createElement('input');
+      input.type = 'text';
+      input.placeholder = f.ph;
+      field.appendChild(input);
+      haTangGrid.appendChild(field);
+      haTangInputs[f.key] = input;
+    });
+    phamViPanel.appendChild(haTangGrid);
+
+    var ghiChuField = document.createElement('div');
+    ghiChuField.className = 'field';
+    ghiChuField.style.marginTop = '10px';
+    var ghiChuLabel = document.createElement('label');
+    ghiChuLabel.textContent = 'Ghi chú trên bản vẽ (nếu có, vd "SỬ DỤNG CHUNG CỤM BƠM HIỆN HỮU")';
+    ghiChuField.appendChild(ghiChuLabel);
+    var ghiChuInput = document.createElement('input');
+    ghiChuInput.type = 'text';
+    ghiChuField.appendChild(ghiChuInput);
+    phamViPanel.appendChild(ghiChuField);
+
+    var addHaTangBtn = document.createElement('button');
+    addHaTangBtn.type = 'button';
+    addHaTangBtn.className = 'btn-main';
+    addHaTangBtn.style.marginTop = '10px';
+    addHaTangBtn.textContent = 'Thêm hạ tầng hiện hữu';
+    phamViPanel.appendChild(addHaTangBtn);
+
+    var haTangMsg = document.createElement('span');
+    haTangMsg.className = 'quymo-manual-msg';
+    haTangMsg.style.marginLeft = '10px';
+    phamViPanel.appendChild(haTangMsg);
+
+    addHaTangBtn.addEventListener('click', function(){
+      if(!currentUser){ window.openAuthModal(); return; }
+      if(!haTangInputs.gcn_so.value.trim() || !haTangInputs.gcn_ngay.value.trim() ||
+         !haTangInputs.nghiem_thu_so.value.trim() || !haTangInputs.nghiem_thu_ngay.value.trim()){
+        haTangMsg.textContent = 'Vui lòng nhập đủ số/ngày GCN thẩm duyệt và số/ngày nghiệm thu.';
+        haTangMsg.style.color = 'var(--red-deep)';
+        return;
+      }
+      addHaTangBtn.disabled = true;
+      haTangMsg.textContent = 'Đang lưu…';
+      haTangMsg.style.color = '';
+      ensureSessionOpen().then(function(r){
+        if(r.status >= 400){
+          addHaTangBtn.disabled = false;
+          haTangMsg.textContent = r.data.error || 'Không mở được phiên Bộ hồ sơ.';
+          haTangMsg.style.color = 'var(--red-deep)';
+          return;
+        }
+        return fetch(BACKEND_BASE + '/api/aiho/ha-tang-hien-huu', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken()},
+          body: JSON.stringify({
+            session_id: r.data.session_id,
+            ten_he_thong: heSelect.value,
+            gcn_so: haTangInputs.gcn_so.value.trim(),
+            gcn_ngay: haTangInputs.gcn_ngay.value.trim(),
+            gcn_bo_sung_so: haTangInputs.gcn_bo_sung_so.value.trim() || null,
+            gcn_bo_sung_ngay: haTangInputs.gcn_bo_sung_ngay.value.trim() || null,
+            nghiem_thu_so: haTangInputs.nghiem_thu_so.value.trim(),
+            nghiem_thu_ngay: haTangInputs.nghiem_thu_ngay.value.trim(),
+            ghi_chu_ban_ve: ghiChuInput.value.trim() || null
+          })
+        })
+          .then(function(res){ return res.json().then(function(data){ return {status: res.status, data: data}; }); })
+          .then(function(r2){
+            addHaTangBtn.disabled = false;
+            if(r2.status >= 400){
+              haTangMsg.textContent = r2.data.error || 'Không lưu được.';
+              haTangMsg.style.color = 'var(--red-deep)';
+              return;
+            }
+            haTangMsg.textContent = '✓ Đã thêm.';
+            haTangMsg.style.color = 'var(--green)';
+            Object.keys(haTangInputs).forEach(function(k){ haTangInputs[k].value = ''; });
+            ghiChuInput.value = '';
+            fetchHaTangList();
+          });
+      }).catch(function(){
+        addHaTangBtn.disabled = false;
+        haTangMsg.textContent = 'Không kết nối được tới máy chủ.';
+        haTangMsg.style.color = 'var(--red-deep)';
+      });
+    });
+
+    var haTangListHeading = document.createElement('h4');
+    haTangListHeading.style.marginTop = '18px';
+    haTangListHeading.textContent = 'Danh sách hạ tầng hiện hữu đã khai báo';
+    phamViPanel.appendChild(haTangListHeading);
+
+    haTangListWrap = document.createElement('div');
+    haTangListWrap.style.marginTop = '8px';
+    phamViPanel.appendChild(haTangListWrap);
+
+    renderHaTangList([]);
+    fetchHaTangList();
+  }
+
+  if(phamViToggle && phamViPanel){
+    phamViToggle.addEventListener('click', function(){
+      if(!currentUser){ window.openAuthModal(); return; }
+      var willOpen = phamViPanel.hidden;
+      if(willOpen && !phamViPanel.dataset.built){
+        buildPhamViPanel();
+        phamViPanel.dataset.built = '1';
+      }
+      if(willOpen) fetchHaTangList();
+      phamViPanel.hidden = !willOpen;
+      phamViToggle.textContent = willOpen ? 'Ẩn' : 'Phạm vi đề nghị thẩm định lần này (chỉ cần khai nếu là hồ sơ cải tạo một phần)';
+    });
+  }
+
   grid.addEventListener('click', function(e){
     var card = e.target.closest('.drop-card');
     if(!card) return;
@@ -1963,6 +2292,13 @@
           p.appendChild(document.createTextNode(summaryText));
           fileDiv.appendChild(p);
 
+          if(knCount === 0){
+            var warnP = document.createElement('p');
+            warnP.className = 'multi-attach-warning';
+            warnP.textContent = 'Lưu ý: form này có 0 dòng cần kiến nghị (KN) — nên rà lại kỹ trước khi dùng, có khả năng đã bỏ sót nội dung trên bản vẽ.';
+            fileDiv.appendChild(warnP);
+          }
+
           var a = document.createElement('a');
           a.className = 'btn-main';
           a.style.display = 'inline-block';
@@ -2148,6 +2484,107 @@
       });
   }
 
+  /* ===================================================================
+     Form A gốc (A14/A15) — Phần 3: nút "Xuất Form A gốc". CHỈ hiện khi
+     công năng (occ) đã khai ở Quy mô khớp "sanxuat" (→A14) hoặc "kho"
+     (→A15) — tra đúng giá trị occ thật trong OCCS (js/tuvan-so-bo.js).
+     Gom realData/realResults của mọi hạng mục ĐÃ đọc thành b_form_results
+     theo ĐÚNG khoá loai của mdc_filler.TEMPLATE_PATHS (KHÔNG phải khoá
+     slot REAL_CATEGORIES — 2 hạng mục ccnuoc/densucco gộp nhiều form con,
+     phải tách phẳng ra đây) — backend tự lấy quy_mo/pham_vi/ha_tang_hien_huu
+     theo session_id, KHÔNG cần gửi lại.
+     =================================================================== */
+  function buildBFormResults(){
+    var out = {};
+    if(realData.baochay){
+      var loaiBaoChay = realData.baochay.loai_he_thong === 'dia_chi' ? 'dia_chi' : 'thuong';
+      out[loaiBaoChay] = {items: realData.baochay.items || []};
+    }
+    if(realData.ccnuoc && realData.ccnuoc.forms){
+      Object.keys(realData.ccnuoc.forms).forEach(function(k){
+        out[k] = {items: realData.ccnuoc.forms[k].items || []};
+      });
+    }
+    if(realData.densucco && realData.densucco.forms){
+      Object.keys(realData.densucco.forms).forEach(function(k){
+        out[k] = {items: realData.densucco.forms[k].items || []};
+      });
+    }
+    if(realData.khibot && realData.khibot.he_thong){
+      out[realData.khibot.he_thong] = {items: realData.khibot.items || []};
+    }
+    if(realData.botcodinh) out.bot_co_dinh = {items: realData.botcodinh.items || []};
+    if(realData.giakehang) out.chua_chay_gia_ke_hang = {items: realData.giakehang.items || []};
+    if(realData.botchuachay) out.bot_chua_chay = {items: realData.botchuachay.items || []};
+    if(realData.dienpccc) out.dien_pccc = {items: realData.dienpccc.items || []};
+    return out;
+  }
+
+  function maybeShowFormAButton(sessionId){
+    var box = document.getElementById('aihoFormABox');
+    if(!box) return;
+    box.hidden = true;
+    box.innerHTML = '';
+
+    var loaiHinh = quyMoOccInSession === 'sanxuat' ? 'A14' : (quyMoOccInSession === 'kho' ? 'A15' : null);
+    if(!loaiHinh) return;
+
+    box.hidden = false;
+    var nhanLoaiHinh = loaiHinh === 'A14' ? 'Nhà sản xuất' : 'Nhà kho';
+
+    var introP = document.createElement('p');
+    introP.className = 'hint';
+    introP.textContent = 'Công năng công trình khớp loại hình "' + nhanLoaiHinh + '" — có thể xuất Form A gốc chính thức (' + loaiHinh + ') gộp từ dữ liệu quy mô + các hạng mục đã đọc trong Bộ hồ sơ này.';
+    box.appendChild(introP);
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn-main';
+    btn.style.marginTop = '8px';
+    btn.textContent = 'Xuất Form A gốc (' + loaiHinh + ')';
+    box.appendChild(btn);
+
+    var msg = document.createElement('span');
+    msg.className = 'quymo-manual-msg';
+    msg.style.marginLeft = '10px';
+    box.appendChild(msg);
+
+    btn.addEventListener('click', function(){
+      btn.disabled = true;
+      msg.textContent = 'Đang tạo file…';
+      msg.style.color = '';
+      fetch(BACKEND_BASE + '/api/aiho/export-form-a', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken()},
+        body: JSON.stringify({session_id: sessionId, loai_hinh: loaiHinh, b_form_results: buildBFormResults()})
+      })
+        .then(function(res){ return res.json().then(function(data){ return {status: res.status, data: data}; }); })
+        .then(function(r){
+          btn.disabled = false;
+          if(r.status >= 400){
+            msg.textContent = r.data.error || 'Không tạo được file Form A — vui lòng thử lại sau.';
+            msg.style.color = 'var(--red-deep)';
+            return;
+          }
+          msg.textContent = '';
+          var a = document.createElement('a');
+          a.className = 'btn-ghost';
+          a.style.display = 'inline-block';
+          a.style.marginLeft = '10px';
+          a.style.textDecoration = 'none';
+          a.download = r.data.filename;
+          a.href = 'data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,' + r.data.base64;
+          a.textContent = 'Tải file Form A (.docx)';
+          box.appendChild(a);
+        })
+        .catch(function(){
+          btn.disabled = false;
+          msg.textContent = 'Không kết nối được tới máy chủ.';
+          msg.style.color = 'var(--red-deep)';
+        });
+    });
+  }
+
   var processing = document.getElementById('aihoProcessing');
   var processingFill = document.getElementById('aihoProcessingFill');
   var processingText = document.getElementById('aihoProcessingText');
@@ -2254,6 +2691,7 @@
           renderOutputPreviews();
           renderQuyMoWarningsBox();
           maybeExportKienNghiDocx();
+          maybeShowFormAButton(sessionId);
           resultsSection.hidden = false;
           resultsSection.scrollIntoView({behavior: 'smooth', block: 'start'});
           updateCta();
@@ -2301,6 +2739,7 @@
               }
               realResults[slot] = cfg.summarize(r.data);
               realData[slot] = r.data;
+              if(slot === 'kientruc' && r.data.quy_mo && r.data.quy_mo.occ) quyMoOccInSession = r.data.quy_mo.occ;
             })
             .catch(function(){
               realResults[slot] = {status: 'warn', note: cfg.label + ': Không kết nối được tới máy chủ AI — thử lại sau.'};
@@ -2411,7 +2850,10 @@
         .then(function(res){ return res.json().then(function(data){ return {status: res.status, data: data}; }); })
         .then(function(r){
           if(r.status >= 400) return;
-          if(r.data.saved) quyMoDataSavedInSession = true;
+          if(r.data.saved){
+            quyMoDataSavedInSession = true;
+            quyMoOccInSession = r.data.saved.occ;
+          }
           if(r.data.conflicts && r.data.conflicts.length) quyMoConflictWarningsPending = r.data.conflicts;
         })
         .catch(function(){});

@@ -255,6 +255,13 @@ class HoSoSessionQuyMo(db.Model):
     # (co be xang dau ngoai troi -> B7).
     chieu_cao_ke_hang = db.Column(db.Float, nullable=True)
     co_be_xang_dau_ngoai_troi = db.Column(db.Boolean, nullable=True)
+    # Form A goc (A14/A15) - Phan 0: danh sach khoa he thong DANG xin tham
+    # dinh lan nay (vd du an cai tao mot phan, chi xin lai vai he thong).
+    # NULL/rong = MAC DINH coi nhu TAT CA he thong deu trong pham vi (xay
+    # moi hoan toan) - day la tinh nang TUY CHON, khong bat buoc khai bao,
+    # giong het nguyen tac "Quy mo" (dinh kem tu nguyen) - xem
+    # pham_vi_hien_huu_store.py/form_a_combiner.py.
+    pham_vi_de_nghi = db.Column(db.JSON, nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), default=_utcnow, nullable=False)
     updated_at = db.Column(db.DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False)
 
@@ -367,4 +374,51 @@ class HoSoSessionHangMuc(db.Model):
             "hanhLangDaiNhat": self.hanh_lang_dai_nhat,
             "chieuCaoKeHang": self.chieu_cao_ke_hang,
             "coBeXangDauNgoaiTroi": self.co_be_xang_dau_ngoai_troi,
+        }
+
+
+class HoSoSessionHaTangHienHuu(db.Model):
+    """Form A gốc (A14/A15) — Phần 0: hạ tầng PCCC HIỆN HỮU (đã thẩm duyệt/
+    nghiệm thu ở đợt trước, ngoài phạm vi đề nghị thẩm định lần này). Dùng để
+    tránh kiến nghị nhầm "chưa thể hiện" cho hệ thống thực ra đã có hồ sơ cũ
+    (đúng lỗi thực tế dự án Kho B4/Cty Liên Anh — xem quy-tac-dien-form.md
+    mục 4c, skill ra-mau-doi-chieu-pccc).
+
+    1 phiên có NHIỀU bản ghi (mỗi hệ thống hiện hữu 1 dòng — vd cả trạm bơm
+    LẪN điện PCCC) — session_id KHÔNG unique, giống HoSoSessionHangMuc.
+    ten_he_thong dùng ĐÚNG khoá hệ thống như pham_vi_de_nghi (xem
+    pham_vi_hien_huu_store.HE_THONG_KEYS).
+
+    Ngày (gcn_ngay/gcn_bo_sung_ngay/nghiem_thu_ngay) lưu dạng chuỗi
+    "dd/mm/yyyy" người dùng nhập nguyên văn — không cần Date thật vì chỉ
+    dùng để HIỂN THỊ lại trong câu văn Form A, không tính toán gì trên đó."""
+
+    __tablename__ = "ho_so_session_ha_tang_hien_huu"
+
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.Integer, db.ForeignKey("ho_so_session.id"), nullable=False, index=True)
+    ten_he_thong = db.Column(db.String(30), nullable=False)
+    gcn_so = db.Column(db.String(100), nullable=False)
+    gcn_ngay = db.Column(db.String(20), nullable=False)
+    gcn_bo_sung_so = db.Column(db.String(100), nullable=True)
+    gcn_bo_sung_ngay = db.Column(db.String(20), nullable=True)
+    nghiem_thu_so = db.Column(db.String(100), nullable=False)
+    nghiem_thu_ngay = db.Column(db.String(20), nullable=False)
+    ghi_chu_ban_ve = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime(timezone=True), default=_utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False)
+
+    session = db.relationship("HoSoSession")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "ten_he_thong": self.ten_he_thong,
+            "gcn_so": self.gcn_so,
+            "gcn_ngay": self.gcn_ngay,
+            "gcn_bo_sung_so": self.gcn_bo_sung_so,
+            "gcn_bo_sung_ngay": self.gcn_bo_sung_ngay,
+            "nghiem_thu_so": self.nghiem_thu_so,
+            "nghiem_thu_ngay": self.nghiem_thu_ngay,
+            "ghi_chu_ban_ve": self.ghi_chu_ban_ve,
         }

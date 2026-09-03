@@ -29,7 +29,9 @@ không phải dạng "đo trên bản vẽ so với ngưỡng" cần quy tắc c
 
 from . import mdc_filler, quy_mo_store
 from .ai_reader_common import (
+    DOC_CHU_XOAY_VA_KY_HIEU,
     NHOM_II_MAU_THUAN_CHECKLIST,
+    STANDARD_PHRASES,
     AIReaderError,
     read_and_validate_drawing_json,
     system_prompt_version,
@@ -78,6 +80,7 @@ YÊU CẦU THÊM: Đọc SỐ HIỆU BẢN VẼ ghi trong khung tên (title bloc
 
 BƯỚC 2 — Với MỖI dòng tiêu chí dưới đây (mỗi dòng có sẵn "id" — khi trả lời PHẢI giữ nguyên đúng id đó, và phải trả lời ĐỦ cho TẤT CẢ id, KỂ CẢ id thuộc nhánh KHÔNG được chọn ở Bước 1 — không bỏ sót bất kỳ id nào), đối chiếu với bản vẽ và trả về:
 - "noi_dung_thiet_ke": nội dung điền vào cột "Nội dung thiết kế" của mẫu MĐC gốc — ngắn gọn, đúng mạch đối chiếu (dùng gạch đầu dòng "-" nếu nhiều ý), nêu số liệu cụ thể NHÌN THẤY trên bản vẽ. Nếu bản vẽ không thể hiện đủ thông tin để kết luận: ghi đúng "Chưa thể hiện trên bản vẽ cung cấp".
+{STANDARD_PHRASES}
 - "ket_luan": "dat" nếu nội dung trên bản vẽ đáp ứng đúng quy định; "chua_dat" nếu đã thể hiện nhưng vi phạm giá trị/quy định; "chua_the_hien" nếu bản vẽ không đủ thông tin để kết luận; "khong_ap_dung" CHỈ dùng cho id thuộc nhánh KHÔNG được chọn (xem hướng dẫn nhánh bên dưới) — KHÔNG tự ý dùng cho id khác.
 
 {_NHANH_BLOCK}
@@ -99,6 +102,7 @@ BƯỚC 3: Với MỖI id có "ket_luan" là "chua_dat" hoặc "chua_the_hien" �
 NGUYÊN TẮC BẮT BUỘC:
 - Chỉ đánh giá dựa trên nội dung THỰC SỰ thể hiện trên bản vẽ được cung cấp. Không suy đoán, không dùng kiến thức chung ngoài bản vẽ.
 - Không được bỏ sót bất kỳ id nào.
+{DOC_CHU_XOAY_VA_KY_HIEU}
 
 Trả lời DUY NHẤT bằng JSON hợp lệ theo đúng cấu trúc sau, không thêm văn bản nào khác ngoài JSON:
 {{

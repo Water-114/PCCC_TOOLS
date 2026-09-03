@@ -35,8 +35,10 @@ gắn Bảng 2 trực tiếp vào 2 id này.
 
 from . import mdc_filler, quy_mo_store
 from .ai_reader_common import (
+    DOC_CHU_XOAY_VA_KY_HIEU,
     KHONG_UOC_LUONG_KHOANG_CACH,
     NHOM_II_MAU_THUAN_CHECKLIST,
+    STANDARD_PHRASES,
     TOA_DO_TRUC_KHOANG_CACH,
     AIReaderError,
     exclusive_alternative_block,
@@ -169,6 +171,7 @@ Nêu rõ dấu hiệu nhận biết đã dùng trong "ly_do_nhan_dien".
 BƯỚC 2 — CHỈ đối chiếu bản vẽ với danh sách tiêu chí thuộc ĐÚNG hệ thống đã xác định ở Bước 1 (KHÔNG trả lời cho danh sách của 3 hệ còn lại). Mỗi dòng tiêu chí có sẵn "id" — khi trả lời PHẢI giữ nguyên đúng id đó, và phải trả lời ĐỦ cho TẤT CẢ id thuộc hệ đã xác định, không bỏ sót. Với mỗi id, trả về:
 - "noi_dung_thiet_ke": nội dung điền vào cột "Nội dung thiết kế" — ngắn gọn, đúng mạch đối chiếu (dùng gạch đầu dòng "-" nếu nhiều ý), nêu số liệu cụ thể NHÌN THẤY trên bản vẽ. Nếu bản vẽ không thể hiện đủ thông tin: ghi đúng "Chưa thể hiện trên bản vẽ cung cấp".
 {TOA_DO_TRUC_KHOANG_CACH}
+{STANDARD_PHRASES}
 - "ket_luan": "dat" | "chua_dat" | "chua_the_hien" | "khong_ap_dung" (CHỈ dùng "khong_ap_dung" cho đúng các id có hướng dẫn riêng bên dưới chỉ định rõ — KHÔNG tự ý dùng cho id khác).
 
 {chr(10).join(he_thong_blocks)}
@@ -190,6 +193,7 @@ NGUYÊN TẮC BẮT BUỘC:
 - Chỉ đánh giá dựa trên nội dung THỰC SỰ thể hiện trên bản vẽ được cung cấp. Không suy đoán, không dùng kiến thức chung ngoài bản vẽ.
 - Không được bỏ sót bất kỳ id nào thuộc hệ thống đã xác định.
 {KHONG_UOC_LUONG_KHOANG_CACH}
+{DOC_CHU_XOAY_VA_KY_HIEU}
 
 Trả lời DUY NHẤT bằng JSON hợp lệ theo đúng cấu trúc sau, không thêm văn bản nào khác ngoài JSON:
 {{

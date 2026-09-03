@@ -29,8 +29,10 @@ densucco_reader._SPECIAL_ID_BLOCKS/_mucdo2_overrides, quymo_reader._A2_A4_TEXT)
 from . import mdc_filler, quy_mo_store
 from . import ccnuoc_reader, densucco_reader, quymo_reader
 from .ai_reader_common import (
+    DOC_CHU_XOAY_VA_KY_HIEU,
     KHONG_UOC_LUONG_KHOANG_CACH,
     NHOM_II_MAU_THUAN_CHECKLIST,
+    STANDARD_PHRASES,
     read_and_validate_drawing_json,
     system_prompt_version,
 )
@@ -185,6 +187,7 @@ BƯỚC 2 — Với MỖI hạng mục đã đưa vào "detected_categories" ở
 
 Với MỖI id trong 1 danh sách tiêu chí (khi trả lời PHẢI giữ nguyên đúng id đó, trả lời ĐỦ cho TẤT CẢ id thuộc mẫu đang đối chiếu, không bỏ sót):
 - "noi_dung_thiet_ke": nội dung điền vào cột "Nội dung thiết kế" — ngắn gọn, đúng mạch đối chiếu, nêu số liệu cụ thể NHÌN THẤY trên bản vẽ. Nếu không đủ thông tin: ghi đúng "Chưa thể hiện trên bản vẽ cung cấp".
+{STANDARD_PHRASES}
 - "ket_luan": "dat" | "chua_dat" | "chua_the_hien" (và "khong_ap_dung" CHỈ dùng cho đúng các id có hướng dẫn riêng chỉ định rõ là mục tuỳ chọn).
 
 {blocks}
@@ -201,6 +204,7 @@ NGUYÊN TẮC BẮT BUỘC (áp dụng cho MỌI hạng mục/mẫu ở trên):
 - Chỉ đánh giá dựa trên nội dung THỰC SỰ thể hiện trên bản vẽ được cung cấp. Không suy đoán, không dùng kiến thức chung ngoài bản vẽ.
 - Không được bỏ sót bất kỳ id nào thuộc mẫu đang đối chiếu.
 {KHONG_UOC_LUONG_KHOANG_CACH}
+{DOC_CHU_XOAY_VA_KY_HIEU}
 
 Trả lời DUY NHẤT bằng JSON hợp lệ theo đúng cấu trúc sau, không thêm văn bản nào khác ngoài JSON. Chỉ điền giá trị (không phải null) cho ĐÚNG các hạng mục có trong "detected_categories":
 {{

@@ -16,13 +16,16 @@ from ..services import (
     credits,
     densucco_reader,
     dienpccc_reader,
+    form_a_combiner,
     gia_ke_hang_reader,
     hang_muc_store,
     khibotsolkhi_reader,
     ho_so_session,
+    ket_luan_linter,
     kien_nghi_docx,
     mdc_filler,
     merged_reader,
+    pham_vi_hien_huu_store,
     quy_mo_store,
     quymo_reader,
     scan_quymo_reader,
@@ -71,6 +74,7 @@ _KET_LUAN_TO_DOCX = {"dat": "Đạt", "khong_ap_dung": ""}
 
 
 def _answers_from_items(items):
+    items = ket_luan_linter.fix_items(items)
     answers = []
     for item in items:
         try:
@@ -785,6 +789,20 @@ def _get_open_session_or_error(user_id, session_id):
         return None, (jsonify({"error": str(exc)}), 400)
 
 
+def _get_own_session_any_status_or_error(user_id, session_id):
+    """Giống _get_open_session_or_error() nhưng KHÔNG bắt buộc phiên đang
+    'open' — dùng cho /export-form-a: xuất Form A là thao tác ĐỌC LẠI dữ
+    liệu đã lưu (quy_mo/pham_vi/ha_tang_hien_huu), người dùng có thể bấm nút
+    xuất SAU KHI phiên đã tự đóng (finishUp() đóng phiên trước khi hiện nút
+    xuất, xem ai-doc-ho-so.js maybeShowFormAButton()) — chỉ cần xác nhận
+    đúng chủ sở hữu, không cần trạng thái 'open'."""
+    from ..models import HoSoSession
+    session = db.session.get(HoSoSession, session_id)
+    if session is None or session.user_id != user_id:
+        return None, (jsonify({"error": "Không tìm thấy phiên Bộ hồ sơ."}), 404)
+    return session, None
+
+
 @bp.post("/hang-muc")
 @login_required
 def create_hang_muc():
@@ -872,6 +890,122 @@ def delete_hang_muc_route(hang_muc_id):
     return jsonify({"deleted": True})
 
 
+# ---------------------------------------------------------------------------
+# Form A gốc (A14/A15) — Phần 0: "phạm vi đề nghị thẩm định lần này" + "hạ
+# tầng hiện hữu". Giống hệt nhóm route /hang-muc: KHÔNG gọi AI, KHÔNG trừ
+# quota/Bộ hồ sơ — dùng chung _get_open_session_or_error().
+# ---------------------------------------------------------------------------
+@bp.post("/pham-vi-de-nghi")
+@login_required
+def save_pham_vi_de_nghi_route():
+    user = g.current_user
+    payload = request.get_json(silent=True) or {}
+
+    try:
+        session_id = int(payload.get("session_id"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Thiếu hoặc sai session_id (phiên Bộ hồ sơ)."}), 400
+
+    _session, err = _get_open_session_or_error(user.id, session_id)
+    if err:
+        return err
+
+    try:
+        saved = pham_vi_hien_huu_store.save_pham_vi_de_nghi(session_id, payload.get("pham_vi_de_nghi"))
+    except pham_vi_hien_huu_store.PhamViHienHuuInputError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    return jsonify({"pham_vi_de_nghi": saved})
+
+
+@bp.get("/pham-vi-de-nghi")
+@login_required
+def get_pham_vi_de_nghi_route():
+    user = g.current_user
+    try:
+        session_id = int(request.args.get("session_id"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Thiếu hoặc sai session_id (phiên Bộ hồ sơ)."}), 400
+
+    _session, err = _get_open_session_or_error(user.id, session_id)
+    if err:
+        return err
+
+    return jsonify({"pham_vi_de_nghi": pham_vi_hien_huu_store.get_pham_vi_de_nghi(session_id)})
+
+
+@bp.post("/ha-tang-hien-huu")
+@login_required
+def create_ha_tang_hien_huu_route():
+    user = g.current_user
+    payload = request.get_json(silent=True) or {}
+
+    try:
+        session_id = int(payload.get("session_id"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Thiếu hoặc sai session_id (phiên Bộ hồ sơ)."}), 400
+
+    _session, err = _get_open_session_or_error(user.id, session_id)
+    if err:
+        return err
+
+    try:
+        result = pham_vi_hien_huu_store.save_ha_tang_hien_huu(
+            session_id,
+            payload.get("ten_he_thong"),
+            payload.get("gcn_so"),
+            payload.get("gcn_ngay"),
+            gcn_bo_sung_so=payload.get("gcn_bo_sung_so"),
+            gcn_bo_sung_ngay=payload.get("gcn_bo_sung_ngay"),
+            nghiem_thu_so=payload.get("nghiem_thu_so"),
+            nghiem_thu_ngay=payload.get("nghiem_thu_ngay"),
+            ghi_chu_ban_ve=payload.get("ghi_chu_ban_ve"),
+        )
+    except pham_vi_hien_huu_store.PhamViHienHuuInputError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    return jsonify(result)
+
+
+@bp.get("/ha-tang-hien-huu")
+@login_required
+def list_ha_tang_hien_huu_route():
+    user = g.current_user
+    try:
+        session_id = int(request.args.get("session_id"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Thiếu hoặc sai session_id (phiên Bộ hồ sơ)."}), 400
+
+    _session, err = _get_open_session_or_error(user.id, session_id)
+    if err:
+        return err
+
+    return jsonify({"items": pham_vi_hien_huu_store.list_ha_tang_hien_huu(session_id)})
+
+
+@bp.delete("/ha-tang-hien-huu/<int:ha_tang_id>")
+@login_required
+def delete_ha_tang_hien_huu_route(ha_tang_id):
+    user = g.current_user
+    payload = request.get_json(silent=True) or {}
+
+    try:
+        session_id = int(payload.get("session_id"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Thiếu hoặc sai session_id (phiên Bộ hồ sơ)."}), 400
+
+    _session, err = _get_open_session_or_error(user.id, session_id)
+    if err:
+        return err
+
+    try:
+        pham_vi_hien_huu_store.delete_ha_tang_hien_huu(ha_tang_id, session_id)
+    except pham_vi_hien_huu_store.HaTangHienHuuNotFound as exc:
+        return jsonify({"error": str(exc)}), 404
+
+    return jsonify({"deleted": True})
+
+
 @bp.post("/export-kien-nghi")
 @login_required
 def export_kien_nghi():
@@ -901,5 +1035,64 @@ def export_kien_nghi():
 
     return jsonify({
         "filename": kien_nghi_docx.FILENAME,
+        "base64": base64.b64encode(docx_bytes).decode("ascii"),
+    })
+
+
+@bp.post("/export-form-a")
+@login_required
+def export_form_a():
+    """Form A gốc (A14/A15) — combiner GỘP dữ liệu đã có trong phiên (quy mô
+    rule-based + kết quả B-form đã đọc) thành 1 file .docx đúng khuôn mẫu gốc.
+    KHÔNG gọi AI, KHÔNG trừ quota — giống hệt /export-kien-nghi ở trên.
+
+    quy_mo/pham_vi_de_nghi/ha_tang_hien_huu TỰ LẤY từ DB theo session_id
+    (khác b_form_results — chỉ tồn tại phía frontend, phải gửi kèm)."""
+    user = g.current_user
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"error": "Dữ liệu gửi lên phải là một object JSON."}), 400
+
+    try:
+        session_id = int(payload.get("session_id"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Thiếu hoặc sai session_id (phiên Bộ hồ sơ)."}), 400
+
+    _session, err = _get_own_session_any_status_or_error(user.id, session_id)
+    if err:
+        return err
+
+    loai_hinh = payload.get("loai_hinh")
+    if loai_hinh not in ("A14", "A15"):
+        return jsonify({"error": "Thiếu hoặc sai 'loai_hinh' — chỉ hỗ trợ 'A14' hoặc 'A15'."}), 400
+
+    b_form_results = payload.get("b_form_results")
+    if b_form_results is not None and not isinstance(b_form_results, dict):
+        return jsonify({"error": "'b_form_results' phải là một object JSON."}), 400
+
+    session_data = {
+        "session_id": session_id,
+        "quy_mo": quy_mo_store.get_quy_mo(session_id) or {},
+        "b_form_results": b_form_results or {},
+    }
+
+    try:
+        docx_bytes = form_a_combiner.build_form_a_goc(loai_hinh, session_data)
+    except form_a_combiner.FormACombinerError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception:
+        current_app.logger.exception("Khong tao duoc file Form A goc loai_hinh=%s", loai_hinh)
+        return jsonify({"error": "Không tạo được file Form A — vui lòng thử lại sau."}), 500
+
+    ten_du_an = (payload.get("ten_du_an") or "").strip()
+    ten_hang_muc = (payload.get("ten_hang_muc") or "").strip()
+    filename = mdc_filler.filename_for(loai_hinh)
+    if ten_du_an or ten_hang_muc:
+        stem = mdc_filler.TEMPLATE_FILENAMES[loai_hinh].rsplit(".docx", 1)[0]
+        suffix = "_".join(part.replace(" ", "_") for part in (ten_du_an, ten_hang_muc) if part)
+        filename = f"{stem}_{suffix}.docx"
+
+    return jsonify({
+        "filename": filename,
         "base64": base64.b64encode(docx_bytes).decode("ascii"),
     })
