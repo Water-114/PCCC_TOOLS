@@ -35,7 +35,7 @@ from .ai_reader_common import (
     STANDARD_PHRASES,
     TOA_DO_TRUC_KHOANG_CACH,
     AIReaderError,
-    read_and_validate_drawing_json,
+    read_and_validate_drawing_json_multi,
     system_prompt_version,
 )
 from .ai_schema import GiaKeHangReaderResult, validate_reader_result
@@ -176,9 +176,10 @@ def _validate(data: dict):
     return validate_reader_result(data, _EXPECTED_IDS, GiaKeHangReaderResult)
 
 
-def read_drawing(file_bytes: bytes, media_type: str, provider, quy_mo: dict = None) -> dict:
-    """Gửi bản vẽ (ảnh hoặc PDF) kèm tiêu chí tới AI provider, validate qua Pydantic
-    (kèm retry-repair 1 lần nếu sai), trả về dict.
+def read_drawing(files: list, provider, quy_mo: dict = None) -> dict:
+    """Gửi (các) bản vẽ (files: list[(bytes, media_type)], tối đa 3 — Batch 5A
+    Pha 1) kèm tiêu chí tới AI provider trong CÙNG 1 request, validate qua
+    Pydantic (kèm retry-repair 1 lần nếu sai), trả về dict.
 
     quy_mo: dữ liệu quy mô công trình (hạng mục "Quy mô") của CÙNG phiên Bộ hồ
     sơ, nếu người dùng CÓ đính kèm — HOÀN TOÀN TUỲ CHỌN (None nếu không đính).
@@ -186,7 +187,7 @@ def read_drawing(file_bytes: bytes, media_type: str, provider, quy_mo: dict = No
     bản vẽ không ghi rõ h/H — không thay thế việc đọc bản vẽ thật.
     """
     system_prompt = SYSTEM_PROMPT + quy_mo_store.format_quy_mo_context(quy_mo) if quy_mo else SYSTEM_PROMPT
-    model = read_and_validate_drawing_json(
-        file_bytes, media_type, provider, system_prompt, _validate, prompt_version=SYSTEM_PROMPT_VERSION
+    model = read_and_validate_drawing_json_multi(
+        files, provider, system_prompt, _validate, prompt_version=SYSTEM_PROMPT_VERSION
     )
     return model.model_dump()

@@ -49,7 +49,7 @@ class ClaudeProvider(AIProvider):
             block.text for block in message.content if block.type == "text"
         )
 
-    def generate_with_document(self, system_prompt: str, content_block: dict) -> GenerationResult:
+    def generate_with_documents(self, system_prompt: str, content_blocks: list) -> GenerationResult:
         if not self.api_key:
             raise ProviderNotConfigured(
                 "Chưa cấu hình ANTHROPIC_API_KEY — thêm key vào backend/.env để dùng Claude."
@@ -72,9 +72,8 @@ class ClaudeProvider(AIProvider):
                 system=system_prompt,
                 messages=[{
                     "role": "user",
-                    "content": [
-                        content_block,
-                        {"type": "text", "text": "Hãy đọc bản vẽ trên và trả lời theo đúng định dạng JSON đã yêu cầu."},
+                    "content": content_blocks + [
+                        {"type": "text", "text": "Hãy đọc (các) bản vẽ trên và trả lời theo đúng định dạng JSON đã yêu cầu."},
                     ],
                 }],
             ) as stream:
@@ -86,3 +85,6 @@ class ClaudeProvider(AIProvider):
             return GenerationResult(text=text, usage=usage)
 
         return resilience.guarded_call(self.name, _is_infra_error, _call)
+
+    def generate_with_document(self, system_prompt: str, content_block: dict) -> GenerationResult:
+        return self.generate_with_documents(system_prompt, [content_block])

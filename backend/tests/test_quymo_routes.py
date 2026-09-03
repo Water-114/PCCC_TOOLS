@@ -43,7 +43,7 @@ class FakeProvider:
         self.fn = fn
         self.exc = exc
 
-    def generate_with_document(self, system_prompt, content_block):
+    def generate_with_documents(self, system_prompt, content_blocks):
         if self.exc is not None:
             raise self.exc
         return GenerationResult(text=self.fn(system_prompt))
@@ -61,7 +61,7 @@ def _quymo_ai_payload(occ="chungcu", floors=8, so_hieu="KT-01"):
 
 
 def _upload_quymo(client, token, session_id, extra_form=None):
-    form = {"file": (io.BytesIO(PNG_BYTES), "kientruc.png"), "session_id": str(session_id), "outputs": "mdc"}
+    form = {"files": (io.BytesIO(PNG_BYTES), "kientruc.png"), "session_id": str(session_id), "outputs": "mdc"}
     if extra_form:
         form.update(extra_form)
     return client.post(
@@ -113,7 +113,7 @@ def test_read_quymo_without_session_id_returns_400(client):
     with patch("app.routes.aiho.get_provider", return_value=provider) as mock_get_provider:
         resp = client.post(
             "/api/aiho/read-quymo",
-            data={"file": (io.BytesIO(PNG_BYTES), "kientruc.png")},
+            data={"files": (io.BytesIO(PNG_BYTES), "kientruc.png")},
             headers={"Authorization": f"Bearer {token}"},
             content_type="multipart/form-data",
         )

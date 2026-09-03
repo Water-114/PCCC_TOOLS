@@ -38,7 +38,7 @@ def _open_session(client, token):
 
 
 def _upload(client, token, session_id, extra_form=None):
-    form = {"file": (io.BytesIO(PNG_BYTES), "drawing.png"), "session_id": str(session_id)}
+    form = {"files": (io.BytesIO(PNG_BYTES), "drawing.png"), "session_id": str(session_id)}
     if extra_form:
         form.update(extra_form)
     return client.post(
@@ -56,7 +56,7 @@ class FakeProvider:
         self.fn = fn
         self.exc = exc
 
-    def generate_with_document(self, system_prompt, content_block):
+    def generate_with_documents(self, system_prompt, content_blocks):
         if self.exc is not None:
             raise self.exc
         return GenerationResult(text=self.fn(system_prompt))
@@ -200,7 +200,7 @@ def test_success_writes_usage_log_and_marks_session_success(client):
 def test_requires_login(client):
     resp = client.post(
         "/api/aiho/read-b15",
-        data={"file": (io.BytesIO(PNG_BYTES), "drawing.png"), "session_id": "1"},
+        data={"files": (io.BytesIO(PNG_BYTES), "drawing.png"), "session_id": "1"},
         content_type="multipart/form-data",
     )
     assert resp.status_code == 401

@@ -19,7 +19,7 @@ class FakeProvider:
         self.fn = fn
         self.calls = 0
 
-    def generate_with_document(self, system_prompt, content_block):
+    def generate_with_documents(self, system_prompt, content_blocks):
         self.calls += 1
         return GenerationResult(text=self.fn(system_prompt))
 
@@ -37,7 +37,7 @@ def test_dienpccc_reader_returns_so_hieu_ban_ve():
         "so_hieu_ban_ve": "E-01",
     }
     provider = FakeProvider(lambda sp: json.dumps(payload))
-    result = dienpccc_reader.read_drawing(b"x", "image/png", provider)
+    result = dienpccc_reader.read_drawing([(b"x", "image/png")], provider)
     assert result["so_hieu_ban_ve"] == "E-01"
     assert provider.calls == 1  # dung 1 lan, khong can retry vi hop le ngay
 
@@ -45,7 +45,7 @@ def test_dienpccc_reader_returns_so_hieu_ban_ve():
 def test_dienpccc_reader_defaults_so_hieu_ban_ve_when_ai_omits_it():
     payload = {"items": _items_for("dien_pccc"), "tong_ket": "ok", "kien_nghi": EMPTY_KIEN_NGHI}
     provider = FakeProvider(lambda sp: json.dumps(payload))
-    result = dienpccc_reader.read_drawing(b"x", "image/png", provider)
+    result = dienpccc_reader.read_drawing([(b"x", "image/png")], provider)
     assert result["so_hieu_ban_ve"] == KHONG_XAC_DINH_SO_HIEU
 
 
@@ -59,7 +59,7 @@ def test_baochay_reader_picks_expected_ids_by_loai_he_thong_and_keeps_so_hieu():
         "so_hieu_ban_ve": "PCCC-BC-02",
     }
     provider = FakeProvider(lambda sp: json.dumps(payload))
-    result = baochay_reader.read_drawing(b"x", "image/png", provider)
+    result = baochay_reader.read_drawing([(b"x", "image/png")], provider)
     assert result["loai_he_thong"] == "dia_chi"
     assert result["so_hieu_ban_ve"] == "PCCC-BC-02"
 
@@ -85,7 +85,7 @@ def test_ccnuoc_reader_takes_so_hieu_ban_ve_from_first_form_with_real_value():
         return json.dumps(payload)
 
     provider = FakeProvider(fake_generate)
-    result = ccnuoc_reader.read_drawing(b"x", "image/png", provider)
+    result = ccnuoc_reader.read_drawing([(b"x", "image/png")], provider)
     assert result["so_hieu_ban_ve"] == "N-05"
 
 
@@ -101,5 +101,5 @@ def test_ccnuoc_reader_all_placeholder_returns_placeholder():
         return json.dumps(payload)
 
     provider = FakeProvider(fake_generate)
-    result = ccnuoc_reader.read_drawing(b"x", "image/png", provider)
+    result = ccnuoc_reader.read_drawing([(b"x", "image/png")], provider)
     assert result["so_hieu_ban_ve"] == KHONG_XAC_DINH_SO_HIEU

@@ -147,45 +147,23 @@ def _log_ai_call(provider, prompt_version, status, started_at, usage=None, error
     )
 
 
-def read_drawing_json(file_bytes: bytes, media_type: str, provider, system_prompt: str, prompt_version: str = None) -> dict:
-    """Gửi bản vẽ (ảnh hoặc PDF) kèm system_prompt tới AI provider, trả về dict đã
-    parse JSON. prompt_version: nhãn phiên bản prompt để ghi log (mặc định tự suy
-    ra từ chính system_prompt nếu không truyền — xem system_prompt_version())."""
+def _content_block_for(file_bytes: bytes, media_type: str) -> dict:
     b64 = base64.standard_b64encode(file_bytes).decode("ascii")
-
     if media_type == "application/pdf":
-        content_block = {
+        return {
             "type": "document",
             "source": {"type": "base64", "media_type": media_type, "data": b64},
         }
-    else:
-        content_block = {
-            "type": "image",
-            "source": {"type": "base64", "media_type": media_type, "data": b64},
-        }
+    return {
+        "type": "image",
+        "source": {"type": "base64", "media_type": media_type, "data": b64},
+    }
 
-    version = prompt_version if prompt_version is not None else system_prompt_version(system_prompt)
-    started_at = time.monotonic()
 
-    try:
-        result = provider.generate_with_document(system_prompt, content_block)
-    except AttributeError:
-        _log_ai_call(provider, version, "error", started_at, error="provider khong ho tro generate_with_document")
-        raise AIReaderError(
-            f"Provider '{getattr(provider, 'name', '?')}' chưa hỗ trợ đọc ảnh/PDF (generate_with_document)."
-        )
-    except CircuitBreakerOpen as exc:
-        # Loi ro rang, dung mo ta san co san (bao nhieu lan lien tiep/con nghi bao
-        # lau) - boc thanh AIReaderError de di dung duong 502 co san o routes/aiho.py
-        # thay vi roi vao nhanh 500 chung chung.
-        _log_ai_call(provider, version, "circuit_open", started_at, error=str(exc))
-        raise AIReaderError(str(exc)) from exc
-    except Exception as exc:
-        _log_ai_call(provider, version, "error", started_at, error=str(exc))
-        raise
-
-    raw, usage = result.text, result.usage
-
+def _parse_and_log(raw: str, usage, provider, version: str, started_at: float) -> dict:
+    """Parse JSON tra ve tu AI + ghi log 1 dong (thanh cong/loi) - dung chung
+    cho ca read_drawing_json() (1 file) va read_drawing_json_multi() (nhieu
+    file), vi phan parse/log GIONG HET nhau bat ke goi 1 hay nhieu file."""
     raw = raw.strip()
     if raw.startswith("```"):
         raw = raw.strip("`")
@@ -210,6 +188,61 @@ def read_drawing_json(file_bytes: bytes, media_type: str, provider, system_promp
 
     _log_ai_call(provider, version, "success", started_at, usage=usage)
     return parsed
+
+
+def read_drawing_json(file_bytes: bytes, media_type: str, provider, system_prompt: str, prompt_version: str = None) -> dict:
+    """Gửi bản vẽ (ảnh hoặc PDF) kèm system_prompt tới AI provider, trả về dict đã
+    parse JSON. prompt_version: nhãn phiên bản prompt để ghi log (mặc định tự suy
+    ra từ chính system_prompt nếu không truyền — xem system_prompt_version())."""
+    content_block = _content_block_for(file_bytes, media_type)
+
+    version = prompt_version if prompt_version is not None else system_prompt_version(system_prompt)
+    started_at = time.monotonic()
+
+    try:
+        result = provider.generate_with_document(system_prompt, content_block)
+    except AttributeError:
+        _log_ai_call(provider, version, "error", started_at, error="provider khong ho tro generate_with_document")
+        raise AIReaderError(
+            f"Provider '{getattr(provider, 'name', '?')}' chưa hỗ trợ đọc ảnh/PDF (generate_with_document)."
+        )
+    except CircuitBreakerOpen as exc:
+        # Loi ro rang, dung mo ta san co san (bao nhieu lan lien tiep/con nghi bao
+        # lau) - boc thanh AIReaderError de di dung duong 502 co san o routes/aiho.py
+        # thay vi roi vao nhanh 500 chung chung.
+        _log_ai_call(provider, version, "circuit_open", started_at, error=str(exc))
+        raise AIReaderError(str(exc)) from exc
+    except Exception as exc:
+        _log_ai_call(provider, version, "error", started_at, error=str(exc))
+        raise
+
+    return _parse_and_log(result.text, result.usage, provider, version, started_at)
+
+
+def read_drawing_json_multi(files: list, provider, system_prompt: str, prompt_version: str = None) -> dict:
+    """Giống read_drawing_json() nhưng gửi NHIỀU file (files: list[(bytes, media_type)])
+    trong CÙNG 1 request AI — dùng khi 1 hạng mục có thể có nội dung nằm rải trên
+    nhiều file bản vẽ khác nhau. Xem read_drawing_json() cho phần xử lý response/
+    parse JSON/log (dùng chung qua _parse_and_log()) — hàm này chỉ khác ở bước
+    dựng content_blocks và gọi generate_with_documents() thay vì generate_with_document()."""
+    content_blocks = [_content_block_for(fb, mt) for fb, mt in files]
+
+    version = prompt_version if prompt_version is not None else system_prompt_version(system_prompt)
+    started_at = time.monotonic()
+
+    try:
+        result = provider.generate_with_documents(system_prompt, content_blocks)
+    except AttributeError:
+        _log_ai_call(provider, version, "error", started_at, error="provider khong ho tro generate_with_documents")
+        raise AIReaderError(f"Provider '{getattr(provider, 'name', '?')}' chưa hỗ trợ đọc nhiều file cùng lúc.")
+    except CircuitBreakerOpen as exc:
+        _log_ai_call(provider, version, "circuit_open", started_at, error=str(exc))
+        raise AIReaderError(str(exc)) from exc
+    except Exception as exc:
+        _log_ai_call(provider, version, "error", started_at, error=str(exc))
+        raise
+
+    return _parse_and_log(result.text, result.usage, provider, version, started_at)
 
 
 def read_and_validate_drawing_json(file_bytes: bytes, media_type: str, provider, system_prompt: str, validate_fn, prompt_version: str = None):
@@ -239,6 +272,33 @@ def read_and_validate_drawing_json(file_bytes: bytes, media_type: str, provider,
               "Không lặp lại lỗi này, không thêm văn bản nào khác ngoài JSON."
         )
         raw2 = read_drawing_json(file_bytes, media_type, provider, repair_prompt, prompt_version=version)
+        try:
+            return validate_fn(raw2)
+        except SchemaValidationError as second_err:
+            raise AIReaderError(
+                f"AI trả kết quả không đúng định dạng ngay cả sau khi đã yêu cầu sửa lỗi 1 lần: {second_err}"
+            ) from second_err
+
+
+def read_and_validate_drawing_json_multi(files: list, provider, system_prompt: str, validate_fn, prompt_version: str = None):
+    """Bản song song với read_and_validate_drawing_json() — giữ nguyên y hệt cơ
+    chế retry-repair 1 lần khi validate_fn raise SchemaValidationError, chỉ đổi
+    read_drawing_json() -> read_drawing_json_multi() và truyền files thay vì
+    file_bytes/media_type đơn lẻ."""
+    version = prompt_version if prompt_version is not None else system_prompt_version(system_prompt)
+    raw = read_drawing_json_multi(files, provider, system_prompt, prompt_version=version)
+    try:
+        return validate_fn(raw)
+    except SchemaValidationError as first_err:
+        repair_prompt = (
+            system_prompt
+            + "\n\n--- SỬA LỖI ĐỊNH DẠNG (bắt buộc) ---\n"
+            + "Lần trả lời TRƯỚC của bạn KHÔNG đạt yêu cầu định dạng, lý do cụ thể:\n"
+            + str(first_err)
+            + "\nHãy đọc lại bản vẽ và trả lời LẠI TỪ ĐẦU, đúng nguyên cấu trúc JSON đã yêu cầu ở trên, sửa đúng lỗi trên. "
+              "Không lặp lại lỗi này, không thêm văn bản nào khác ngoài JSON."
+        )
+        raw2 = read_drawing_json_multi(files, provider, repair_prompt, prompt_version=version)
         try:
             return validate_fn(raw2)
         except SchemaValidationError as second_err:

@@ -44,7 +44,7 @@ class CapturingProvider:
         self.captured_prompts = []
         self.payload_fn = payload_fn
 
-    def generate_with_document(self, system_prompt, content_block):
+    def generate_with_documents(self, system_prompt, content_blocks):
         self.captured_prompts.append(system_prompt)
         return GenerationResult(text=self.payload_fn(system_prompt))
 
@@ -62,7 +62,7 @@ def _dienpccc_payload(_system_prompt=None):
 def _upload_dienpccc(client, token, session_id):
     return client.post(
         "/api/aiho/read-dienpccc",
-        data={"file": (io.BytesIO(PNG_BYTES), "drawing.png"), "session_id": str(session_id)},
+        data={"files": (io.BytesIO(PNG_BYTES), "drawing.png"), "session_id": str(session_id)},
         headers={"Authorization": f"Bearer {token}"},
         content_type="multipart/form-data",
     )

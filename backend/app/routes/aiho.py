@@ -53,6 +53,13 @@ SINGLE_MAX_BYTES_PDF = 22 * 1024 * 1024
 MERGED_MAX_BYTES_IMAGE = 7 * 1024 * 1024
 MERGED_MAX_BYTES_PDF = 22 * 1024 * 1024
 
+# Gioi han so file dinh CHO 1 LAN GOI AI cua 1 hang muc (Batch 5A Pha 1 - dinh
+# nhieu file vi noi dung 1 he thong doi khi nam tren file mang ten he thong
+# khac) - KHAC HAN ho_so_session.MAX_FILES_PER_SESSION (gioi han CA PHIEN, van
+# giu nguyen +1 file/+1(vai) form du dinh 1 hay ca 3 file, xem reserve_slot()
+# ben duoi khong doi).
+MAX_FILES_PER_CALL = 3
+
 # file.mimetype la Content-Type client tu khai trong multipart request - gia mao
 # duoc de dang (khong lien quan gi toi noi dung file that). Kiem tra them byte dau
 # thuc te de xac nhan dung dinh dang, khong chi tin loi client noi.
@@ -141,23 +148,37 @@ def _handle_read_request(read_drawing_fn, build_mdc_files, forms_per_call, on_su
     except ho_so_session.SessionNotOpen as exc:
         return jsonify({"error": str(exc)}), 400
 
-    file = request.files.get("file")
-    if not file:
-        return jsonify({"error": "Thiếu file bản vẽ (field 'file')."}), 400
+    files_raw = request.files.getlist("files")
+    if not files_raw:
+        return jsonify({"error": "Thiếu file bản vẽ (field 'files')."}), 400
+    if len(files_raw) > MAX_FILES_PER_CALL:
+        return jsonify({"error": f"Chỉ được đính tối đa {MAX_FILES_PER_CALL} file cho 1 hạng mục/lần gọi."}), 400
 
-    media_type = file.mimetype
-    if media_type not in ALLOWED_TYPES:
-        return jsonify({"error": f"Định dạng '{media_type}' không hỗ trợ — chỉ nhận PDF, PNG, JPEG, WEBP."}), 400
+    files = []  # list[(bytes, media_type)]
+    total_bytes_pdf = 0
+    total_bytes_image = 0
+    for f in files_raw:
+        media_type = f.mimetype
+        if media_type not in ALLOWED_TYPES:
+            return jsonify({"error": f"Định dạng '{media_type}' không hỗ trợ — chỉ nhận PDF, PNG, JPEG, WEBP."}), 400
+        data = f.read()
+        if not _sniff_magic_bytes(data, media_type):
+            return jsonify({"error": f"Nội dung file '{f.filename}' không khớp với định dạng khai báo — file có thể bị hỏng hoặc sai định dạng thật."}), 400
+        if media_type == "application/pdf":
+            total_bytes_pdf += len(data)
+        else:
+            total_bytes_image += len(data)
+        files.append((data, media_type))
 
-    data = file.read()
-    single_limit_bytes = SINGLE_MAX_BYTES_PDF if media_type == "application/pdf" else SINGLE_MAX_BYTES_IMAGE
-    if len(data) > single_limit_bytes:
-        single_limit_mb = single_limit_bytes // (1024 * 1024)
-        single_loai_file = "PDF" if media_type == "application/pdf" else "ảnh"
-        return jsonify({"error": f"File {single_loai_file} vượt quá {single_limit_mb}MB."}), 400
-
-    if not _sniff_magic_bytes(data, media_type):
-        return jsonify({"error": "Nội dung file không khớp với định dạng khai báo — file có thể bị hỏng hoặc sai định dạng thật."}), 400
+    # QUAN TRONG: gioi han goc SINGLE_MAX_BYTES_PDF/IMAGE (xem comment dau file,
+    # dong ~38-53) duoc tinh CHO 1 REQUEST GUI ANTHROPIC, khong phai cho 1 file —
+    # voi nhieu file trong CUNG 1 request phai kiem tra TONG dung luong, khong
+    # phai tung file rieng le, neu khong request co the vuot han muc 32MB thuc
+    # te cua API dan toi loi 502 lang phi 1 luot AI (van bi tinh vao count_usage_today()).
+    if total_bytes_pdf > SINGLE_MAX_BYTES_PDF:
+        return jsonify({"error": f"Tổng dung lượng các file PDF vượt quá {SINGLE_MAX_BYTES_PDF // (1024*1024)}MB (giới hạn cho 1 lần gọi, tính TỔNG nếu đính nhiều file)."}), 400
+    if total_bytes_image > SINGLE_MAX_BYTES_IMAGE:
+        return jsonify({"error": f"Tổng dung lượng các file ảnh vượt quá {SINGLE_MAX_BYTES_IMAGE // (1024*1024)}MB (giới hạn cho 1 lần gọi, tính TỔNG nếu đính nhiều file)."}), 400
 
     # Han muc goi AI/ngay (khac gioi han file/form cua 1 phien Bo ho so o tren) -
     # dung lai dung logic cua /api/ai/comment (routes/ai.py): so count_usage_today()
@@ -190,7 +211,7 @@ def _handle_read_request(read_drawing_fn, build_mdc_files, forms_per_call, on_su
     quy_mo = quy_mo_store.get_quy_mo(session.id)
 
     try:
-        result = read_drawing_fn(data, media_type, provider, quy_mo=quy_mo)
+        result = read_drawing_fn(files, provider, quy_mo=quy_mo)
     except ProviderNotConfigured as exc:
         # Chua cau hinh API key - chua thuc su goi AI nao, khong tinh la 1
         # luot dung (giong het nhanh nay o /api/ai/comment, routes/ai.py).

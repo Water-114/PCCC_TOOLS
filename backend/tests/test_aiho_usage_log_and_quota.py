@@ -57,7 +57,7 @@ class FakeProvider:
         self.fn = fn
         self.exc = exc
 
-    def generate_with_document(self, system_prompt, content_block):
+    def generate_with_documents(self, system_prompt, content_blocks):
         if self.exc is not None:
             raise self.exc
         return GenerationResult(text=self.fn(system_prompt))
@@ -76,7 +76,7 @@ def _dienpccc_payload():
 def _upload(client, token, session_id):
     return client.post(
         "/api/aiho/read-dienpccc",
-        data={"file": (io.BytesIO(PNG_BYTES), "drawing.png"), "session_id": str(session_id)},
+        data={"files": (io.BytesIO(PNG_BYTES), "drawing.png"), "session_id": str(session_id)},
         headers={"Authorization": f"Bearer {token}"},
         content_type="multipart/form-data",
     )

@@ -68,7 +68,7 @@ class GeminiProvider(AIProvider):
 
         return resilience.guarded_call(self.name, _is_infra_error, _call)
 
-    def generate_with_document(self, system_prompt: str, content_block: dict) -> GenerationResult:
+    def generate_with_documents(self, system_prompt: str, content_blocks: list) -> GenerationResult:
         if not self.api_key:
             raise ProviderNotConfigured(
                 "Chưa cấu hình GEMINI_API_KEY — thêm key vào backend/.env để dùng Gemini."
@@ -79,18 +79,23 @@ class GeminiProvider(AIProvider):
         from google.genai import types
 
         client = self._client()
-        source = content_block["source"]
-        file_part = types.Part.from_bytes(
-            data=base64.standard_b64decode(source["data"]),
-            mime_type=source["media_type"],
-        )
+        file_parts = [
+            types.Part.from_bytes(
+                data=base64.standard_b64decode(cb["source"]["data"]),
+                mime_type=cb["source"]["media_type"],
+            )
+            for cb in content_blocks
+        ]
 
         def _call():
             response = client.models.generate_content(
                 model=self.model,
-                contents=[file_part, "Hãy đọc bản vẽ trên và trả lời theo đúng định dạng JSON đã yêu cầu."],
+                contents=file_parts + ["Hãy đọc (các) bản vẽ trên và trả lời theo đúng định dạng JSON đã yêu cầu."],
                 config=types.GenerateContentConfig(system_instruction=system_prompt),
             )
             return GenerationResult(text=response.text, usage=self._usage_dict(response))
 
         return resilience.guarded_call(self.name, _is_infra_error, _call)
+
+    def generate_with_document(self, system_prompt: str, content_block: dict) -> GenerationResult:
+        return self.generate_with_documents(system_prompt, [content_block])

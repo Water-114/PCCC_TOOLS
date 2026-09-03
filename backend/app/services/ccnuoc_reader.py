@@ -29,7 +29,7 @@ from .ai_reader_common import (
     STANDARD_PHRASES,
     TOA_DO_TRUC_KHOANG_CACH,
     AIReaderError,
-    read_and_validate_drawing_json,
+    read_and_validate_drawing_json_multi,
     system_prompt_version,
 )
 from .ai_schema import ChuaChayTuDongReaderResult, KHONG_XAC_DINH_SO_HIEU, ReaderResult, validate_reader_result
@@ -134,9 +134,10 @@ def _validate_for(loai):
     return _validate
 
 
-def read_drawing(file_bytes: bytes, media_type: str, provider, quy_mo: dict = None) -> dict:
-    """Gọi AI 3 lần (B3/B5/B6) song song cho cùng 1 bản vẽ, mỗi lần validate qua
-    Pydantic (kèm retry-repair riêng từng lần nếu sai), rồi gộp kết quả lại.
+def read_drawing(files: list, provider, quy_mo: dict = None) -> dict:
+    """Gọi AI 3 lần (B3/B5/B6) song song cho CÙNG (các) bản vẽ (files:
+    list[(bytes, media_type)], tối đa 3 — Batch 5A Pha 1), mỗi lần validate
+    qua Pydantic (kèm retry-repair riêng từng lần nếu sai), rồi gộp kết quả lại.
 
     quy_mo: dữ liệu quy mô công trình (hạng mục "Quy mô") của CÙNG phiên Bộ hồ
     sơ, nếu người dùng CÓ đính kèm — HOÀN TOÀN TUỲ CHỌN (None nếu không đính,
@@ -146,8 +147,8 @@ def read_drawing(file_bytes: bytes, media_type: str, provider, quy_mo: dict = No
 
     def _call(form):
         prompt = SYSTEM_PROMPTS[form["loai"]] + context
-        return read_and_validate_drawing_json(
-            file_bytes, media_type, provider, prompt, _validate_for(form["loai"]),
+        return read_and_validate_drawing_json_multi(
+            files, provider, prompt, _validate_for(form["loai"]),
             prompt_version=SYSTEM_PROMPT_VERSIONS[form["loai"]],
         )
 

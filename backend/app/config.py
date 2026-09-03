@@ -86,8 +86,17 @@ class Config:
     # Gioi han kich thuoc toan bo request body o tang Flask/Werkzeug — chan som (413)
     # truoc khi buffer het vao RAM, thay vi chi dua vao kiem tra thu cong sau khi da
     # doc het file trong aiho.py. Phai >= gioi han file LON NHAT trong toan app +
-    # bien du cho multipart overhead: ca 3 luong dinh file (7 route rieng le, multi-
-    # attach, va /read-merged) deu dung chung muc PDF toi da 22MB (SINGLE_MAX_BYTES_PDF/
-    # MERGED_MAX_BYTES_PDF, xem routes/aiho.py) — 26MB de con ~4MB bien, giu dung ty le
-    # bien nhu truoc (24MB cho 20MB file -> 26MB cho 22MB file).
-    MAX_CONTENT_LENGTH = 26 * 1024 * 1024
+    # bien du cho multipart overhead.
+    #
+    # Batch 5A Pha 1 (dinh NHIEU file/1 lan goi, xem MAX_FILES_PER_CALL trong
+    # routes/aiho.py): 7 route rieng le gio nhan toi da 3 file/request, kiem tra
+    # TONG dung luong PDF (SINGLE_MAX_BYTES_PDF=22MB) — worst case HOP LE (nguoi
+    # dung vo tinh dinh 3 file PDF gan muc toi da moi file, tong vuot 22MB) co
+    # the len toi ~3x22MB=66MB truoc khi bi tu choi bang thong bao tieng Viet ro
+    # rang o routes/aiho.py. Neu MAX_CONTENT_LENGTH giu muc cu (26MB, tinh cho
+    # DUNG 1 file) thi cac truong hop nay se bi Werkzeug chan som bang loi 413
+    # chung chung (khong co thong bao tieng Viet) TRUOC KHI toi duoc code kiem
+    # tra TONG dung luong — mo muc nay len de duong bao loi ro rang luon chay
+    # duoc, dong thoi van chan duoc cac request that su qua khong lo/co y do xau.
+    # /read-merged va multi-attach van chi dung 1 file/request (khong doi).
+    MAX_CONTENT_LENGTH = 70 * 1024 * 1024

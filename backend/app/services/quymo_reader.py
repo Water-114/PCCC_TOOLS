@@ -13,7 +13,7 @@ tượng trang bị" được điền bằng CODE THUẦN qua các hàm evaluate
    không phân biệt A.2/A.4).
 """
 
-from .ai_reader_common import AIReaderError, read_and_validate_drawing_json, system_prompt_version
+from .ai_reader_common import AIReaderError, read_and_validate_drawing_json_multi, system_prompt_version
 from .ai_schema import validate_quy_mo_reader_result
 from .tham_dinh import OCCUPATIONS
 
@@ -110,13 +110,15 @@ def _validate(data: dict):
     return validate_quy_mo_reader_result(data)
 
 
-def read_drawing(file_bytes: bytes, media_type: str, provider, quy_mo: dict = None) -> dict:
-    """Gửi bản vẽ kiến trúc tới AI provider, validate qua Pydantic (kèm
-    retry-repair 1 lần nếu sai), trả về dict {so_hieu_ban_ve, quy_mo, bang_a2_bao_chay, ...}.
+def read_drawing(files: list, provider, quy_mo: dict = None) -> dict:
+    """Gửi (các) bản vẽ kiến trúc (files: list[(bytes, media_type)], tối đa 3
+    — Batch 5A Pha 1) tới AI provider trong CÙNG 1 request, validate qua
+    Pydantic (kèm retry-repair 1 lần nếu sai), trả về dict {so_hieu_ban_ve,
+    quy_mo, bang_a2_bao_chay, ...}.
 
     quy_mo: KHÔNG dùng ở đây — reader này SINH ra dữ liệu quy mô (không tiêu
     thụ dữ liệu quy mô có sẵn). Nhận tham số này chỉ để đồng bộ chữ ký gọi với
     4 reader kia qua routes/aiho.py::_handle_read_request().
     """
-    model = read_and_validate_drawing_json(file_bytes, media_type, provider, SYSTEM_PROMPT, _validate)
+    model = read_and_validate_drawing_json_multi(files, provider, SYSTEM_PROMPT, _validate)
     return model.model_dump()

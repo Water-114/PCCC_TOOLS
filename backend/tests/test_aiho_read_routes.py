@@ -51,7 +51,7 @@ def _open_session(client, token):
 
 
 def _upload(client, token, session_id, path="/api/aiho/read-dienpccc", filename="drawing.png", extra_form=None):
-    form = {"file": (io.BytesIO(PNG_BYTES), filename), "session_id": str(session_id)}
+    form = {"files": (io.BytesIO(PNG_BYTES), filename), "session_id": str(session_id)}
     if extra_form:
         form.update(extra_form)
     return client.post(
@@ -96,7 +96,7 @@ class FakeProvider:
         self.fn = fn
         self.exc = exc
 
-    def generate_with_document(self, system_prompt, content_block):
+    def generate_with_documents(self, system_prompt, content_blocks):
         if self.exc is not None:
             raise self.exc
         return GenerationResult(text=self.fn(system_prompt))
@@ -173,7 +173,7 @@ def test_read_without_session_id_returns_400(client):
     with patch("app.routes.aiho.get_provider", return_value=provider) as mock_get_provider:
         resp = client.post(
             "/api/aiho/read-dienpccc",
-            data={"file": (io.BytesIO(PNG_BYTES), "drawing.png")},  # thieu session_id
+            data={"files": (io.BytesIO(PNG_BYTES), "drawing.png")},  # thieu session_id
             headers={"Authorization": f"Bearer {token}"},
             content_type="multipart/form-data",
         )

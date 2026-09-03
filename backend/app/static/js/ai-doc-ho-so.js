@@ -416,7 +416,7 @@
     }
   };
 
-  var realFiles = {};   // slot -> File
+  var realFiles = {};   // slot -> File[] (toi da MAX_FILES_PER_SLOT, Batch 5A Pha 1)
   var realResults = {}; // slot -> {status, note} (dùng cho dòng tóm tắt trong bảng kết quả)
   var realData = {};    // slot -> JSON đầy đủ AI trả về (gồm items/kien_nghi/mdc_docx_*)
 
@@ -489,36 +489,45 @@
     return null;
   }
 
-  // Gan 1 file (da qua validateFileSize) vao 1 slot cu the - cap nhat realFiles
-  // + giao dien the (giong het duong dinh tung the rieng le). Dung CHUNG cho ca
-  // setupRealFileCard VA panel "Dung 1 file cho nhieu hang muc" (khong viet lai).
-  function attachFileToSlot(slot, f){
+  // Gioi han so file dinh CHO 1 SLOT/hang muc (Batch 5A Pha 1 - dinh nhieu file
+  // vi noi dung 1 he thong doi khi nam tren file mang ten he thong khac) - khop
+  // dung MAX_FILES_PER_CALL o backend routes/aiho.py.
+  var MAX_FILES_PER_SLOT = 3;
+
+  // THEM 1 file (da qua validateFileSize) vao 1 slot cu the - cap nhat realFiles
+  // (gio la MANG, khong phai 1 File don) + ve THEM 1 dong .drop-file (khong xoa
+  // dong cu). Dung CHUNG cho ca setupRealFileCard VA panel "Dung 1 file cho
+  // nhieu hang muc" (khong viet lai).
+  function addFileToSlot(slot, f){
     var card = document.getElementById(slot + 'Card');
     var status = document.getElementById(slot + 'Status');
     if(!card || !status) return;
 
-    realFiles[slot] = f;
+    if(!realFiles[slot]) realFiles[slot] = [];
+    realFiles[slot].push(f);
     realResults[slot] = null;
     realData[slot] = null;
     card.classList.add('filled');
     status.textContent = '● Đã đính kèm';
     status.classList.add('attached');
     var body = card.querySelector('.drop-body');
-    var existing = body.querySelector('.drop-file');
-    if(existing) existing.remove();
     var sizeMb = (f.size / (1024 * 1024)).toFixed(1);
     var fileRow = buildFileRow(f.name + ' · ' + sizeMb + ' MB');
     fileRow.querySelector('button').addEventListener('click', function(e){
       e.stopPropagation();
-      realFiles[slot] = null;
+      var arr = realFiles[slot] || [];
+      var idx = arr.indexOf(f);
+      if(idx !== -1) arr.splice(idx, 1);
       realResults[slot] = null;
       realData[slot] = null;
-      var fileInput = document.getElementById(slot + 'FileInput');
-      if(fileInput) fileInput.value = '';
-      card.classList.remove('filled');
-      status.textContent = '○ Chưa đính kèm';
-      status.classList.remove('attached');
       fileRow.remove();
+      if(!arr.length){
+        var fileInput = document.getElementById(slot + 'FileInput');
+        if(fileInput) fileInput.value = '';
+        card.classList.remove('filled');
+        status.textContent = '○ Chưa đính kèm';
+        status.classList.remove('attached');
+      }
       updateCta();
       updateProgress();
     });
@@ -532,6 +541,7 @@
     var fileInput = document.getElementById(slot + 'FileInput');
     var status = document.getElementById(slot + 'Status');
     if(!card || !fileInput || !status) return;
+    fileInput.multiple = true;
 
     card.addEventListener('click', function(e){
       if(e.target.closest('.drop-file')) return;
@@ -540,17 +550,22 @@
     });
     fileInput.addEventListener('click', function(e){ e.stopPropagation(); });
     fileInput.addEventListener('change', function(){
-      var f = fileInput.files[0];
-      if(!f) return;
-      var err = validateFileSize(f);
-      if(err){
-        msg.textContent = err;
+      var newFiles = Array.prototype.slice.call(fileInput.files);
+      if(!newFiles.length) return;
+      var current = realFiles[slot] || [];
+      if(current.length + newFiles.length > MAX_FILES_PER_SLOT){
+        msg.textContent = 'Chỉ được đính tối đa ' + MAX_FILES_PER_SLOT + ' file cho 1 hạng mục.';
         msg.classList.add('show');
         fileInput.value = '';
         return;
       }
+      for(var i = 0; i < newFiles.length; i++){
+        var err = validateFileSize(newFiles[i]);
+        if(err){ msg.textContent = err; msg.classList.add('show'); fileInput.value = ''; return; }
+      }
       msg.classList.remove('show');
-      attachFileToSlot(slot, f);
+      newFiles.forEach(function(f){ addFileToSlot(slot, f); });
+      fileInput.value = ''; // cho phep chon lai file (kem them file 2/3 o lan click tiep theo)
     });
   }
   Object.keys(REAL_CATEGORIES).forEach(setupRealFileCard);
@@ -799,7 +814,7 @@
   /* ===================================================================
      "Dùng 1 file cho nhiều hạng mục" — tiện ích UX THUẦN TUÝ: gán CÙNG 1
      File object vào nhiều slot (realFiles[slot]) cùng lúc, dùng lại ĐÚNG
-     attachFileToSlot() ở trên — mỗi hạng mục vẫn tự gọi AI đọc ĐỘC LẬP trên
+     addFileToSlot() ở trên — mỗi hạng mục vẫn tự gọi AI đọc ĐỘC LẬP trên
      file này như đính riêng lẻ, KHÔNG tự nhận diện/gộp kết quả gì cả.
      Chặn tối đa 4 hạng mục/lần (rút kinh nghiệm sự cố OOM production khi
      nhiều hạng mục gọi AI đồng thời) - xem render.yaml (gunicorn --workers).
@@ -916,7 +931,7 @@
       }
       var slots = checkboxes.filter(function(cb){ return cb.checked; }).map(function(cb){ return cb.value; });
       if(!slots.length) return;
-      slots.forEach(function(slot){ attachFileToSlot(slot, f); });
+      slots.forEach(function(slot){ addFileToSlot(slot, f); });
       resultMsg.textContent = '✓ Đã áp dụng file cho ' + slots.length + ' hạng mục — kiểm tra lại các thẻ bên dưới.';
       resultMsg.style.color = 'var(--green)';
     });
@@ -2212,7 +2227,7 @@
     // nhưng có ghi nhận lỗi (realResults) — phải báo rõ, không được lặng lẽ rơi về nội dung minh hoạ không liên quan.
     var failed = [];
     Object.keys(REAL_CATEGORIES).forEach(function(slot){
-      if(!realData[slot] && realResults[slot] && realFiles[slot]){
+      if(!realData[slot] && realResults[slot] && realFiles[slot] && realFiles[slot].length){
         failed.push({label: REAL_CATEGORIES[slot].label, note: realResults[slot].note});
       }
     });
@@ -2621,7 +2636,7 @@
   }
 
   function runAnalysis(sessionId){
-    var activeSlots = Object.keys(REAL_CATEGORIES).filter(function(slot){ return !!realFiles[slot]; });
+    var activeSlots = Object.keys(REAL_CATEGORIES).filter(function(slot){ return realFiles[slot] && realFiles[slot].length > 0; });
     activeSlots.forEach(function(slot){ realResults[slot] = null; realData[slot] = null; });
 
     var interval;
@@ -2709,7 +2724,7 @@
         activeSlots.forEach(function(slot){
           var cfg = REAL_CATEGORIES[slot];
           var form = new FormData();
-          form.append('file', realFiles[slot]);
+          (realFiles[slot] || []).forEach(function(f){ form.append('files', f); });
           form.append('outputs', outputsValue);
           form.append('session_id', sessionId);
           fetch(BACKEND_BASE + cfg.endpoint, {
@@ -2824,7 +2839,7 @@
 
     var calls = scanSlots.map(function(slot){
       var form = new FormData();
-      form.append('file', realFiles[slot]);
+      form.append('file', (realFiles[slot] || [])[0]);
       form.append('session_id', sessionId);
       return fetch(BACKEND_BASE + '/api/aiho/scan-quymo', {
         method: 'POST',
@@ -2875,7 +2890,7 @@
     updateCta();
     setOutputPickerLocked(true);
 
-    var hasRealSlot = Object.keys(REAL_CATEGORIES).some(function(slot){ return !!realFiles[slot]; });
+    var hasRealSlot = Object.keys(REAL_CATEGORIES).some(function(slot){ return realFiles[slot] && realFiles[slot].length > 0; });
     // Khong co file that nao dinh KEM, VA cung khong co phien nao dang mo tu
     // truoc (vd chua tung "Luu thong so" Quy mo) -> chi mo phong demo, khong
     // dung gi toi backend. Neu DA co activeSessionId (chi nhap tay Quy mo,
