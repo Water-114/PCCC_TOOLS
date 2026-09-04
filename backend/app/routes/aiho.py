@@ -13,6 +13,7 @@ from ..services import (
     bot_chua_chay_reader,
     botcodinh_reader,
     ccnuoc_reader,
+    cong_van_huong_dan_docx,
     credits,
     densucco_reader,
     dienpccc_reader,
@@ -1115,5 +1116,45 @@ def export_form_a():
 
     return jsonify({
         "filename": filename,
+        "base64": base64.b64encode(docx_bytes).decode("ascii"),
+    })
+
+
+@bp.post("/export-cong-van-huong-dan")
+@login_required
+def export_cong_van_huong_dan():
+    """Cong van huong dan (.docx that, dung file mau) - KHONG goi AI, KHONG
+    tru quota, giong het /export-kien-nghi ve nguyen tac (frontend gui san
+    hang_muc, backend chi render)."""
+    user = g.current_user
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"error": "Dữ liệu gửi lên phải là một object JSON."}), 400
+
+    try:
+        session_id = int(payload.get("session_id"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Thiếu hoặc sai session_id (phiên Bộ hồ sơ)."}), 400
+
+    _session, err = _get_own_session_any_status_or_error(user.id, session_id)
+    if err:
+        return err
+
+    hang_muc_list = payload.get("hang_muc")
+    if not isinstance(hang_muc_list, list):
+        return jsonify({"error": "Thiếu dữ liệu 'hang_muc'."}), 400
+
+    session_data = {"quy_mo": quy_mo_store.get_quy_mo(session_id) or {}}
+
+    try:
+        docx_bytes = cong_van_huong_dan_docx.build_cong_van_huong_dan_docx(session_data, hang_muc_list)
+    except cong_van_huong_dan_docx.CongVanHuongDanError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception:
+        current_app.logger.exception("Khong tao duoc file cong van huong dan")
+        return jsonify({"error": "Không tạo được file công văn hướng dẫn — vui lòng thử lại sau."}), 500
+
+    return jsonify({
+        "filename": cong_van_huong_dan_docx.FILENAME,
         "base64": base64.b64encode(docx_bytes).decode("ascii"),
     })

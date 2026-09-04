@@ -454,7 +454,8 @@
   var quyMoConflictWarningsPending = [];
   // Phan E — canh bao "thieu ho so he thong X" cua LUOT VUA CHAY XONG gan
   // nhat (khong tich luy qua nhieu luot, luon ghi de) - doc boi
-  // outputPreviewHtml('loi') VA maybeExportKienNghiDocx() VA renderQuyMoWarningsBox().
+  // outputPreviewHtml('congvanhuongdan') VA maybeExportCongVanHuongDanDocx()
+  // VA renderQuyMoWarningsBox().
   var quyMoMissingWarningsPending = [];
 
   function ensureSessionOpen(){
@@ -2481,31 +2482,26 @@
           '<tr><td>MĐC B3–B4 · Chữa cháy bằng nước</td><td><span class="badge b-no">Đạt</span></td><td>—</td></tr>' +
           '<tr><td>MĐC B5 · Chữa cháy bằng khí</td><td><span class="badge b-yes">Thiếu sót</span></td><td>Bổ sung tính toán d₁, f₂</td></tr>' +
           '</tbody></table></div>';
-      case 'loi':
-        var kienNghiSections = collectRealSections(function(d){ return !!d.kien_nghi; });
-        var loiFailed = collectFailedRealSlots();
+      case 'congvanhuongdan':
+        var congVanSections = collectRealSections(function(d){ return !!d.kien_nghi; });
+        var congVanFailed = collectFailedRealSlots();
         // Phan E — canh bao quy mo (mau thuan/thieu ho so) cung phai kich hoat
-        // hop #aihoKienNghiDocxBox du KHONG hang muc rieng le nao co kien_nghi
+        // hop #aihoCongVanHuongDanBox du KHONG hang muc rieng le nao co kien_nghi
         // (vd moi hang muc deu "dat" nhung van thieu 1 he thong thuoc dien) -
-        // khong thi maybeExportKienNghiDocx() se khong tim thay box de xuat file.
+        // khong thi maybeExportCongVanHuongDanDocx() se khong tim thay box de xuat file.
         var hasQuyMoWarnings = (quyMoConflictWarningsPending.length + quyMoMissingWarningsPending.length) > 0;
-        if(kienNghiSections.length || loiFailed.length || hasQuyMoWarnings){
-          var loiParts = [];
-          if(kienNghiSections.length || hasQuyMoWarnings){
-            if(kienNghiSections.length) loiParts.push(renderKienNghiReal(kienNghiSections));
-            loiParts.push('<div id="aihoKienNghiDocxBox"><p>Đang tạo file kiến nghị thiết kế (.docx) tổng hợp…</p></div>');
+        if(congVanSections.length || congVanFailed.length || hasQuyMoWarnings){
+          var congVanParts = [];
+          if(congVanSections.length || hasQuyMoWarnings){
+            congVanParts.push('<div id="aihoCongVanHuongDanBox"><p>Đang tạo file công văn hướng dẫn (.docx)…</p></div>');
           }
-          loiFailed.forEach(function(f){
-            loiParts.push(buildFailedNoteHtml('Danh sách kiến nghị (theo văn phong PC07) — ' + f.label, f.note));
+          congVanFailed.forEach(function(f){
+            congVanParts.push(buildFailedNoteHtml('Công văn hướng dẫn — ' + f.label, f.note));
           });
-          return loiParts.join(SECTION_DIVIDER);
+          return congVanParts.join(SECTION_DIVIDER);
         }
-        return '<h4>Danh sách lỗi / thiếu sót — trích đoạn</h4>' +
-          '<ul>' +
-          '<li>Thiếu loại trung tâm báo cháy và số zone (Báo cháy tự động).</li>' +
-          '<li>Chưa có tính toán nồng độ thiết kế d₁, f₂ (Chữa cháy bằng khí).</li>' +
-          '<li>Đèn chỉ dẫn thoát nạn bố trí cách nhau quá 20 m (Đèn sự cố).</li>' +
-          '</ul>';
+        return '<h4>Công văn hướng dẫn — trích đoạn</h4>' +
+          '<p>Văn bản chính thức gửi chủ đầu tư/đơn vị tư vấn thiết kế, gộp các kiến nghị theo từng hệ thống (báo cháy, chữa cháy, điện, các hệ thống/phương tiện PCCC khác), đúng thể thức công văn hướng dẫn PC07.</p>';
       case 'khoiluong':
         return '<h4>Bảng tổng hợp khối lượng thiết bị — trích đoạn</h4>' +
           '<div class="tbl-wrap"><table><thead><tr><th>Thiết bị</th><th>Số lượng</th></tr></thead><tbody>' +
@@ -2533,17 +2529,24 @@
     }).join('');
   }
 
-  // Goi sau renderOutputPreviews() - neu case 'loi' vua duoc render va co it nhat
-  // 1 hang muc AI that co kien_nghi, gom lai va goi route moi (khong goi AI, chi
-  // dung docx) de hien nut tai giong renderMdcReal thay vi chi hien HTML tinh.
-  function maybeExportKienNghiDocx(){
-    var box = document.getElementById('aihoKienNghiDocxBox');
+  // Goi sau renderOutputPreviews() - neu case 'congvanhuongdan' vua duoc render
+  // va co it nhat 1 hang muc AI that co kien_nghi, gom lai va goi route moi
+  // (khong goi AI, chi dung file mau .docx that) de hien nut tai giong
+  // renderMdcReal thay vi chi hien HTML tinh. sessionId truyen vao param
+  // (giong maybeShowFormAButton(sessionId)) vi luc goi ham nay (trong
+  // finishUp()) activeSessionId da bi closeSessionIfAny() gan null truoc do
+  // roi — route moi dung _get_own_session_any_status_or_error() nen van
+  // hoat dong voi phien da dong, chi can dung session_id, khong can phien
+  // con 'open'.
+  function maybeExportCongVanHuongDanDocx(sessionId){
+    var box = document.getElementById('aihoCongVanHuongDanBox');
     if(!box) return;
     var hangMuc = [];
     Object.keys(REAL_CATEGORIES).forEach(function(slot){
       var d = realData[slot];
       if(d && d.kien_nghi){
         hangMuc.push({
+          slot: slot,
           ten_he_thong: REAL_CATEGORIES[slot].label,
           so_hieu_ban_ve: d.so_hieu_ban_ve || 'Không xác định được số hiệu bản vẽ',
           kien_nghi: d.kien_nghi
@@ -2552,11 +2555,12 @@
     });
 
     // Phan D.1/E.3 — 1 hang muc TONG HOP rieng cho canh bao quy mo (mau
-    // thuan Luot 0 -> nhom II, thieu ho so theo doi chieu nguoc -> nhom IV),
-    // KHONG gan voi 1 ban ve cu the nao nen dung dung ten trung lap voi cac
-    // hang muc that o tren.
+    // thuan Luot 0 -> nhom II, thieu ho so theo doi chieu nguoc -> nhom IV) -
+    // slot "quy_mo" de backend map vao nhom "Thông tin công trình" cua VBHD
+    // (xem cong_van_huong_dan_docx.SLOT_TO_GROUP).
     if(quyMoConflictWarningsPending.length || quyMoMissingWarningsPending.length){
       hangMuc.push({
+        slot: 'quy_mo',
         ten_he_thong: 'Đối chiếu tổng thể theo quy mô công trình',
         so_hieu_ban_ve: 'Không xác định được số hiệu bản vẽ',
         kien_nghi: {
@@ -2578,15 +2582,15 @@
       box.appendChild(errP);
     }
 
-    fetch(BACKEND_BASE + '/api/aiho/export-kien-nghi', {
+    fetch(BACKEND_BASE + '/api/aiho/export-cong-van-huong-dan', {
       method: 'POST',
       headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken()},
-      body: JSON.stringify({hang_muc: hangMuc})
+      body: JSON.stringify({session_id: sessionId, hang_muc: hangMuc})
     })
       .then(function(res){ return res.json().then(function(data){ return {status: res.status, data: data}; }); })
       .then(function(r){
         if(r.status >= 400){
-          showError(r.data.error || 'Không tạo được file kiến nghị tổng hợp — vui lòng thử lại sau.');
+          showError(r.data.error || 'Không tạo được file công văn hướng dẫn — vui lòng thử lại sau.');
           return;
         }
         box.innerHTML = '';
@@ -2597,11 +2601,11 @@
         a.style.textAlign = 'center';
         a.download = r.data.filename;
         a.href = 'data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,' + r.data.base64;
-        a.textContent = 'Tải file kiến nghị thiết kế (.docx)';
+        a.textContent = 'Tải file công văn hướng dẫn (.docx)';
         box.appendChild(a);
       })
       .catch(function(){
-        showError('Không kết nối được tới máy chủ — chưa tạo được file kiến nghị tổng hợp.');
+        showError('Không kết nối được tới máy chủ — chưa tạo được file công văn hướng dẫn.');
       });
   }
 
@@ -2811,7 +2815,7 @@
           renderResultTable();
           renderOutputPreviews();
           renderQuyMoWarningsBox();
-          maybeExportKienNghiDocx();
+          maybeExportCongVanHuongDanDocx(sessionId);
           maybeShowFormAButton(sessionId);
           resultsSection.hidden = false;
           resultsSection.scrollIntoView({behavior: 'smooth', block: 'start'});
