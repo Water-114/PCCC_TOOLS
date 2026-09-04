@@ -665,6 +665,80 @@
     coBeField.appendChild(coBeSelect);
     quymoManualForm.appendChild(coBeField);
 
+    // bacChiuLua/capNguyHiemChayKetCau (Pha 3 Buoc 2.5) — cua TOAN cong
+    // trinh, khac han garaBcl/garaCapS chi danh cho gara — cung khuon
+    // select 3 trang thai nhu coBeField o tren (khong mac dinh 1 gia tri
+    // cu the de tranh hieu nham la da xac nhan).
+    var bacChiuLuaField = document.createElement('div');
+    bacChiuLuaField.className = 'field';
+    bacChiuLuaField.style.marginTop = '10px';
+    var bacChiuLuaLabel = document.createElement('label');
+    bacChiuLuaLabel.textContent = 'Bậc chịu lửa của công trình';
+    bacChiuLuaField.appendChild(bacChiuLuaLabel);
+    var bacChiuLuaSelect = document.createElement('select');
+    [['', '— Chưa xác định —'], ['I', 'Bậc I'], ['II', 'Bậc II'], ['III', 'Bậc III'], ['IV', 'Bậc IV'], ['V', 'Bậc V']].forEach(function(pair){
+      var opt = document.createElement('option');
+      opt.value = pair[0];
+      opt.textContent = pair[1];
+      bacChiuLuaSelect.appendChild(opt);
+    });
+    bacChiuLuaField.appendChild(bacChiuLuaSelect);
+    quymoManualForm.appendChild(bacChiuLuaField);
+
+    var capSField = document.createElement('div');
+    capSField.className = 'field';
+    capSField.style.marginTop = '10px';
+    var capSLabel = document.createElement('label');
+    capSLabel.textContent = 'Cấp nguy hiểm cháy kết cấu';
+    capSField.appendChild(capSLabel);
+    var capSSelect = document.createElement('select');
+    [['', '— Chưa xác định —'], ['S0', 'S0'], ['S1', 'S1'], ['S2', 'S2'], ['S3', 'S3']].forEach(function(pair){
+      var opt = document.createElement('option');
+      opt.value = pair[0];
+      opt.textContent = pair[1];
+      capSSelect.appendChild(opt);
+    });
+    capSField.appendChild(capSSelect);
+    quymoManualForm.appendChild(capSField);
+
+    // Thong tin du an (Pha 3 Buoc 2.5) — text tu do, thuong da duoc AI tu
+    // dien neu co dinh kem PC11/so do (xem quymo_reader.py BUOC 3), day chi
+    // la cho nguoi dung bo sung/sua tay khi can.
+    var duAnHeading = document.createElement('p');
+    duAnHeading.className = 'hint';
+    duAnHeading.style.marginTop = '14px';
+    duAnHeading.textContent = 'Thông tin dự án (tuỳ chọn — nếu đã đính PC11/sổ đỏ, AI có thể đã tự điền, chỉ cần bổ sung phần còn thiếu)';
+    quymoManualForm.appendChild(duAnHeading);
+
+    var DU_AN_TEXT_FIELDS = [
+      {key: 'tenCongTrinh', label: 'Tên công trình', ph: 'VD: Nhà máy sản xuất ABC'},
+      {key: 'diaDiemXayDung', label: 'Địa điểm xây dựng', ph: 'VD: Lô A1, KCN XYZ, ...'},
+      {key: 'chuDauTu', label: 'Chủ đầu tư', ph: 'VD: Công ty TNHH ABC'},
+      {key: 'diaChiChuDauTu', label: 'Địa chỉ chủ đầu tư', ph: ''},
+      {key: 'donViTuVanThietKe', label: 'Đơn vị tư vấn thiết kế', ph: ''},
+      {key: 'soNgayPC11', label: 'Số/ngày văn bản PC11', ph: 'VD: số 01 ngày 28/08/2026'},
+      {key: 'maHoSo', label: 'Mã hồ sơ', ph: ''},
+      {key: 'tongMucDauTu', label: 'Tổng mức đầu tư', ph: 'VD: 4.272.600.000 đồng (trước thuế)'}
+    ];
+    var duAnGrid = document.createElement('div');
+    duAnGrid.className = 'grid';
+    duAnGrid.style.marginTop = '10px';
+    var duAnInputs = {};
+    DU_AN_TEXT_FIELDS.forEach(function(f){
+      var field = document.createElement('div');
+      field.className = 'field';
+      var label = document.createElement('label');
+      label.textContent = f.label;
+      field.appendChild(label);
+      var input = document.createElement('input');
+      input.type = 'text';
+      input.placeholder = f.ph;
+      field.appendChild(input);
+      duAnGrid.appendChild(field);
+      duAnInputs[f.key] = input;
+    });
+    quymoManualForm.appendChild(duAnGrid);
+
     var extraWrap = document.createElement('div');
     extraWrap.className = 'grid';
     extraWrap.style.marginTop = '10px';
@@ -741,6 +815,12 @@
         if(v !== '') quyMo[f.key] = Number(v);
       });
       if(coBeSelect.value !== '') quyMo.coBeXangDauNgoaiTroi = (coBeSelect.value === 'true');
+      if(bacChiuLuaSelect.value !== '') quyMo.bacChiuLua = bacChiuLuaSelect.value;
+      if(capSSelect.value !== '') quyMo.capNguyHiemChayKetCau = capSSelect.value;
+      DU_AN_TEXT_FIELDS.forEach(function(f){
+        var el = duAnInputs[f.key];
+        if(el.value.trim() !== '') quyMo[f.key] = el.value.trim();
+      });
       Object.keys(extraInputs).forEach(function(key){
         var el = extraInputs[key];
         if(el.value === '') return;

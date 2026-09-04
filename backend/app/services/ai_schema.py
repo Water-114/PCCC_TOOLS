@@ -123,6 +123,17 @@ class QuyMoFields(BaseModel):
     hanhLangDaiNhat: Optional[float] = None  # rieng cho evaluate_bien_tam_thap (phuong_tien.py)
     chieuCaoKeHang: Optional[float] = None  # chieu cao sap xep hang hoa tren gia do/ke hang, m — phuc vu goi y form B15 (TCVN 14496:2025) sau nay
     coBeXangDauNgoaiTroi: Optional[bool] = None  # co be chua xang dau/dung moi de chay ngoai troi khong — can cu ap dung B7 (TCVN 5307:2009)
+    bacChiuLua: Optional[Literal["I", "II", "III", "IV", "V"]] = None  # bac chiu lua TOAN cong trinh (khac garaBcl chi danh cho gara)
+    capNguyHiemChayKetCau: Optional[Literal["S0", "S1", "S2", "S3"]] = None  # khac garaCapS chi danh cho gara
+    tenCongTrinh: Optional[str] = None
+    diaDiemXayDung: Optional[str] = None
+    chuDauTu: Optional[str] = None
+    diaChiChuDauTu: Optional[str] = None
+    donViTuVanThietKe: Optional[str] = None
+    soNgayPC11: Optional[str] = None  # vd "so 01 ngay 28/08/2026" - giu string vi dinh dang khac nhau, khong parse ngay/so rieng
+    maHoSo: Optional[str] = None
+    tongMucDauTu: Optional[str] = None  # giu string (vd "4.272.600.000 dong (truoc thue)") - KHONG ep so vi hay kem don vi/ghi chu
+    thanhPhanHoSo: List[str] = Field(default_factory=list)  # danh sach dong mo ta tung loai tai lieu da nhan dien duoc trong bo file dinh kem (vd "Giay chung nhan quyen su dung dat so ...")
 
     @field_validator("occ")
     @classmethod

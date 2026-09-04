@@ -180,6 +180,17 @@ def save_quy_mo(session_id, fields: dict, source: str):
     row.hanh_lang_dai_nhat = fields.get("hanhLangDaiNhat")
     row.chieu_cao_ke_hang = fields.get("chieuCaoKeHang")
     row.co_be_xang_dau_ngoai_troi = fields.get("coBeXangDauNgoaiTroi")
+    row.bac_chiu_lua = fields.get("bacChiuLua")
+    row.cap_nguy_hiem_chay_ket_cau = fields.get("capNguyHiemChayKetCau")
+    row.ten_cong_trinh = fields.get("tenCongTrinh")
+    row.dia_diem_xay_dung = fields.get("diaDiemXayDung")
+    row.chu_dau_tu = fields.get("chuDauTu")
+    row.dia_chi_chu_dau_tu = fields.get("diaChiChuDauTu")
+    row.don_vi_tu_van_thiet_ke = fields.get("donViTuVanThietKe")
+    row.so_ngay_pc11 = fields.get("soNgayPC11")
+    row.ma_ho_so = fields.get("maHoSo")
+    row.tong_muc_dau_tu = fields.get("tongMucDauTu")
+    row.thanh_phan_ho_so = fields.get("thanhPhanHoSo") or None
     db.session.commit()
     return row.to_dict()
 

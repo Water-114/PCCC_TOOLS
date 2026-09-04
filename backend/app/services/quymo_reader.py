@@ -82,6 +82,33 @@ BƯỚC 1 — Trích xuất quy mô công trình vào object "quy_mo". CHỈ đi
 BƯỚC 2 — Với MỖI mục sau, đọc bản vẽ xem có hạng mục/khu vực hoặc thiết bị nào thuộc danh mục quy định hay không, điền vào nếu đọc thấy trên bản vẽ; nếu bản vẽ không thể hiện đủ thông tin để kết luận: ghi ĐÚNG NGUYÊN VĂN "{KHONG_XAC_DINH_A2_A4}" — KHÔNG suy đoán, KHÔNG tự mặc định là "Bổ sung":
 {_fmt_a2_a4()}
 
+BƯỚC 3 — MỖI file được cung cấp có thể là 1 trong nhiều loại tài liệu KHÁC
+NHAU, không nhất thiết chỉ là bản vẽ kiến trúc: bản vẽ mặt bằng/mặt cắt/
+thuyết minh kiến trúc, đơn đề nghị thẩm định thiết kế PCCC (mẫu PC11), giấy
+chứng nhận quyền sử dụng đất (sổ đỏ), hợp đồng thuê mặt bằng, giấy phép kinh
+doanh, hoặc tài liệu dự án khác. Với TỪNG file, tự nhận diện đúng loại tài
+liệu rồi trích đúng phần liên quan — KHÔNG giả định tất cả file đều là bản
+vẽ kiến trúc:
+- Nếu là bản vẽ/thuyết minh kiến trúc: ngoài các field ở BƯỚC 1, nếu thuyết
+  minh CÓ NÊU RÕ, trích thêm vào "quy_mo": "bacChiuLua" (bậc chịu lửa I-V của
+  TOÀN công trình — KHÁC "garaBcl" chỉ dành cho gara) và
+  "capNguyHiemChayKetCau" (cấp nguy hiểm cháy kết cấu S0-S3 của TOÀN công
+  trình — KHÁC "garaCapS"). Để null nếu không thấy ghi rõ, KHÔNG suy đoán từ
+  bậc chịu lửa của gara nếu có.
+- Nếu là đơn đề nghị thẩm định thiết kế PCCC (mẫu PC11) hoặc sổ đỏ/giấy tờ
+  pháp lý dự án: trích vào "quy_mo" các field: "tenCongTrinh", "diaDiemXayDung",
+  "chuDauTu", "diaChiChuDauTu", "donViTuVanThietKe", "soNgayPC11" (ví dụ "số
+  01 ngày 28/08/2026"), "maHoSo", "tongMucDauTu" (giữ nguyên văn số + đơn vị,
+  ví dụ "4.272.600.000 đồng (giá trị trước thuế)"). Chỉ điền field nào file
+  THỰC SỰ ghi rõ, để null nếu không thấy.
+- Với MỌI file được cung cấp (bất kể loại gì): thêm 1 dòng mô tả ngắn gọn vào
+  mảng "thanhPhanHoSo" của "quy_mo", nêu rõ đây là loại tài liệu gì (ví dụ
+  "Văn bản đề nghị thẩm định thiết kế về phòng cháy và chữa cháy theo mẫu số
+  PC11", "Giấy chứng nhận quyền sử dụng đất, quyền sở hữu nhà ở và tài sản
+  khác gắn liền với đất số ...", "Hồ sơ thiết kế kỹ thuật/bản vẽ thi công hệ
+  thống PCCC: 01 bộ bản vẽ"). Nếu 1 file không xác định được là loại tài liệu
+  gì, KHÔNG thêm dòng nào cho file đó (không suy đoán, không viết mơ hồ).
+
 NGUYÊN TẮC BẮT BUỘC:
 - Chỉ dựa trên nội dung THỰC SỰ thể hiện trên bản vẽ được cung cấp. Không suy đoán, không dùng kiến thức chung ngoài bản vẽ.
 - "occ" là field DUY NHẤT trong "quy_mo" bắt buộc phải có giá trị — các field còn lại được phép null nếu bản vẽ không thể hiện.
@@ -96,7 +123,11 @@ Trả lời DUY NHẤT bằng JSON hợp lệ theo đúng cấu trúc sau, khôn
     "kids": null, "seats": null, "hazard": null,
     "garaKin": null, "garaKC12": null, "garaBcl": null, "garaCapS": null,
     "pplFloor": null, "extLevel": null, "hanhLangDaiNhat": null,
-    "chieuCaoKeHang": null, "coBeXangDauNgoaiTroi": null
+    "chieuCaoKeHang": null, "coBeXangDauNgoaiTroi": null,
+    "bacChiuLua": null, "capNguyHiemChayKetCau": null,
+    "tenCongTrinh": null, "diaDiemXayDung": null, "chuDauTu": null,
+    "diaChiChuDauTu": null, "donViTuVanThietKe": null, "soNgayPC11": null,
+    "maHoSo": null, "tongMucDauTu": null, "thanhPhanHoSo": []
   }},
   "bang_a2_bao_chay": "...",
   "bang_a4_bao_chay": "...",

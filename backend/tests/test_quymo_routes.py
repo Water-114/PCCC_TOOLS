@@ -154,6 +154,76 @@ def test_quymo_manual_success_saves_data_and_returns_mdc(client):
     assert saved["floors"] == 9
 
 
+def test_quymo_manual_saves_and_returns_pha3_project_info_fields(client):
+    """Pha 3 Buoc 2.5 - bacChiuLua/capNguyHiemChayKetCau + 8 field thong tin
+    du an (tenCongTrinh, ...) phai luu va doc lai dung qua ca route lan
+    quy_mo_store.get_quy_mo() - dung dung ten cot moi trong models.py."""
+    token, _ = _register_login_and_grant(client, email="quymomanualpha3@pccc.local")
+    session_id = _open_session(client, token)
+    resp = client.post(
+        "/api/aiho/quymo-manual",
+        json={
+            "session_id": session_id,
+            "quy_mo": {
+                "occ": "khachsan",
+                "floors": 9,
+                "bacChiuLua": "II",
+                "capNguyHiemChayKetCau": "S1",
+                "tenCongTrinh": "Khách sạn ABC",
+                "diaDiemXayDung": "123 Đường X",
+                "chuDauTu": "Công ty TNHH ABC",
+                "diaChiChuDauTu": "456 Đường Y",
+                "donViTuVanThietKe": "Công ty tư vấn Z",
+                "soNgayPC11": "số 01 ngày 28/08/2026",
+                "maHoSo": "HS-001",
+                "tongMucDauTu": "4.272.600.000 đồng (trước thuế)",
+            },
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200, resp.get_json()
+    data = resp.get_json()
+    assert data["quy_mo"]["bacChiuLua"] == "II"
+    assert data["quy_mo"]["capNguyHiemChayKetCau"] == "S1"
+    assert data["quy_mo"]["tenCongTrinh"] == "Khách sạn ABC"
+    assert data["quy_mo"]["tongMucDauTu"] == "4.272.600.000 đồng (trước thuế)"
+
+    saved = quy_mo_store.get_quy_mo(session_id)
+    assert saved["bacChiuLua"] == "II"
+    assert saved["capNguyHiemChayKetCau"] == "S1"
+    assert saved["tenCongTrinh"] == "Khách sạn ABC"
+    assert saved["diaDiemXayDung"] == "123 Đường X"
+    assert saved["chuDauTu"] == "Công ty TNHH ABC"
+    assert saved["diaChiChuDauTu"] == "456 Đường Y"
+    assert saved["donViTuVanThietKe"] == "Công ty tư vấn Z"
+    assert saved["soNgayPC11"] == "số 01 ngày 28/08/2026"
+    assert saved["maHoSo"] == "HS-001"
+    assert saved["tongMucDauTu"] == "4.272.600.000 đồng (trước thuế)"
+
+
+def test_quymo_manual_pha3_fields_default_empty_when_not_sent(client):
+    """Hanh vi cu (khong gui field moi, vd chi dinh ban ve kien truc nhu
+    truoc Pha 3) phai giu nguyen 100% - cac field moi phai la None/rong,
+    khong co gia tri la sai tu nhien xuat hien."""
+    token, _ = _register_login_and_grant(client, email="quymomanualpha3b@pccc.local")
+    session_id = _open_session(client, token)
+    resp = client.post(
+        "/api/aiho/quymo-manual",
+        json={"session_id": session_id, "quy_mo": {"occ": "chungcu", "floors": 5}},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200, resp.get_json()
+    data = resp.get_json()
+    assert data["quy_mo"]["bacChiuLua"] is None
+    assert data["quy_mo"]["tenCongTrinh"] is None
+    assert data["quy_mo"]["thanhPhanHoSo"] == []
+
+    saved = quy_mo_store.get_quy_mo(session_id)
+    assert saved["bacChiuLua"] is None
+    assert saved["tenCongTrinh"] is None
+    assert saved["thanhPhanHoSo"] == []
+
+
 def test_quymo_manual_does_not_consume_quota_or_forms(client):
     token, user_id = _register_login_and_grant(client, email="quymomanual2@pccc.local", amount=3)
     session_id = _open_session(client, token)

@@ -255,6 +255,20 @@ class HoSoSessionQuyMo(db.Model):
     # (co be xang dau ngoai troi -> B7).
     chieu_cao_ke_hang = db.Column(db.Float, nullable=True)
     co_be_xang_dau_ngoai_troi = db.Column(db.Boolean, nullable=True)
+    # Pha 3 Buoc 2.5 - doc them PC11/so do/tai lieu du an ngoai ban ve kien
+    # truc (xem quymo_reader.py BUOC 3 moi). bac_chiu_lua/cap_nguy_hiem_chay_ket_cau
+    # la cua TOAN cong trinh, khac gara_bcl/gara_cap_s chi danh cho gara.
+    bac_chiu_lua = db.Column(db.String(10), nullable=True)
+    cap_nguy_hiem_chay_ket_cau = db.Column(db.String(10), nullable=True)
+    ten_cong_trinh = db.Column(db.String(500), nullable=True)
+    dia_diem_xay_dung = db.Column(db.String(500), nullable=True)
+    chu_dau_tu = db.Column(db.String(500), nullable=True)
+    dia_chi_chu_dau_tu = db.Column(db.String(500), nullable=True)
+    don_vi_tu_van_thiet_ke = db.Column(db.String(500), nullable=True)
+    so_ngay_pc11 = db.Column(db.String(200), nullable=True)
+    ma_ho_so = db.Column(db.String(100), nullable=True)
+    tong_muc_dau_tu = db.Column(db.String(200), nullable=True)
+    thanh_phan_ho_so = db.Column(db.JSON, nullable=True)
     # Form A goc (A14/A15) - Phan 0: danh sach khoa he thong DANG xin tham
     # dinh lan nay (vd du an cai tao mot phan, chi xin lai vai he thong).
     # NULL/rong = MAC DINH coi nhu TAT CA he thong deu trong pham vi (xay
@@ -291,6 +305,17 @@ class HoSoSessionQuyMo(db.Model):
             "hanhLangDaiNhat": self.hanh_lang_dai_nhat,
             "chieuCaoKeHang": self.chieu_cao_ke_hang,
             "coBeXangDauNgoaiTroi": self.co_be_xang_dau_ngoai_troi,
+            "bacChiuLua": self.bac_chiu_lua,
+            "capNguyHiemChayKetCau": self.cap_nguy_hiem_chay_ket_cau,
+            "tenCongTrinh": self.ten_cong_trinh,
+            "diaDiemXayDung": self.dia_diem_xay_dung,
+            "chuDauTu": self.chu_dau_tu,
+            "diaChiChuDauTu": self.dia_chi_chu_dau_tu,
+            "donViTuVanThietKe": self.don_vi_tu_van_thiet_ke,
+            "soNgayPC11": self.so_ngay_pc11,
+            "maHoSo": self.ma_ho_so,
+            "tongMucDauTu": self.tong_muc_dau_tu,
+            "thanhPhanHoSo": self.thanh_phan_ho_so or [],
         }
 
 
