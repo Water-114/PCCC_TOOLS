@@ -19,6 +19,7 @@ from ..services import (
     densucco_reader,
     dienpccc_reader,
     form_a_combiner,
+    form_a_upload,
     gia_ke_hang_reader,
     hang_muc_store,
     khibotsolkhi_reader,
@@ -79,9 +80,6 @@ def _sniff_magic_bytes(data: bytes, media_type: str) -> bool:
     return any(data.startswith(p) for p in prefixes)
 
 
-_KET_LUAN_TO_DOCX = {"dat": "Đạt", "khong_ap_dung": ""}
-
-
 def _answers_from_items(items):
     items = ket_luan_linter.fix_items(items)
     answers = []
@@ -96,7 +94,7 @@ def _answers_from_items(items):
         answers.append({
             "id": row_id,
             "noi_dung_thiet_ke": item.get("noi_dung_thiet_ke"),
-            "ket_luan": _KET_LUAN_TO_DOCX.get(item.get("ket_luan"), "KN"),
+            "ket_luan": mdc_filler.KET_LUAN_TO_DOCX.get(item.get("ket_luan"), "KN"),
         })
     return answers
 
@@ -1197,4 +1195,93 @@ def export_bao_cao_tham_dinh():
     return jsonify({
         "filename": bao_cao_tham_dinh_docx.FILENAME,
         "base64": base64.b64encode(docx_bytes).decode("ascii"),
+    })
+
+
+@bp.post("/fill-form-a-upload")
+@login_required
+def fill_form_a_upload():
+    """Dien Form A do nguoi dung TU DINH KEM (blank template) - dua tren
+    findings da co trong phien (KHONG doc lai ban ve). Lan DAU TIEN goi AI
+    dang text-only (khong kem anh/PDF) - xem form_a_upload.py."""
+    user = g.current_user
+
+    try:
+        session_id = int(request.form.get("session_id"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Thiếu hoặc sai session_id."}), 400
+
+    try:
+        session = ho_so_session.get_open_session_for_user(user.id, session_id)
+    except ho_so_session.SessionNotFound as exc:
+        return jsonify({"error": str(exc)}), 404
+    except ho_so_session.SessionNotOpen as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    file = request.files.get("file")
+    if not file:
+        return jsonify({"error": "Thiếu file Form A (field 'file')."}), 400
+    data = file.read()
+    if not data.startswith(b"PK"):  # .docx la file zip, magic bytes PK\x03\x04
+        return jsonify({"error": "File không đúng định dạng .docx."}), 400
+    if len(data) > 10 * 1024 * 1024:
+        return jsonify({"error": "File Form A vượt quá 10MB."}), 400
+
+    import json as _json
+    try:
+        hang_muc_digest = _json.loads(request.form.get("hang_muc_json") or "[]")
+    except ValueError:
+        return jsonify({"error": "Dữ liệu 'hang_muc_json' không hợp lệ."}), 400
+
+    limit = user.effective_quota()
+    used_today = count_usage_today(user.id, AIHO_API_NAME)
+    if used_today >= limit:
+        return jsonify({
+            "error": f"Đã đạt hạn mức {limit} lượt gọi AI/ngày cho tính năng này — thử lại vào ngày mai.",
+            "quota": {"limit": limit, "used_today": used_today, "remaining_today": 0},
+        }), 429
+
+    provider_name = request.form.get("provider")
+    try:
+        provider = get_provider(provider_name)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    try:
+        ho_so_session.reserve_slot(session, 1, 1)
+    except ho_so_session.SessionCapExceeded as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    quy_mo = quy_mo_store.get_quy_mo(session_id) or {}
+
+    try:
+        docx_bytes = form_a_upload.dien_form_a_upload(data, hang_muc_digest, quy_mo, provider)
+    except form_a_upload.FormAUploadError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except ProviderNotConfigured as exc:
+        return jsonify({"error": str(exc), "provider": provider.name}), 503
+    except AIReaderError as exc:
+        db.session.add(UsageLog(user_id=user.id, api_name=AIHO_API_NAME, status="error"))
+        db.session.commit()
+        return jsonify({"error": str(exc)}), 502
+    except Exception:
+        db.session.add(UsageLog(user_id=user.id, api_name=AIHO_API_NAME, status="error"))
+        db.session.commit()
+        current_app.logger.exception("Loi dien Form A upload")
+        return jsonify({"error": "Không điền được Form A — vui lòng thử lại sau."}), 502
+
+    db.session.add(UsageLog(user_id=user.id, api_name=AIHO_API_NAME, status="success"))
+    db.session.commit()
+    ho_so_session.mark_success(session)
+
+    return jsonify({
+        "filename": "FormA_da_dien.docx",
+        "base64": base64.b64encode(docx_bytes).decode("ascii"),
+        "ho_so": {
+            "session_id": session.id,
+            "files_used": session.files_used,
+            "forms_used": session.forms_used,
+            "max_files": ho_so_session.MAX_FILES_PER_SESSION,
+            "max_forms": ho_so_session.MAX_FORMS_PER_SESSION,
+        },
     })

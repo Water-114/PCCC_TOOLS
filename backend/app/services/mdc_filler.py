@@ -66,11 +66,25 @@ COL_KET_LUAN = 5
 
 MAU_DO = RGBColor(0xEE, 0x00, 0x00)
 
+# Chuyen doi gia tri ket_luan THAT cua AI (dat/chua_dat/chua_the_hien/
+# khong_ap_dung - xem ai_schema.KetLuan) sang chu hien thi trong cot 5 cua
+# file .docx: "dat" -> "Đạt", "khong_ap_dung" -> rong (muc tuy chon khong
+# thiet ke, KHONG phai loi), moi gia tri khac (chua_dat/chua_the_hien) ->
+# "KN" (kien nghi). Chuyen ra day (thay vi de rieng trong routes/aiho.py) de
+# la 1 NGUON DUY NHAT dung chung cho ca 9 route doc tung hang muc (qua
+# _answers_from_items()) LAN Form A nguoi dung tu dinh (form_a_upload.py,
+# Batch 5A Pha 3 Buoc 5) - tranh 2 noi tu dinh nghia lech nhau theo thoi gian.
+KET_LUAN_TO_DOCX = {"dat": "Đạt", "khong_ap_dung": ""}
+
 _ROWS_CACHE = {}
 
 
-def _extract_rows(path):
-    doc = Document(path)
+def _extract_rows_from_doc(doc) -> list:
+    """Phan LOI cua _extract_rows() cu - nhan thang 1 Document object da mo
+    san (khong quan tam Document do mo tu path hay tu BytesIO), tra ve list
+    dict {id, doi_chieu, quy_dinh, khoan_dieu}. Dung chung cho ca 18 loai co
+    san (qua load_criteria_rows) VA Form A nguoi dung tu dinh (Batch 5A Pha 3
+    Buoc 5, xem form_a_upload.py)."""
     table = doc.tables[0]
     rows = []
     for idx, row in enumerate(table.rows):
@@ -98,6 +112,10 @@ def _extract_rows(path):
     return rows
 
 
+def _extract_rows(path):
+    return _extract_rows_from_doc(Document(path))
+
+
 def load_criteria_rows(loai: str) -> list:
     """loai: 'thuong' hoặc 'dia_chi'. Trả về list dict {id, doi_chieu, quy_dinh, khoan_dieu}."""
     if loai not in _ROWS_CACHE:
@@ -105,9 +123,10 @@ def load_criteria_rows(loai: str) -> list:
     return _ROWS_CACHE[loai]
 
 
-def fill_docx(loai: str, answers: list) -> bytes:
-    """answers: list dict {id, noi_dung_thiet_ke, ket_luan}. Trả về bytes file .docx đã điền."""
-    doc = Document(TEMPLATE_PATHS[loai])
+def fill_doc_in_place(doc, answers: list):
+    """Phan LOI cua fill_docx() cu - nhan Document object, DIEN THANG vao do
+    (khong tra ve bytes, khong tu doc.save() - de caller tu quyet dinh save
+    vao dau). fill_docx() cu goi lai ham nay de khong trung logic."""
     table = doc.tables[0]
     answers_by_id = {a["id"]: a for a in answers if "id" in a}
 
@@ -128,6 +147,11 @@ def fill_docx(loai: str, answers: list) -> bytes:
         if ket_luan_text == "KN" and ket_luan_cell.paragraphs[0].runs:
             ket_luan_cell.paragraphs[0].runs[0].font.color.rgb = MAU_DO
 
+
+def fill_docx(loai: str, answers: list) -> bytes:
+    """answers: list dict {id, noi_dung_thiet_ke, ket_luan}. Trả về bytes file .docx đã điền."""
+    doc = Document(TEMPLATE_PATHS[loai])
+    fill_doc_in_place(doc, answers)
     buf = io.BytesIO()
     doc.save(buf)
     return buf.getvalue()

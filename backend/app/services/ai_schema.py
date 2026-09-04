@@ -53,6 +53,14 @@ class ReaderResult(BaseModel):
     danh_muc_ban_ve: List[DanhMucBanVeItem] = Field(default_factory=list)  # THEM MOI - rong khi 1 file (Pha 2)
 
 
+class FormAUploadResult(BaseModel):
+    """Rieng cho Form A nguoi dung tu dinh kem (Batch 5A Pha 3 Buoc 5) - CHI
+    co items (khong co kien_nghi/so_hieu_ban_ve/danh_muc_ban_ve nhu
+    ReaderResult, vi day la TONG HOP tu du lieu da doc truoc do, khong phai
+    doc ban ve moi)."""
+    items: List[ItemResult]
+
+
 class BaoChayReaderResult(ReaderResult):
     loai_he_thong: Literal["thuong", "dia_chi"]
     ly_do_nhan_dien: str = ""

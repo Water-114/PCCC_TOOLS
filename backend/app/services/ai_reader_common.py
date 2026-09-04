@@ -334,3 +334,52 @@ def read_and_validate_drawing_json_multi(files: list, provider, system_prompt: s
             raise AIReaderError(
                 f"AI trả kết quả không đúng định dạng ngay cả sau khi đã yêu cầu sửa lỗi 1 lần: {second_err}"
             ) from second_err
+
+
+def generate_and_validate_text(prompt: str, provider, validate_fn, prompt_version: str = None):
+    """Ban song song voi read_and_validate_drawing_json() nhung KHONG co
+    file dinh kem (Batch 5A Pha 3 Buoc 5 - Form A nguoi dung tu dinh kem,
+    xem form_a_upload.py) - dung provider.generate(prompt) (text-only, da co
+    san, xem routes/ai.py) thay vi generate_with_document(s)(). Giu nguyen co
+    che retry-repair 1 lan khi validate_fn raise SchemaValidationError, tai
+    dung _parse_and_log() (parse JSON + ghi log) giong het 2 ham
+    read_drawing_json*() o tren thay vi viet lai - usage=None vi generate()
+    chi tra ve string tho, khong co GenerationResult/usage nhu
+    generate_with_document(s)()."""
+    version = prompt_version if prompt_version is not None else system_prompt_version(prompt)
+    started_at = time.monotonic()
+
+    try:
+        raw = provider.generate(prompt)
+    except AttributeError:
+        _log_ai_call(provider, version, "error", started_at, error="provider khong ho tro generate")
+        raise AIReaderError(f"Provider '{getattr(provider, 'name', '?')}' chưa hỗ trợ gọi text-only.")
+    except CircuitBreakerOpen as exc:
+        _log_ai_call(provider, version, "circuit_open", started_at, error=str(exc))
+        raise AIReaderError(str(exc)) from exc
+    except Exception as exc:
+        _log_ai_call(provider, version, "error", started_at, error=str(exc))
+        raise
+
+    parsed = _parse_and_log(raw, None, provider, version, started_at)
+
+    try:
+        return validate_fn(parsed)
+    except SchemaValidationError as first_err:
+        repair_prompt = (
+            prompt
+            + "\n\n--- SỬA LỖI ĐỊNH DẠNG (bắt buộc) ---\n"
+            + "Lần trả lời TRƯỚC của bạn KHÔNG đạt yêu cầu định dạng, lý do cụ thể:\n"
+            + str(first_err)
+            + "\nHãy trả lời LẠI TỪ ĐẦU, đúng nguyên cấu trúc JSON đã yêu cầu, sửa đúng lỗi trên. "
+              "Không lặp lại lỗi này, không thêm văn bản nào khác ngoài JSON."
+        )
+        started_at2 = time.monotonic()
+        raw2 = provider.generate(repair_prompt)
+        parsed2 = _parse_and_log(raw2, None, provider, version, started_at2)
+        try:
+            return validate_fn(parsed2)
+        except SchemaValidationError as second_err:
+            raise AIReaderError(
+                f"AI trả kết quả không đúng định dạng ngay cả sau khi đã yêu cầu sửa lỗi 1 lần: {second_err}"
+            ) from second_err

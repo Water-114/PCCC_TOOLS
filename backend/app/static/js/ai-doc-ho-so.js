@@ -2159,29 +2159,6 @@
     }
   });
 
-  var roundStepper = document.getElementById('aihoRoundStepper');
-  var roundVal = document.getElementById('aihoRoundVal');
-  var phieuCheck = document.getElementById('aihoPhieuCheck');
-  var round = 1;
-  phieuCheck.addEventListener('change', function(){
-    roundStepper.hidden = !phieuCheck.checked;
-    updateRoundLabel();
-  });
-  roundStepper.addEventListener('click', function(e){
-    var btn = e.target.closest('button');
-    if(!btn) return;
-    e.preventDefault();
-    e.stopPropagation();
-    round = Math.max(1, round + Number(btn.dataset.dir));
-    roundVal.textContent = round;
-    updateRoundLabel();
-    panel.dispatchEvent(new Event('change'));
-  });
-  function updateRoundLabel(){
-    phieuCheck.dataset.label = 'Phiếu kiểm tra tổng hợp (đợt ' + round + ')';
-  }
-  updateRoundLabel();
-
   var chipRow = document.getElementById('aihoChipRow');
   var placeholder = document.getElementById('aihoPlaceholder');
   panel.addEventListener('change', function(){
@@ -2522,14 +2499,6 @@
         }
         return '<h4>Báo cáo thẩm định PCCC — trích đoạn</h4>' +
           '<p>Báo cáo nội bộ gộp kết quả thẩm định theo đúng 11 mục (thông tin dự án, thành phần hồ sơ, quy mô, từng hệ thống PCCC…), dùng làm căn cứ soạn công văn hướng dẫn.</p>';
-      case 'phieutonghop':
-        return '<h4>Phiếu kiểm tra tổng hợp (đợt ' + round + ') — trích đoạn</h4>' +
-          '<div class="kv-grid">' +
-          '<div><b>Công trình / chủ đầu tư</b>Văn phòng hỗn hợp ABC</div>' +
-          '<div><b>Quy mô / công năng</b>8 tầng nổi + 1 hầm, hỗn hợp</div>' +
-          '<div><b>Báo cháy</b>Đang thiết kế trung tâm báo cháy loại… (chưa rõ số zone) — cần bổ sung</div>' +
-          '<div><b>Chữa cháy nước</b>Họng nước + sprinkler — đạt</div>' +
-          '</div>';
       default:
         return '';
     }
@@ -2796,6 +2765,127 @@
     });
   }
 
+  /* ===================================================================
+     Form A do NGUOI DUNG tu dinh kem (blank template, Batch 5A Pha 3 Buoc 5)
+     — KHAC HAN Form A goc A14/A15 o tren (khong dieu kien theo occ, LUON
+     hien sau khi phan tich xong). App tu doc bang tieu chi trong CHINH file
+     nguoi dung dinh roi dien dua tren findings da co trong phien (khong doc
+     lai ban ve).
+     =================================================================== */
+  // Gom TAT CA realData[slot] co items thanh 1 mang {ten_he_thong, items} -
+  // TAI DUNG dung logic gom items "2 hinh dang" (top-level d.items vs
+  // d.forms[loai].items) da co o buildBFormResults()/itemsForMdcFile() o
+  // tren, khong viet lai. Khac buildBFormResults(): tach RIENG tung sub-form
+  // cua ccnuoc/densucco (dung label rieng d.forms[loai].label) thay vi gop
+  // chung theo slot, de AI nhan duoc ngu canh ro rang hon theo tung he thong.
+  function buildHangMucDigest(){
+    var digest = [];
+    Object.keys(REAL_CATEGORIES).forEach(function(slot){
+      var d = realData[slot];
+      if(!d) return;
+      if(d.forms){
+        Object.keys(d.forms).forEach(function(loai){
+          var items = d.forms[loai].items || [];
+          if(items.length) digest.push({ten_he_thong: d.forms[loai].label || REAL_CATEGORIES[slot].label, items: items});
+        });
+      } else if(d.items && d.items.length){
+        digest.push({ten_he_thong: REAL_CATEGORIES[slot].label, items: d.items});
+      }
+    });
+    return digest;
+  }
+
+  // Gioi han rieng cho file Form A nguoi dung tu dinh (Word .docx trong,
+  // KHONG phai ban ve anh/PDF) - dung DUNG 10MB da quy dinh o backend
+  // (routes/aiho.py::fill_form_a_upload), KHONG dung lai SINGLE_MAX_BYTES_PDF.
+  var FORM_A_UPLOAD_MAX_BYTES = 10 * 1024 * 1024;
+
+  function submitFormAUpload(sessionId, file, btn, msg, box){
+    btn.disabled = true;
+    msg.textContent = 'Đang điền Form A…';
+    msg.style.color = '';
+    var form = new FormData();
+    form.append('file', file);
+    form.append('session_id', sessionId);
+    form.append('hang_muc_json', JSON.stringify(buildHangMucDigest()));
+    fetch(BACKEND_BASE + '/api/aiho/fill-form-a-upload', {
+      method: 'POST',
+      headers: {'Authorization': 'Bearer ' + getToken()},
+      body: form
+    })
+      .then(function(res){ return res.json().then(function(data){ return {status: res.status, data: data}; }); })
+      .then(function(r){
+        btn.disabled = false;
+        if(r.status >= 400){
+          msg.textContent = r.data.error || 'Không điền được Form A — vui lòng thử lại sau.';
+          msg.style.color = 'var(--red-deep)';
+          return;
+        }
+        msg.textContent = '';
+        var a = document.createElement('a');
+        a.className = 'btn-ghost';
+        a.style.display = 'inline-block';
+        a.style.marginLeft = '10px';
+        a.style.textDecoration = 'none';
+        a.download = r.data.filename;
+        a.href = 'data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,' + r.data.base64;
+        a.textContent = 'Tải Form A đã điền (.docx)';
+        box.appendChild(a);
+      })
+      .catch(function(){
+        btn.disabled = false;
+        msg.textContent = 'Không kết nối được tới máy chủ.';
+        msg.style.color = 'var(--red-deep)';
+      });
+  }
+
+  function setupFormAUploadBox(sessionId){
+    var box = document.getElementById('aihoFormAUploadBox');
+    if(!box) return;
+    box.hidden = false;
+    box.innerHTML = '';
+
+    var introP = document.createElement('p');
+    introP.className = 'hint';
+    introP.textContent = 'Đính file Form A TRỐNG (chọn đúng loại công trình từ folder MĐC của bạn) để tự đọc bảng tiêu chí trong chính file đó rồi điền dựa trên kết quả đã đọc ở trên — KHÔNG đọc lại bản vẽ.';
+    box.appendChild(introP);
+
+    var fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.docx';
+    box.appendChild(fileInput);
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn-main';
+    btn.style.display = 'block';
+    btn.style.marginTop = '8px';
+    btn.textContent = 'Điền Form A đã đính';
+    box.appendChild(btn);
+
+    var msg = document.createElement('span');
+    msg.className = 'quymo-manual-msg';
+    msg.style.marginLeft = '10px';
+    box.appendChild(msg);
+
+    btn.addEventListener('click', function(){
+      var file = fileInput.files[0];
+      if(!file){
+        msg.textContent = 'Vui lòng chọn file Form A (.docx).';
+        msg.style.color = 'var(--red-deep)';
+        return;
+      }
+      if(file.size > FORM_A_UPLOAD_MAX_BYTES){
+        var overMb = (file.size / (1024 * 1024)).toFixed(1);
+        msg.textContent = 'File "' + file.name + '" (' + overMb + ' MB) vượt quá giới hạn 10MB.';
+        msg.style.color = 'var(--red-deep)';
+        return;
+      }
+      msg.style.color = '';
+      submitFormAUpload(sessionId, file, btn, msg, box);
+    });
+  }
+
   var processing = document.getElementById('aihoProcessing');
   var processingFill = document.getElementById('aihoProcessingFill');
   var processingText = document.getElementById('aihoProcessingText');
@@ -2809,7 +2899,6 @@
     }
     trigger.disabled = locked;
     Array.prototype.forEach.call(panel.querySelectorAll('input'), function(input){ input.disabled = locked; });
-    Array.prototype.forEach.call(roundStepper.querySelectorAll('button'), function(btn){ btn.disabled = locked; });
   }
 
   function fmtElapsed(sec){
@@ -2904,6 +2993,7 @@
           maybeExportCongVanHuongDanDocx(sessionId);
           maybeExportBaoCaoThamDinhDocx(sessionId);
           maybeShowFormAButton(sessionId);
+          setupFormAUploadBox(sessionId);
           resultsSection.hidden = false;
           resultsSection.scrollIntoView({behavior: 'smooth', block: 'start'});
           updateCta();
