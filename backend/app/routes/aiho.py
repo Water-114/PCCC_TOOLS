@@ -9,6 +9,7 @@ from ..providers.base import ProviderNotConfigured
 from ..providers.factory import get_provider
 from ..services import (
     ai_schema,
+    bao_cao_tham_dinh_docx,
     baochay_reader,
     bot_chua_chay_reader,
     botcodinh_reader,
@@ -1156,5 +1157,44 @@ def export_cong_van_huong_dan():
 
     return jsonify({
         "filename": cong_van_huong_dan_docx.FILENAME,
+        "base64": base64.b64encode(docx_bytes).decode("ascii"),
+    })
+
+
+@bp.post("/export-bao-cao-tham-dinh")
+@login_required
+def export_bao_cao_tham_dinh():
+    """Bao cao tham dinh PCCC (.docx that, dung file mau) - KHONG goi AI,
+    KHONG tru quota, giong het /export-cong-van-huong-dan ve nguyen tac."""
+    user = g.current_user
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"error": "Dữ liệu gửi lên phải là một object JSON."}), 400
+
+    try:
+        session_id = int(payload.get("session_id"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Thiếu hoặc sai session_id (phiên Bộ hồ sơ)."}), 400
+
+    _session, err = _get_own_session_any_status_or_error(user.id, session_id)
+    if err:
+        return err
+
+    hang_muc_list = payload.get("hang_muc")
+    if not isinstance(hang_muc_list, list):
+        return jsonify({"error": "Thiếu dữ liệu 'hang_muc'."}), 400
+
+    session_data = {"quy_mo": quy_mo_store.get_quy_mo(session_id) or {}}
+
+    try:
+        docx_bytes = bao_cao_tham_dinh_docx.build_bao_cao_tham_dinh_docx(session_data, hang_muc_list)
+    except bao_cao_tham_dinh_docx.BaoCaoThamDinhError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception:
+        current_app.logger.exception("Khong tao duoc file bao cao tham dinh")
+        return jsonify({"error": "Không tạo được file báo cáo thẩm định — vui lòng thử lại sau."}), 500
+
+    return jsonify({
+        "filename": bao_cao_tham_dinh_docx.FILENAME,
         "base64": base64.b64encode(docx_bytes).decode("ascii"),
     })

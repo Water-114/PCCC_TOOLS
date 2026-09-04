@@ -2502,13 +2502,26 @@
         }
         return '<h4>Công văn hướng dẫn — trích đoạn</h4>' +
           '<p>Văn bản chính thức gửi chủ đầu tư/đơn vị tư vấn thiết kế, gộp các kiến nghị theo từng hệ thống (báo cháy, chữa cháy, điện, các hệ thống/phương tiện PCCC khác), đúng thể thức công văn hướng dẫn PC07.</p>';
-      case 'khoiluong':
-        return '<h4>Bảng tổng hợp khối lượng thiết bị — trích đoạn</h4>' +
-          '<div class="tbl-wrap"><table><thead><tr><th>Thiết bị</th><th>Số lượng</th></tr></thead><tbody>' +
-          '<tr><td>Đầu báo khói</td><td>86 cái</td></tr>' +
-          '<tr><td>Đầu phun sprinkler</td><td>142 cái</td></tr>' +
-          '<tr><td>Bình chữa cháy xách tay</td><td>24 bình</td></tr>' +
-          '</tbody></table></div>';
+      case 'baocaothamdinh':
+        var bctdSections = collectRealSections(function(d){ return !!d.kien_nghi; });
+        var bctdFailed = collectFailedRealSlots();
+        // Phan E — canh bao quy mo (mau thuan/thieu ho so) cung phai kich hoat
+        // hop #aihoBaoCaoThamDinhBox du KHONG hang muc rieng le nao co kien_nghi
+        // (vd moi hang muc deu "dat" nhung van thieu 1 he thong thuoc dien) -
+        // khong thi maybeExportBaoCaoThamDinhDocx() se khong tim thay box de xuat file.
+        var hasQuyMoWarningsBctd = (quyMoConflictWarningsPending.length + quyMoMissingWarningsPending.length) > 0;
+        if(bctdSections.length || bctdFailed.length || hasQuyMoWarningsBctd){
+          var bctdParts = [];
+          if(bctdSections.length || hasQuyMoWarningsBctd){
+            bctdParts.push('<div id="aihoBaoCaoThamDinhBox"><p>Đang tạo file báo cáo thẩm định (.docx)…</p></div>');
+          }
+          bctdFailed.forEach(function(f){
+            bctdParts.push(buildFailedNoteHtml('Báo cáo thẩm định PCCC — ' + f.label, f.note));
+          });
+          return bctdParts.join(SECTION_DIVIDER);
+        }
+        return '<h4>Báo cáo thẩm định PCCC — trích đoạn</h4>' +
+          '<p>Báo cáo nội bộ gộp kết quả thẩm định theo đúng 11 mục (thông tin dự án, thành phần hồ sơ, quy mô, từng hệ thống PCCC…), dùng làm căn cứ soạn công văn hướng dẫn.</p>';
       case 'phieutonghop':
         return '<h4>Phiếu kiểm tra tổng hợp (đợt ' + round + ') — trích đoạn</h4>' +
           '<div class="kv-grid">' +
@@ -2606,6 +2619,79 @@
       })
       .catch(function(){
         showError('Không kết nối được tới máy chủ — chưa tạo được file công văn hướng dẫn.');
+      });
+  }
+
+  // Y HET maybeExportCongVanHuongDanDocx() o tren (Pha 3 Buoc 3) - COPY cau
+  // truc, khac 2 cho: (a) moi phan tu hangMuc them field tong_ket (route Bao
+  // cao tham dinh can tong_ket de dung cho phan mo ta hien trang tung muc,
+  // xem bao_cao_tham_dinh_docx._noi_dung_muc()); (b) fetch toi route khac.
+  function maybeExportBaoCaoThamDinhDocx(sessionId){
+    var box = document.getElementById('aihoBaoCaoThamDinhBox');
+    if(!box) return;
+    var hangMuc = [];
+    Object.keys(REAL_CATEGORIES).forEach(function(slot){
+      var d = realData[slot];
+      if(d && d.kien_nghi){
+        hangMuc.push({
+          slot: slot,
+          ten_he_thong: REAL_CATEGORIES[slot].label,
+          so_hieu_ban_ve: d.so_hieu_ban_ve || 'Không xác định được số hiệu bản vẽ',
+          tong_ket: d.tong_ket || '',
+          kien_nghi: d.kien_nghi
+        });
+      }
+    });
+
+    if(quyMoConflictWarningsPending.length || quyMoMissingWarningsPending.length){
+      hangMuc.push({
+        slot: 'quy_mo',
+        ten_he_thong: 'Đối chiếu tổng thể theo quy mô công trình',
+        so_hieu_ban_ve: 'Không xác định được số hiệu bản vẽ',
+        tong_ket: '',
+        kien_nghi: {
+          I_chua_the_hien: [],
+          II_chua_thong_nhat: quyMoConflictWarningsPending.map(quyMoConflictWarningText),
+          III_chua_phu_hop: [],
+          IV_de_xuat_bo_sung: quyMoMissingWarningsPending.map(quyMoMissingWarningText)
+        }
+      });
+    }
+
+    if(!hangMuc.length) return;
+
+    function showError(text){
+      box.innerHTML = '';
+      var errP = document.createElement('p');
+      errP.style.color = 'var(--red-deep)';
+      errP.textContent = text;
+      box.appendChild(errP);
+    }
+
+    fetch(BACKEND_BASE + '/api/aiho/export-bao-cao-tham-dinh', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken()},
+      body: JSON.stringify({session_id: sessionId, hang_muc: hangMuc})
+    })
+      .then(function(res){ return res.json().then(function(data){ return {status: res.status, data: data}; }); })
+      .then(function(r){
+        if(r.status >= 400){
+          showError(r.data.error || 'Không tạo được file báo cáo thẩm định — vui lòng thử lại sau.');
+          return;
+        }
+        box.innerHTML = '';
+        var a = document.createElement('a');
+        a.className = 'btn-main';
+        a.style.display = 'inline-block';
+        a.style.textDecoration = 'none';
+        a.style.textAlign = 'center';
+        a.download = r.data.filename;
+        a.href = 'data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,' + r.data.base64;
+        a.textContent = 'Tải file báo cáo thẩm định (.docx)';
+        box.appendChild(a);
+      })
+      .catch(function(){
+        showError('Không kết nối được tới máy chủ — chưa tạo được file báo cáo thẩm định.');
       });
   }
 
@@ -2816,6 +2902,7 @@
           renderOutputPreviews();
           renderQuyMoWarningsBox();
           maybeExportCongVanHuongDanDocx(sessionId);
+          maybeExportBaoCaoThamDinhDocx(sessionId);
           maybeShowFormAButton(sessionId);
           resultsSection.hidden = false;
           resultsSection.scrollIntoView({behavior: 'smooth', block: 'start'});
