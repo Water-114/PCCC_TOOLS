@@ -2277,6 +2277,20 @@
     return d.items || [];
   }
 
+  // Batch 5A Pha 2 - "danh_muc_ban_ve" CHI co khi hang muc do dinh >=2 file
+  // (xem ai_reader_common.format_danh_muc_ban_ve_instruction() o backend).
+  // Cung dang "2 hinh dang ket qua" nhu itemsForMdcFile() da xu ly o tren —
+  // ccnuoc/densucco gom nhieu sub-form trong d.forms, lay danh_muc_ban_ve
+  // cua sub-form DAU TIEN co du lieu (moi sub-form doc CUNG bo file nen noi
+  // dung danh muc giong nhau, khong can gop/trung lap).
+  function danhMucBanVeForResult(d){
+    if(d.forms){
+      var firstKey = Object.keys(d.forms)[0];
+      return (firstKey && d.forms[firstKey].danh_muc_ban_ve) || [];
+    }
+    return d.danh_muc_ban_ve || [];
+  }
+
   function renderMdcReal(sections){
     return sections.map(function(sec){
       var d = sec.data;
@@ -2284,6 +2298,18 @@
       var h4 = document.createElement('h4');
       h4.textContent = 'Mẫu đối chiếu (MĐC) đã điền — ' + sec.label;
       wrapper.appendChild(h4);
+
+      var danhMuc = danhMucBanVeForResult(d);
+      if(danhMuc.length){
+        var dmP = document.createElement('p');
+        dmP.style.fontSize = '0.85em';
+        dmP.style.opacity = '0.75';
+        dmP.textContent = 'AI đã đọc: ' + danhMuc.map(function(x){
+          return (x.ten_ban_ve ? x.ten_ban_ve + ' (' + x.ky_hieu + ')' : x.ky_hieu);
+        }).join(' · ');
+        wrapper.appendChild(dmP);
+      }
+
       (d.mdc_docx_files || []).forEach(function(f){
         var fileDiv = document.createElement('div');
         fileDiv.style.marginTop = '12px';

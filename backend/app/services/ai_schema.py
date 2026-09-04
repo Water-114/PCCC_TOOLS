@@ -39,11 +39,18 @@ class KienNghi(BaseModel):
     IV_de_xuat_bo_sung: List[str] = Field(default_factory=list)
 
 
+class DanhMucBanVeItem(BaseModel):
+    ky_hieu: str
+    ten_ban_ve: str = ""
+    file_index: int
+
+
 class ReaderResult(BaseModel):
     items: List[ItemResult]
     tong_ket: str = ""
     kien_nghi: KienNghi
     so_hieu_ban_ve: str = KHONG_XAC_DINH_SO_HIEU
+    danh_muc_ban_ve: List[DanhMucBanVeItem] = Field(default_factory=list)  # THEM MOI - rong khi 1 file (Pha 2)
 
 
 class BaoChayReaderResult(ReaderResult):
@@ -183,6 +190,7 @@ class QuyMoReaderResult(BaseModel):
     bang_a2_sprinkler: str
     bang_a4_sprinkler: str
     so_hieu_ban_ve: str = KHONG_XAC_DINH_SO_HIEU
+    danh_muc_ban_ve: List[DanhMucBanVeItem] = Field(default_factory=list)
 
     @field_validator("bang_a2_bao_chay", "bang_a4_bao_chay", "bang_a2_sprinkler", "bang_a4_sprinkler")
     @classmethod

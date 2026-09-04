@@ -35,7 +35,7 @@ class AIReaderError(Exception):
 # densucco) để tránh 4 bản lệch nhau theo thời gian; ghép trực tiếp vào system
 # prompt của từng reader, ngay sau bullet liệt kê 4 nhóm kiến nghị.
 NHOM_II_MAU_THUAN_CHECKLIST = """
-KIỂM TRA MÂU THUẪN LOGIC NỘI BỘ (nhóm II — "chưa thống nhất giữa nhiều nguồn số liệu"): CHỈ áp dụng khi bản vẽ ĐANG ĐỌC thực sự chứa ÍT NHẤT 2 nguồn số liệu độc lập để đối chiếu chéo (ví dụ vừa có mặt bằng vừa có bảng thống kê/bảng tính trong CÙNG file cung cấp) — nếu chỉ có 1 nguồn thông tin thì KHÔNG suy đoán, để mảng nhóm II rỗng như bình thường. Khi có đủ ít nhất 2 nguồn, chủ động đối chiếu chéo các loại mâu thuẫn sau:
+KIỂM TRA MÂU THUẪN LOGIC NỘI BỘ (nhóm II — "chưa thống nhất giữa nhiều nguồn số liệu"): CHỈ áp dụng khi bản vẽ ĐANG ĐỌC thực sự chứa ÍT NHẤT 2 nguồn số liệu độc lập để đối chiếu chéo (ví dụ vừa có mặt bằng vừa có bảng thống kê/bảng tính trong CÁC file đã đính cho lần đọc này) — nếu chỉ có 1 nguồn thông tin thì KHÔNG suy đoán, để mảng nhóm II rỗng như bình thường. Khi có đủ ít nhất 2 nguồn, chủ động đối chiếu chéo các loại mâu thuẫn sau:
 1. Tổng số thiết bị đếm/cộng dồn từ mặt bằng KHÁC số liệu ghi trong bảng thống kê/bảng tính (nếu bản vẽ có cả 2 loại).
 2. Thông số ghi trên sơ đồ nguyên lý KHÁC mặt bằng KHÁC ghi chú/thuyết minh (ví dụ: số loop/zone, cột áp bơm, dung tích bể, đường kính ống... tuỳ hạng mục đang đọc).
 3. Hạng mục xuất hiện trên mặt bằng tổng thể nhưng KHÔNG có bản vẽ chi tiết riêng thể hiện đầy đủ trong cùng bộ bản vẽ được cung cấp.
@@ -101,6 +101,35 @@ DOC_CHU_XOAY_VA_KY_HIEU = """
   ký hiệu nào trên mặt bằng — nếu bản vẽ có bảng chú thích/bảng ký hiệu riêng,
   PHẢI đối chiếu đúng ký hiệu đó với bảng chú thích trước khi kết luận đó là
   thiết bị gì, không suy đoán chức năng chỉ từ hình dạng ký hiệu.
+"""
+
+
+# Ky nang doc ban ve #1 "lap danh muc ban ve" (tai lieu tren) - Batch 5A Pha 2.
+# LA HAM (khong phai hang so) vi noi dung phu thuoc so file THAT SU cua tung
+# lan goi - noi THEM vao system prompt tai thoi diem goi (giong cach
+# quy_mo_store.format_quy_mo_context(quy_mo) da lam cho ngu canh quy mo),
+# khong phai luc build template tinh SYSTEM_PROMPT. Dung chung cho ca 9
+# reader da sua o Pha 1 (khong dung o merged_reader/scan_quymo_reader - van
+# giu 1 file/request, ngoai pham vi Pha 2).
+def format_danh_muc_ban_ve_instruction(num_files: int) -> str:
+    """Chi tra ve noi dung khi co TU 2 FILE TRO LEN trong 1 lan goi (Batch 5A
+    Pha 2, doi chieu tai lieu "Bo quy tac doc ban ve va dien MDC" 03/9/2026,
+    ky nang #1 "lap danh muc ban ve"). Voi 1 file (hoac 0, khong xay ra thuc
+    te), tra ve chuoi rong - KHONG doi hanh vi cu, AI van chi dien so_hieu_ban_ve
+    don le nhu truoc Pha 2."""
+    if num_files <= 1:
+        return ""
+    return f"""
+DANH MỤC BẢN VẼ (đang đọc {num_files} file cùng lúc trong lần này): với MỖI
+file trong số {num_files} file được cung cấp (đánh số thứ tự từ 0, đúng theo
+thứ tự file được đính kèm), đọc SỐ HIỆU BẢN VẼ ghi trong khung tên (góc dưới
+bên phải) và tên bản vẽ của CHÍNH file đó, trả về thêm mảng
+"danh_muc_ban_ve": [{{"ky_hieu": "...", "ten_ban_ve": "...", "file_index": 0}}, ...]
+— ĐỦ {num_files} phần tử, mỗi phần tử ứng đúng 1 file theo "file_index". Nếu
+1 file không có khung tên rõ ràng: "ky_hieu" ghi "Không xác định được số hiệu
+bản vẽ", "ten_ban_ve" để chuỗi rỗng — KHÔNG suy đoán. Trường "so_hieu_ban_ve"
+(số hiệu đơn — đã có sẵn) vẫn điền như cũ, dùng số hiệu của file đầu tiên
+(file_index 0) làm đại diện — mảng "danh_muc_ban_ve" mới là danh sách đầy đủ.
 """
 
 

@@ -13,7 +13,12 @@ tượng trang bị" được điền bằng CODE THUẦN qua các hàm evaluate
    không phân biệt A.2/A.4).
 """
 
-from .ai_reader_common import AIReaderError, read_and_validate_drawing_json_multi, system_prompt_version
+from .ai_reader_common import (
+    AIReaderError,
+    format_danh_muc_ban_ve_instruction,
+    read_and_validate_drawing_json_multi,
+    system_prompt_version,
+)
 from .ai_schema import validate_quy_mo_reader_result
 from .tham_dinh import OCCUPATIONS
 
@@ -120,5 +125,6 @@ def read_drawing(files: list, provider, quy_mo: dict = None) -> dict:
     thụ dữ liệu quy mô có sẵn). Nhận tham số này chỉ để đồng bộ chữ ký gọi với
     4 reader kia qua routes/aiho.py::_handle_read_request().
     """
-    model = read_and_validate_drawing_json_multi(files, provider, SYSTEM_PROMPT, _validate)
+    system_prompt = SYSTEM_PROMPT + format_danh_muc_ban_ve_instruction(len(files))
+    model = read_and_validate_drawing_json_multi(files, provider, system_prompt, _validate)
     return model.model_dump()

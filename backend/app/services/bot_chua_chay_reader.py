@@ -33,6 +33,7 @@ from .ai_reader_common import (
     NHOM_II_MAU_THUAN_CHECKLIST,
     STANDARD_PHRASES,
     AIReaderError,
+    format_danh_muc_ban_ve_instruction,
     read_and_validate_drawing_json_multi,
     system_prompt_version,
 )
@@ -145,7 +146,10 @@ def read_drawing(files: list, provider, quy_mo: dict = None) -> dict:
     chieuCaoKeHang) — chỉ nhận tham số này để đồng bộ chữ ký gọi với các
     reader khác qua routes/aiho.py.
     """
-    system_prompt = SYSTEM_PROMPT + quy_mo_store.format_quy_mo_context(quy_mo) if quy_mo else SYSTEM_PROMPT
+    system_prompt = SYSTEM_PROMPT
+    if quy_mo:
+        system_prompt += quy_mo_store.format_quy_mo_context(quy_mo)
+    system_prompt += format_danh_muc_ban_ve_instruction(len(files))
     model = read_and_validate_drawing_json_multi(
         files, provider, system_prompt, _validate, prompt_version=SYSTEM_PROMPT_VERSION
     )

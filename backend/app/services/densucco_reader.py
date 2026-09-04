@@ -48,6 +48,7 @@ from .ai_reader_common import (
     STANDARD_PHRASES,
     TOA_DO_TRUC_KHOANG_CACH,
     AIReaderError,
+    format_danh_muc_ban_ve_instruction,
     read_and_validate_drawing_json_multi,
     system_prompt_version,
 )
@@ -298,7 +299,7 @@ def read_drawing(files: list, provider, quy_mo: dict = None) -> dict:
     hành vi giữ nguyên 100% như trước, kể cả 3 fallback "chưa đủ thông tin quy
     mô" gốc của _scope_dependent_block()).
     """
-    context = quy_mo_store.format_quy_mo_context(quy_mo) if quy_mo else ""
+    context = (quy_mo_store.format_quy_mo_context(quy_mo) if quy_mo else "") + format_danh_muc_ban_ve_instruction(len(files))
     overrides = _mucdo2_overrides(quy_mo)
 
     def _call(form):
@@ -333,6 +334,7 @@ def read_drawing(files: list, provider, quy_mo: dict = None) -> dict:
                 "label": form["ten_he_thong"],
                 "mdc_label": form["mdc_label"],
                 "items": data.get("items", []),
+                "danh_muc_ban_ve": data.get("danh_muc_ban_ve", []),
             }
             kn = data.get("kien_nghi") or {}
             for key in combined_kien_nghi:
